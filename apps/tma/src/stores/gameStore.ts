@@ -28,6 +28,23 @@ export interface MatchResult {
   elmEarned: number;
   ratingChange: number;
   rounds: RoundEntry[];
+  // Economy breakdown
+  stake: number;
+  rake: number;
+  boostStake: number;
+  boostBurned: boolean;    // loser's boost burned
+  boostReturned: boolean;  // winner's boost returned
+  totalPool: number;
+  winnerPayout: number;
+}
+
+export interface EconomyTransaction {
+  id: string;
+  type: 'stake' | 'win' | 'loss' | 'boost_burn' | 'boost_return' | 'rake';
+  amount: number;
+  matchId: string;
+  timestamp: number;
+  description: string;
 }
 
 export interface RoundEntry {
@@ -69,6 +86,12 @@ interface GameStore {
   setBoostEnabled: (enabled: boolean) => void;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
+
+  // Economy
+  transactions: EconomyTransaction[];
+  matchStake: number;
+  matchBoostStake: number;
+  addTransaction: (tx: EconomyTransaction) => void;
 
   // Match state
   matchId: string | null;
@@ -130,6 +153,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setBoostEnabled: (enabled) => set({ boostEnabled: enabled }),
   soundEnabled: true,
   setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
+
+  // Economy
+  transactions: [],
+  matchStake: 0,
+  matchBoostStake: 0,
+  addTransaction: (tx) => set((state) => ({ transactions: [tx, ...state.transactions].slice(0, 50) })),
 
   // Match state
   matchId: null,

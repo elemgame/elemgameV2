@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { MoveId } from '@elmental/shared';
@@ -7,8 +7,9 @@ import { MoveCard } from '../components/MoveCard';
 import { Timer } from '../components/Timer';
 import { OpponentInfo } from '../components/OpponentInfo';
 import { RoundResult } from '../components/RoundResult';
-import { commitMove, generateMoveCommit, generateSalt } from '../services/socket';
+import { submitMockMove, advanceMockRound, forfeitMockMatch } from '../services/mockGame';
 import { haptic } from '../services/telegram';
+import { STARTING_ENERGY, BOOST_EXTRA_ENERGY } from '@elmental/shared';
 
 const MOVE_IDS: MoveId[] = [
   MoveId.Earth, MoveId.Fire, MoveId.Water,
@@ -24,7 +25,6 @@ const PHASE_LABELS: Record<string, { text: string; color: string; bg: string }> 
 
 export function MatchScreen() {
   const {
-    matchId,
     opponentName,
     opponentRating,
     myEnergy,
@@ -36,16 +36,11 @@ export function MatchScreen() {
     selectedMove,
     roundTimer,
     lastRoundResult,
-    selectMove,
-    setRoundPhase,
-    advanceRound,
-    setRoundTimer,
-    resetMatch,
-    setScreen,
+  boostEnabled,
   } = useGameStore();
 
+  const maxEnergy = boostEnabled ? STARTING_ENERGY + BOOST_EXTRA_ENERGY : STARTING_ENERGY;
   const [showRoundResult, setShowRoundResult] = useState(false);
-  const saltRef = useRef<string>('');
 
   // Show result overlay when phase becomes 'result'
   useEffect(() => {
@@ -55,40 +50,20 @@ export function MatchScreen() {
     }
   }, [roundPhase]);
 
-  // Local countdown timer (server ticks override via socket)
-  useEffect(() => {
+  const handleMoveSelect = (moveId: MoveId) => {
     if (roundPhase !== 'select') return;
-    const interval = setInterval(() => {
-      setRoundTimer(Math.max(0, roundTimer - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [roundPhase, roundTimer, setRoundTimer]);
-
-  const handleMoveSelect = async (moveId: MoveId) => {
-    if (!matchId || roundPhase !== 'select') return;
     haptic.medium();
-
-    // Generate salt and commit hash
-    const salt = generateSalt();
-    saltRef.current = salt;
-    const hash = await generateMoveCommit(moveId, salt);
-
-    selectMove(moveId);
-    commitMove(matchId, hash);
+    submitMockMove(moveId);
   };
 
   const handleDismissResult = () => {
     setShowRoundResult(false);
-    // After dismissing result overlay, advance to next round or let match end
-    if (roundPhase === 'result') {
-      advanceRound();
-    }
+    advanceMockRound();
   };
 
   const handleForfeit = () => {
     haptic.warning();
-    resetMatch();
-    setScreen('home');
+    forfeitMockMatch();
   };
 
   const phaseInfo = PHASE_LABELS[roundPhase] ?? PHASE_LABELS.select;
@@ -103,13 +78,11 @@ export function MatchScreen() {
         className="flex items-center justify-between px-4 py-3"
         style={{ background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
-        {/* Round info */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-text-secondary font-semibold">ROUND</span>
           <span className="text-lg font-black text-text-primary">{currentRound}</span>
         </div>
 
-        {/* Score */}
         <motion.div
           className="flex items-center gap-3 text-2xl font-black"
           animate={{ scale: [1, 1.05, 1] }}
@@ -121,7 +94,6 @@ export function MatchScreen() {
           <span className="text-energy-low">{opponentScore}</span>
         </motion.div>
 
-        {/* Timer */}
         <Timer
           seconds={roundTimer}
           maxSeconds={15}
@@ -172,7 +144,7 @@ export function MatchScreen() {
       <div className="px-4">
         <EnergyBar
           energy={myEnergy}
-          maxEnergy={100}
+          maxEnergy={maxEnergy}
           showNumber
           label="Your Energy"
           size="lg"
@@ -181,7 +153,6 @@ export function MatchScreen() {
 
       {/* ── MOVE GRID ────────────────────────────────── */}
       <div className="flex-1 flex flex-col justify-end px-4 pb-4 pt-3 gap-2">
-        {/* Phase hint */}
         <AnimatePresence mode="wait">
           {roundPhase === 'select' ? (
             <motion.div
@@ -209,9 +180,7 @@ export function MatchScreen() {
           )}
         </AnimatePresence>
 
-        {/* 2-row move grid: Row 1 basic (0-2), Row 2 enhanced (3-5) */}
         <div className="flex flex-col gap-2">
-          {/* Row 1: Basic moves */}
           <div className="grid grid-cols-3 gap-2">
             {MOVE_IDS.slice(0, 3).map((moveId) => (
               <MoveCard
@@ -225,7 +194,6 @@ export function MatchScreen() {
             ))}
           </div>
 
-          {/* Row 2: Enhanced moves */}
           <div className="grid grid-cols-3 gap-2">
             {MOVE_IDS.slice(3, 6).map((moveId) => (
               <MoveCard
@@ -240,7 +208,6 @@ export function MatchScreen() {
           </div>
         </div>
 
-        {/* Forfeit button */}
         <div className="flex justify-center pt-1">
           <button
             data-nav

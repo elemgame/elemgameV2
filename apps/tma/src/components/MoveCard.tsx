@@ -117,8 +117,9 @@ export function MoveCard({
 }: MoveCardProps) {
   const cfg = MOVE_CONFIG[moveId];
   const canAfford = energy >= cfg.cost;
-  const wouldOverclock = energy < 0 + cfg.cost && energy > 0;
-  const isDisabled = externalDisabled || !canAfford || phase !== 'select';
+  const wouldOverclock = !canAfford && energy >= 0; // Can play but triggers overclock
+  // Allow overclock moves (energy >= 0 but < cost) — only fully disable if energy deeply negative
+  const isDisabled = externalDisabled || energy < 0 || phase !== 'select';
   const isSelectable = !isDisabled;
 
   const borderColor = selected
