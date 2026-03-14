@@ -1,0 +1,33 @@
+{
+  "name": "@elmental/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@eversdk/core": "^1.45.0",
+    "@eversdk/lib-node": "^1.45.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "ioredis": "^5.4.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.12.0",
+    "socket.io": "^4.7.0",
+    "@elmental/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.0",
+    "@types/node": "^20.0.0",
+    "@types/node-telegram-bot-api": "^0.64.0",
+    "@types/pg": "^8.11.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
