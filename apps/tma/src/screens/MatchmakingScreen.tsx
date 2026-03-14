@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { haptic } from '../services/telegram';
+import { cancelMockMatchmaking } from '../services/mockGame';
 
 const SEARCHING_MESSAGES = [
   'Finding opponent...',
@@ -170,7 +171,7 @@ export function MatchmakingScreen() {
         whileTap={{ scale: 0.96 }}
         onClick={() => {
           haptic.medium();
-          cancelMatchmaking();
+          cancelMockMatchmaking();
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

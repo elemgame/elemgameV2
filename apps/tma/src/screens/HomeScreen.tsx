@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { GameMode } from '@elmental/shared';
 import { haptic } from '../services/telegram';
+import { startMockMatchmaking } from '../services/mockGame';
 
 const GAME_MODES = [
   {
@@ -38,7 +39,6 @@ export function HomeScreen() {
     boostEnabled,
     setGameMode,
     setBoostEnabled,
-    startMatchmaking,
     setScreen,
   } = useGameStore();
 
@@ -51,9 +51,16 @@ export function HomeScreen() {
       ? Math.round((stats.wins / (stats.wins + stats.losses)) * 100)
       : 0;
 
+  const stakeRequired = 100 + (boostEnabled ? 10 : 0);
+  const canAffordMatch = elmBalance >= stakeRequired;
+
   const handlePlay = () => {
+    if (!canAffordMatch) {
+      haptic.error();
+      return;
+    }
     haptic.medium();
-    startMatchmaking();
+    startMockMatchmaking();
   };
 
   return (
@@ -261,14 +268,17 @@ export function HomeScreen() {
         >
           <motion.button
             data-nav
-            className="btn-play w-full text-center"
-            whileTap={{ scale: 0.96 }}
+            className={`btn-play w-full text-center ${!canAffordMatch ? 'opacity-50 cursor-not-allowed' : ''}`}
+            style={!canAffordMatch ? { animation: 'none', filter: 'grayscale(0.5)' } : {}}
+            whileTap={canAffordMatch ? { scale: 0.96 } : {}}
             onClick={handlePlay}
           >
-            ⚔️ PLAY NOW
+            {canAffordMatch ? '⚔️ PLAY NOW' : '💸 NOT ENOUGH ELM'}
           </motion.button>
           <div className="text-xs text-text-muted">
-            Find an opponent in {gameMode} mode
+            {canAffordMatch
+              ? `Stake: ${stakeRequired} ELM • ${gameMode} mode`
+              : `Need ${stakeRequired} ELM (have ${elmBalance})`}
           </div>
         </motion.div>
 

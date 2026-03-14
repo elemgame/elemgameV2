@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
+import { RAKE_PERCENT } from '@elmental/shared';
 import { haptic } from '../services/telegram';
+import { applyMockResults } from '../services/mockGame';
 
 interface ConfettiPiece {
   id: number;
@@ -96,29 +98,12 @@ export function ResultScreen() {
 
   const handlePlayAgain = () => {
     haptic.medium();
-    // Update stats optimistically
-    setPlayerStats({
-      elmBalance: elmBalance + matchResult.elmEarned,
-      rating: rating + matchResult.ratingChange,
-      wins: isWin ? stats.wins + 1 : stats.wins,
-      losses: isLose ? stats.losses + 1 : stats.losses,
-    });
-    resetMatch();
-    setScreen('home');
-    // Auto-start matchmaking slightly delayed
-    setTimeout(() => useGameStore.getState().startMatchmaking(), 100);
+    applyMockResults('playAgain');
   };
 
   const handleHome = () => {
     haptic.light();
-    setPlayerStats({
-      elmBalance: elmBalance + matchResult.elmEarned,
-      rating: rating + matchResult.ratingChange,
-      wins: isWin ? stats.wins + 1 : stats.wins,
-      losses: isLose ? stats.losses + 1 : stats.losses,
-    });
-    resetMatch();
-    setScreen('home');
+    applyMockResults('home');
   };
 
   return (
@@ -245,6 +230,66 @@ export function ResultScreen() {
             </span>
           </div>
         </motion.div>
+
+        {/* Economy Breakdown */}
+        {'stake' in matchResult && (
+          <motion.div
+            className="glass-card p-4 w-full"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+          >
+            <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+              Economy Breakdown
+            </div>
+            <div className="flex flex-col gap-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Stake</span>
+                <span className="text-text-primary">{matchResult.stake} ELM</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Total Pool</span>
+                <span className="text-text-primary">{matchResult.totalPool} ELM</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-secondary">Rake ({RAKE_PERCENT}%)</span>
+                <span className="text-energy-low">-{matchResult.rake} ELM</span>
+              </div>
+              {isWin && (
+                <div className="flex justify-between">
+                  <span className="text-text-secondary">Winner Payout</span>
+                  <span className="text-energy-high font-bold">+{matchResult.winnerPayout} ELM</span>
+                </div>
+              )}
+              {matchResult.boostStake > 0 && (
+                <>
+                  <div className="my-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Boost Stake</span>
+                    <span className="text-text-primary">{matchResult.boostStake} ELM</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Boost Status</span>
+                    {matchResult.boostBurned ? (
+                      <span className="text-energy-low font-bold">🔥 BURNED</span>
+                    ) : matchResult.boostReturned ? (
+                      <span className="text-energy-high font-bold">✅ Returned</span>
+                    ) : (
+                      <span className="text-text-muted">—</span>
+                    )}
+                  </div>
+                </>
+              )}
+              <div className="my-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              <div className="flex justify-between text-base font-bold">
+                <span className="text-text-primary">Net Result</span>
+                <span style={{ color: matchResult.elmEarned >= 0 ? '#22c55e' : '#ef4444' }}>
+                  {matchResult.elmEarned >= 0 ? '+' : ''}{matchResult.elmEarned} ELM
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Round history */}
         {roundHistory.length > 0 && (

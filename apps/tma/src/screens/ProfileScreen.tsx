@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 
 export function ProfileScreen() {
-  const { telegramUser, rating, stats, elmBalance, setScreen, roundHistory } = useGameStore();
+  const { telegramUser, rating, stats, elmBalance, setScreen, transactions } = useGameStore();
 
   const displayName = telegramUser
     ? `${telegramUser.first_name}${telegramUser.last_name ? ` ${telegramUser.last_name}` : ''}`
@@ -150,61 +150,61 @@ export function ProfileScreen() {
           </div>
         </motion.div>
 
-        {/* Recent matches */}
-        {roundHistory.length > 0 && (
-          <motion.div
-            className="glass-card p-4"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-          >
-            <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
-              Recent Rounds
-            </div>
-            <div className="flex flex-col gap-2">
-              {roundHistory.slice(-10).reverse().map((round, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between text-sm py-1.5 px-3 rounded-xl"
-                  style={{ background: 'rgba(255,255,255,0.03)' }}
-                >
-                  <span className="text-text-muted text-xs w-8">R{round.round}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">
-                      {['🪨','🔥','💧','⛰️','🌋','🌊'][round.myMove]}
-                    </span>
-                    <span className="text-xs text-text-muted">vs</span>
-                    <span className="text-base">
-                      {['🪨','🔥','💧','⛰️','🌋','🌊'][round.opponentMove]}
-                    </span>
-                  </div>
-                  <span
-                    className="text-xs font-bold px-2 py-0.5 rounded-full"
-                    style={{
-                      color: round.result === 'win' ? '#22c55e' : round.result === 'lose' ? '#ef4444' : '#eab308',
-                      background: round.result === 'win' ? 'rgba(34,197,94,0.1)' : round.result === 'lose' ? 'rgba(239,68,68,0.1)' : 'rgba(234,179,8,0.1)',
-                    }}
-                  >
-                    {round.result.toUpperCase()}
-                  </span>
-                  <span className="text-xs text-text-muted w-12 text-right">{round.myEnergyAfter}⚡</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Placeholder info */}
+        {/* Transaction History */}
         <motion.div
-          className="glass-card p-4 text-center"
+          className="glass-card p-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.15 }}
         >
-          <div className="text-text-muted text-sm">
-            🔗 Blockchain match history available after wallet connection
+          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+            Transaction History
           </div>
+          {transactions.length === 0 ? (
+            <div className="text-center py-6">
+              <div className="text-3xl mb-2">🎮</div>
+              <div className="text-sm text-text-muted">No transactions yet</div>
+              <div className="text-xs text-text-muted mt-1">Play your first match!</div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {transactions.slice(0, 20).map((tx) => {
+                const icon = tx.type === 'win' ? '💰' : tx.type === 'loss' ? '💸' :
+                             tx.type === 'stake' ? '🎯' : tx.type === 'boost_burn' ? '🔥' :
+                             tx.type === 'boost_return' ? '✅' : tx.type === 'rake' ? '🏦' : '📋';
+                const color = tx.amount > 0 ? '#22c55e' : tx.amount < 0 ? '#ef4444' : '#8b949e';
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between py-2 px-3 rounded-xl text-sm"
+                    style={{ background: 'rgba(255,255,255,0.03)' }}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span>{icon}</span>
+                      <span className="text-text-secondary text-xs truncate">{tx.description}</span>
+                    </div>
+                    <span className="font-bold text-xs ml-2 flex-shrink-0" style={{ color }}>
+                      {tx.amount > 0 ? '+' : ''}{tx.amount !== 0 ? tx.amount : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
+
+        {totalGames === 0 && (
+          <motion.div
+            className="glass-card p-4 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <div className="text-2xl mb-2">⚔️</div>
+            <div className="text-sm text-text-primary font-bold">Ready for battle?</div>
+            <div className="text-xs text-text-muted mt-1">Play your first match to see stats here</div>
+          </motion.div>
+        )}
       </div>
     </div>
   );
