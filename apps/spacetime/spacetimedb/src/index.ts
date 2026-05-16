@@ -98,6 +98,38 @@ const botMoveCommit = table(
   }
 );
 
+// Private: contains Telegram payment identifiers and must not be exposed to client subscriptions.
+const paymentLedger = table(
+  {
+    name: 'payment_ledger',
+    indexes: [
+      { accessor: 'payment_ledger_account_id', algorithm: 'btree', columns: ['accountId'] },
+      { accessor: 'payment_ledger_telegram_user_id', algorithm: 'btree', columns: ['telegramUserId'] },
+      { accessor: 'payment_ledger_charge_id', algorithm: 'btree', columns: ['telegramPaymentChargeId'] },
+      { accessor: 'payment_ledger_status', algorithm: 'btree', columns: ['status'] },
+    ],
+  },
+  {
+    paymentId: t.string().primaryKey(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+    starsAmount: t.u32(),
+    elmAmount: t.u32(),
+    refundedStarsAmount: t.u32().default(0),
+    refundedElmAmount: t.u32().default(0),
+    telegramPaymentChargeId: t.string().default(''),
+    invoicePayload: t.string(),
+    balanceKind: t.string().default('paid_elm'),
+    status: t.string(),
+    createdAtMicros: t.u64(),
+    paidAtMicros: t.u64().optional().default(undefined),
+    creditedAtMicros: t.u64().optional().default(undefined),
+    refundRequestedAtMicros: t.u64().optional().default(undefined),
+    refundedAtMicros: t.u64().optional().default(undefined),
+    updatedAtMicros: t.u64(),
+  }
+);
+
 const matchState = table(
   { name: 'match_state', public: true },
   {
@@ -191,6 +223,7 @@ const spacetimedb = schema({
   queueEntry,
   automationGuard,
   botMoveCommit,
+  paymentLedger,
   matchState,
   roundResult,
   gameEvent,

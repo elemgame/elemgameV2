@@ -91,6 +91,27 @@ export const MatchState = __t.object("MatchState", {
 });
 export type MatchState = __Infer<typeof MatchState>;
 
+export const PaymentLedger = __t.object("PaymentLedger", {
+  paymentId: __t.string(),
+  accountId: __t.string(),
+  telegramUserId: __t.string(),
+  starsAmount: __t.u32(),
+  elmAmount: __t.u32(),
+  refundedStarsAmount: __t.u32(),
+  refundedElmAmount: __t.u32(),
+  telegramPaymentChargeId: __t.string(),
+  invoicePayload: __t.string(),
+  balanceKind: __t.string(),
+  status: __t.string(),
+  createdAtMicros: __t.u64(),
+  paidAtMicros: __t.option(__t.u64()),
+  creditedAtMicros: __t.option(__t.u64()),
+  refundRequestedAtMicros: __t.option(__t.u64()),
+  refundedAtMicros: __t.option(__t.u64()),
+  updatedAtMicros: __t.u64(),
+});
+export type PaymentLedger = __Infer<typeof PaymentLedger>;
+
 export const Player = __t.object("Player", {
   identity: __t.identity(),
   name: __t.string(),
