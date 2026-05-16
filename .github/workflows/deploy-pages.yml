@@ -49,6 +49,7 @@ jobs:
           VITE_GAME_TRACE: 'true'
           VITE_SPACETIME_URI: https://maincloud.spacetimedb.com
           VITE_SPACETIME_DB: elmental-v2
+          VITE_PAYMENTS_URL: ${{ vars.VITE_PAYMENTS_URL }}
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

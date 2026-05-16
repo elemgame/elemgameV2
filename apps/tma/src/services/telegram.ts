@@ -68,6 +68,7 @@ export interface TelegramWebApp {
   offEvent(eventType: string, cb: (event?: unknown) => void): void;
   sendData(data: string): void;
   openLink(url: string): void;
+  openInvoice?(url: string, cb?: (status: string) => void): void;
   openTelegramLink(url: string): void;
   showPopup(params: unknown, cb?: (button_id: string) => void): void;
   showAlert(message: string, cb?: () => void): void;
