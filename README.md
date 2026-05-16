@@ -314,9 +314,9 @@ elmental-v2/
 
 ### Phase 2: Infrastructure
 - [x] Local SpacetimeDB test instance for real multiplayer mechanics
-- [ ] Production SpacetimeDB deployment
+- [x] Production SpacetimeDB deployment
 - [ ] Telegram Bot configuration ([#19](https://github.com/elemgame/elemgameV2/issues/19))
-- [ ] CI/CD pipeline ([#11](https://github.com/elemgame/elemgameV2/issues/11))
+- [x] CI/CD pipeline ([#11](https://github.com/elemgame/elemgameV2/issues/11))
 
 ### Phase 3: Blockchain
 - [ ] TIP-3 ELM Token ([#1](https://github.com/elemgame/elemgameV2/issues/1))
@@ -326,12 +326,12 @@ elmental-v2/
 
 ### Phase 4: Multiplayer
 - [x] SpacetimeDB client-server integration
-- [ ] Disconnect recovery ([#13](https://github.com/elemgame/elemgameV2/issues/13))
+- [x] Disconnect recovery ([#13](https://github.com/elemgame/elemgameV2/issues/13))
 - [x] E2E: first real PvP match on local SpacetimeDB
 
 ### Phase 5: Polish
 - [ ] Card art integration ([#15](https://github.com/elemgame/elemgameV2/issues/15))
-- [ ] Sound effects ([#14](https://github.com/elemgame/elemgameV2/issues/14))
+- [x] Sound effects ([#14](https://github.com/elemgame/elemgameV2/issues/14))
 - [ ] Tournament mode
 - [ ] Leaderboard UI
 
