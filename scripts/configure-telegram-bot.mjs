@@ -1,5 +1,6 @@
 const token = readEnv('TELEGRAM_BOT_TOKEN') ?? readEnv('BOT_TOKEN');
 const webappUrl = readEnv('TELEGRAM_WEBAPP_URL') ?? readEnv('WEBAPP_URL') ?? 'https://elemgame.github.io/elemgameV2/';
+const expectedBotUsername = (readEnv('TELEGRAM_BOT_USERNAME') ?? 'elemgamebot').replace(/^@/, '');
 
 if (!token || token === 'your_bot_token_here' || token === 'placeholder_bot_token') {
   fail('Set TELEGRAM_BOT_TOKEN before running telegram:configure.');
@@ -13,6 +14,10 @@ const apiBase = `https://api.telegram.org/bot${token}`;
 
 const bot = await callTelegram('getMe');
 console.log(`[telegram] Bot: @${bot.username} (${bot.first_name})`);
+
+if (bot.username.toLowerCase() !== expectedBotUsername.toLowerCase()) {
+  fail(`Expected @${expectedBotUsername}, got @${bot.username}. Refusing to configure the wrong bot.`);
+}
 
 await callTelegram('setMyCommands', {
   commands: [
@@ -35,6 +40,8 @@ console.log(`[telegram] Menu button configured: ${webappUrl}`);
 
 const menuButton = await callTelegram('getChatMenuButton');
 console.log(`[telegram] Current menu button: ${JSON.stringify(menuButton)}`);
+console.log(`[telegram] Main Mini App URL for BotFather: ${webappUrl}`);
+console.log(`[telegram] Direct launch link after BotFather Main Mini App setup: https://t.me/${bot.username}/?startapp`);
 console.log('[telegram] Configuration complete.');
 
 function readEnv(name) {

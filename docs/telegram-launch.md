@@ -5,6 +5,8 @@ The current mechanics test instance runs from GitHub Pages and SpacetimeDB Cloud
 - WebApp URL: `https://elemgame.github.io/elemgameV2/`
 - SpacetimeDB server: `https://maincloud.spacetimedb.com`
 - SpacetimeDB database: `elmental-v2`
+- Bot: `@elemgamebot`
+- Main Mini App launch link after BotFather setup: `https://t.me/elemgamebot/?startapp`
 
 ## Configure The Bot
 
@@ -30,6 +32,7 @@ pnpm telegram:configure
 ```
 
 The script validates the token with `getMe`, sets `/start`, `/play`, `/stats`, `/help`, and configures the chat menu button to open the public TMA.
+It also refuses to configure a bot other than `@elemgamebot` and prints the Main Mini App direct launch link.
 
 ## BotFather
 
@@ -37,6 +40,7 @@ In BotFather, verify:
 
 - Bot commands are present: `start`, `play`, `stats`, `help`.
 - Menu button opens `https://elemgame.github.io/elemgameV2/`.
+- The Main Mini App for `@elemgamebot` is configured to `https://elemgame.github.io/elemgameV2/`. This BotFather-only setting is what makes `https://t.me/elemgamebot/?startapp` open the TMA directly.
 - The domain is allowed for Telegram Mini Apps if BotFather prompts for it.
 
 ## Server Bot Runtime
@@ -62,12 +66,11 @@ pnpm --filter @elmental/server start
 ## Playtest Verification
 
 1. Open the bot in Telegram.
-2. Send `/start`.
-3. Tap the WebApp button.
-4. Confirm the TMA opens at the GitHub Pages URL.
-5. Confirm the frontend shows the Telegram user name.
-6. Start a match with a second Telegram user.
-7. Watch SpacetimeDB logs during the test:
+2. Open `https://t.me/elemgamebot/?startapp`.
+3. Confirm the TMA opens at the GitHub Pages URL.
+4. Confirm the frontend shows the Telegram user name.
+5. Start a match with a second Telegram user.
+6. Watch SpacetimeDB logs during the test:
 
 ```bash
 spacetime logs --server maincloud -n 100 elmental-v2

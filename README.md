@@ -234,6 +234,7 @@ The floating report button opens a GitHub issue draft with the current game stat
 ### Telegram Bot Launch
 
 Telegram launch for the public mechanics instance is documented in `docs/telegram-launch.md`.
+After the Main Mini App is configured in BotFather, the TMA launch link is `https://t.me/elemgamebot/?startapp`.
 
 GitHub has a manual `Configure Telegram Bot` workflow that reads `TELEGRAM_BOT_TOKEN` from repository secrets/variables and `TELEGRAM_WEBAPP_URL` from repository variables:
 

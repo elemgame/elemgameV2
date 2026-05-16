@@ -23,4 +23,5 @@ jobs:
         run: node scripts/configure-telegram-bot.mjs
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || vars.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME || 'elemgamebot' }}
           TELEGRAM_WEBAPP_URL: ${{ vars.TELEGRAM_WEBAPP_URL || secrets.TELEGRAM_WEBAPP_URL }}
