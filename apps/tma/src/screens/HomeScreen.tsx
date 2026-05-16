@@ -12,6 +12,7 @@ import {
   type ElmStarsPackageId,
   type TelegramInvoiceStatus,
 } from '../services/payments';
+import { currencyForUser, formatCurrencyAmount } from '../services/economy';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { VortexIcon } from '../components/icons/VortexIcon';
@@ -77,6 +78,7 @@ export function HomeScreen() {
 
   const stakeRequired = 100 + (boostEnabled ? 10 : 0);
   const canAffordMatch = elmBalance >= stakeRequired;
+  const currency = currencyForUser(telegramUser);
   const showStarsTopUp = telegramUser?.source === 'telegram' && Boolean(telegramUser.initData);
   const pendingPackageId = topUpState.status === 'loading' ? topUpState.packageId : undefined;
 
@@ -171,7 +173,7 @@ export function HomeScreen() {
           </div>
         </motion.div>
 
-        {/* ELM Balance card */}
+        {/* Balance card */}
         <motion.div
           className="glass-card p-5 text-center"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -179,7 +181,7 @@ export function HomeScreen() {
           transition={{ delay: 0.1 }}
         >
           <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-1">
-            ELM Balance
+            {currency} Balance
           </div>
           <motion.div
             className="glow-text-gold text-5xl font-black tabular-nums"
@@ -379,13 +381,13 @@ export function HomeScreen() {
                 PLAY NOW
               </span>
             ) : (
-              'NOT ENOUGH ELM'
+              `NOT ENOUGH ${currency}`
             )}
           </motion.button>
           <div className="text-xs text-text-muted">
             {canAffordMatch
-              ? `Stake: ${stakeRequired} ELM • ${gameMode} mode`
-              : `Need ${stakeRequired} ELM (have ${elmBalance})`}
+              ? `Stake: ${formatCurrencyAmount(stakeRequired, currency)} • ${gameMode} mode`
+              : `Need ${formatCurrencyAmount(stakeRequired, currency)} (have ${formatCurrencyAmount(elmBalance, currency)})`}
           </div>
         </motion.div>
 

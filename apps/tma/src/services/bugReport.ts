@@ -1,4 +1,5 @@
 import { useGameStore } from '../stores/gameStore';
+import { balanceKindForUser, currencyForUser } from './economy';
 import { getBotFallbackSeconds, getDatabaseName, getMatchRoom, getSpacetimeUri } from './gameProvider/spacetimeProvider';
 
 const ISSUE_URL = 'https://github.com/elemgame/elemgameV2/issues/new';
@@ -169,6 +170,8 @@ function compactLogs(logs: BugReportLogEntry[]): BugReportLogEntry[] {
 
 function gameSnapshot(): Record<string, unknown> {
   const state = useGameStore.getState();
+  const currency = currencyForUser(state.telegramUser);
+  const balanceKind = balanceKindForUser(state.telegramUser);
   return {
     currentScreen: state.currentScreen,
     matchStatus: state.matchStatus,
@@ -193,6 +196,11 @@ function gameSnapshot(): Record<string, unknown> {
     opponentStats: state.opponentStats,
     rating: state.rating,
     elmBalance: state.elmBalance,
+    economy: {
+      currency,
+      balanceKind,
+      balance: state.elmBalance,
+    },
     user: state.telegramUser
       ? {
           id: state.telegramUser.id,

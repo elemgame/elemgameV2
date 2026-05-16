@@ -17,6 +17,7 @@ export const Account = __t.object("Account", {
   wins: __t.u32(),
   losses: __t.u32(),
   balance: __t.i32(),
+  balanceKind: __t.string(),
 });
 export type Account = __Infer<typeof Account>;
 
@@ -65,6 +66,7 @@ export const MatchState = __t.object("MatchState", {
   p1Rating: __t.i32(),
   p2Rating: __t.i32(),
   stake: __t.u32(),
+  balanceKind: __t.string(),
   mode: __t.string(),
   room: __t.string(),
   phase: __t.string(),
@@ -120,6 +122,7 @@ export const Player = __t.object("Player", {
   wins: __t.u32(),
   losses: __t.u32(),
   balance: __t.i32(),
+  balanceKind: __t.string(),
   accountId: __t.string(),
 });
 export type Player = __Infer<typeof Player>;
@@ -135,6 +138,7 @@ export const QueueEntry = __t.object("QueueEntry", {
   joinedAtMicros: __t.u64(),
   botFallbackAtMicros: __t.option(__t.u64()),
   accountId: __t.string(),
+  balanceKind: __t.string(),
 });
 export type QueueEntry = __Infer<typeof QueueEntry>;
 

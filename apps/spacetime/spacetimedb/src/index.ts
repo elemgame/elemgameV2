@@ -26,16 +26,18 @@ const NEXT_ROUND_JITTER_MAX_MICROS = 500_000;
 const BOT_FALLBACK_DEFAULT_SECONDS = 30;
 const BOT_FALLBACK_MAX_SECONDS = 120;
 const BOT_NAME = 'AI Practice Bot';
-const BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000001');
+const DEMO_BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000001');
+const PAID_BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000002');
 const INITIAL_BALANCE = 1000;
 const BOT_BALANCE = 1_000_000;
 const RAKE_PERCENT = 5;
 const BOOST_STAKE_PERCENT = 10;
-const BOT_ACCOUNT_ID = 'bot:practice';
+const BOT_ACCOUNT_PREFIX = 'bot:practice';
 const PAYMENT_JWT_ISSUER = 'elmental-payments';
 const PAYMENT_JWT_AUDIENCE = 'elmental-v2-payments';
 const PAYMENT_JWT_SUBJECT = 'payments-service';
 const PAID_ELM_BALANCE_KIND = 'paid_elm';
+const DEMO_TELM_BALANCE_KIND = 'demo_teml';
 const PAYMENT_STATUS_CREDITED = 'credited';
 const ALL_MOVES = [0, 1, 2, 3, 4, 5] as const;
 const ELM_STARS_PACKAGES = [
@@ -53,6 +55,7 @@ const account = table(
     wins: t.u32(),
     losses: t.u32(),
     balance: t.i32().default(INITIAL_BALANCE),
+    balanceKind: t.string().default('demo_teml'),
   }
 );
 
@@ -66,6 +69,7 @@ const player = table(
     wins: t.u32(),
     losses: t.u32(),
     balance: t.i32().default(INITIAL_BALANCE),
+    balanceKind: t.string().default('demo_teml'),
     accountId: t.string().default(''),
   }
 );
@@ -83,6 +87,7 @@ const queueEntry = table(
     joinedAtMicros: t.u64(),
     botFallbackAtMicros: t.u64().optional().default(undefined),
     accountId: t.string().default(''),
+    balanceKind: t.string().default('demo_teml'),
   }
 );
 
@@ -151,6 +156,7 @@ const matchState = table(
     p1Rating: t.i32(),
     p2Rating: t.i32(),
     stake: t.u32(),
+    balanceKind: t.string().default('demo_teml'),
     mode: t.string(),
     room: t.string(),
     phase: t.string(),
@@ -277,6 +283,7 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
     wins: accountRow.wins,
     losses: accountRow.losses,
     balance: accountRow.balance,
+    balanceKind: accountBalanceKind(accountRow),
   });
   logEvent(ctx, 'player.connected', undefined, `Player connected ${shortIdentity(ctx.sender)}`, identityHex(ctx.sender));
 });
@@ -359,6 +366,7 @@ export const join_queue = spacetimedb.reducer(
       boostEnabled,
       joinedAtMicros: now,
       botFallbackAtMicros: botFallbackDeadline(now, botFallbackSeconds),
+      balanceKind: accountBalanceKind(accountRow),
     };
 
     const opponent = findOpponentForEntry(ctx, currentEntry, now);
@@ -969,6 +977,7 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
   const p1Player = ctx.db.player.identity.find(p1Entry.identity);
   const p2Player = ctx.db.player.identity.find(p2Entry.identity);
   if (!p1Player || !p2Player) throw new SenderError('Player not found');
+  const balanceKind = assertSameEntryBalanceKind(p1Entry, p2Entry);
   const p1Account = reserveStake(ctx, p1Player, totalStake(p1Entry.stake, p1Entry.boostEnabled));
   const p2Account = reserveStake(ctx, p2Player, totalStake(p2Entry.stake, p2Entry.boostEnabled));
   const inserted = ctx.db.matchState.insert({
@@ -980,6 +989,7 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     p1Rating: p1Account.rating,
     p2Rating: p2Account.rating,
     stake: p1Entry.stake,
+    balanceKind,
     mode: p1Entry.mode,
     room: p1Entry.room,
     phase: 'select',
@@ -1009,13 +1019,14 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     'match.created',
     inserted,
     `Match ${inserted.id} created: ${p1Entry.name} vs ${p2Entry.name}`,
-    `room=${p1Entry.room} mode=${p1Entry.mode} stake=${p1Entry.stake}`
+    `room=${p1Entry.room} mode=${p1Entry.mode} stake=${p1Entry.stake} balanceKind=${balanceKind}`
   );
   return inserted;
 }
 
 function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) {
-  const botPlayer = ensureBotPlayer(ctx);
+  const balanceKind = entryBalanceKind(entry);
+  const botPlayer = ensureBotPlayer(ctx, balanceKind);
   const humanPlayer = ctx.db.player.identity.find(entry.identity);
   if (!humanPlayer) throw new SenderError('Player not found');
   const humanAccount = reserveStake(ctx, humanPlayer, totalStake(entry.stake, entry.boostEnabled));
@@ -1023,12 +1034,13 @@ function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) 
   const inserted = ctx.db.matchState.insert({
     id: 0n,
     p1: entry.identity,
-    p2: BOT_IDENTITY,
+    p2: botPlayer.identity,
     p1Name: entry.name,
     p2Name: botPlayer.name,
     p1Rating: humanAccount.rating,
     p2Rating: botAccount.rating,
     stake: entry.stake,
+    balanceKind,
     mode: entry.mode,
     room: entry.room,
     phase: 'select',
@@ -1060,13 +1072,14 @@ function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) 
     'bot.match_created',
     committed,
     `Bot fallback match ${committed.id} created for ${entry.name}`,
-    `room=${entry.room} mode=${entry.mode} stake=${entry.stake}`
+    `room=${entry.room} mode=${entry.mode} stake=${entry.stake} balanceKind=${balanceKind}`
   );
   return committed;
 }
 
-function ensureBotPlayer(ctx: ReducerContext) {
-  const botAccount = ensureAccount(ctx, BOT_ACCOUNT_ID, BOT_NAME, {
+function ensureBotPlayer(ctx: ReducerContext, balanceKind = DEMO_TELM_BALANCE_KIND) {
+  const botIdentity = botIdentityForBalanceKind(balanceKind);
+  const botAccount = ensureAccount(ctx, botAccountIdForBalanceKind(balanceKind), BOT_NAME, {
     rating: INITIAL_RATING,
     wins: 0,
     losses: 0,
@@ -1075,7 +1088,7 @@ function ensureBotPlayer(ctx: ReducerContext) {
   const fundedBotAccount = accountBalance(botAccount) < BOT_BALANCE
     ? updateAccount(ctx, { ...botAccount, balance: BOT_BALANCE })
     : botAccount;
-  const existing = ctx.db.player.identity.find(BOT_IDENTITY);
+  const existing = ctx.db.player.identity.find(botIdentity);
   if (existing) {
     const updated = playerFromAccount(existing, fundedBotAccount, BOT_NAME, true);
     ctx.db.player.identity.update(updated);
@@ -1083,7 +1096,7 @@ function ensureBotPlayer(ctx: ReducerContext) {
   }
 
   return ctx.db.player.insert({
-    identity: BOT_IDENTITY,
+    identity: botIdentity,
     accountId: fundedBotAccount.id,
     name: fundedBotAccount.name,
     online: true,
@@ -1091,6 +1104,7 @@ function ensureBotPlayer(ctx: ReducerContext) {
     wins: fundedBotAccount.wins,
     losses: fundedBotAccount.losses,
     balance: fundedBotAccount.balance,
+    balanceKind: accountBalanceKind(fundedBotAccount),
   });
 }
 
@@ -1134,7 +1148,7 @@ function isBotMatch(match: MatchRow) {
 }
 
 function isBotIdentity(identity: IdentityLike) {
-  return identityEquals(identity, BOT_IDENTITY);
+  return identityEquals(identity, DEMO_BOT_IDENTITY) || identityEquals(identity, PAID_BOT_IDENTITY);
 }
 
 function ensureBotCommitIfNeeded(ctx: ReducerContext, match: MatchRow, now: bigint) {
@@ -1220,7 +1234,14 @@ function botFallbackDeadline(now: bigint, requestedSeconds?: number) {
   return now + BigInt(clamped) * 1_000_000n;
 }
 
-function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: string, now: bigint) {
+function findOpponent(
+  ctx: ReducerContext,
+  stake: number,
+  mode: string,
+  room: string,
+  now: bigint,
+  balanceKind = DEMO_TELM_BALANCE_KIND
+) {
   let candidate: MatchRow | undefined = undefined;
   for (const entry of ctx.db.queueEntry.iter()) {
     if (identityEquals(entry.identity, ctx.sender)) continue;
@@ -1249,6 +1270,7 @@ function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: st
     }
     if (entry.room !== room) continue;
     if (entry.stake !== stake || entry.mode !== mode) continue;
+    if (entryBalanceKind(entry) !== balanceKind) continue;
     if (!candidate || entry.joinedAtMicros < candidate.joinedAtMicros) candidate = entry;
   }
   return candidate;
@@ -1284,6 +1306,7 @@ function findOpponentForEntry(ctx: ReducerContext, target: QueueEntryRow, now: b
     }
     if (entry.room !== target.room) continue;
     if (entry.stake !== target.stake || entry.mode !== target.mode) continue;
+    if (entryBalanceKind(entry) !== entryBalanceKind(target)) continue;
     if (!candidate || entry.joinedAtMicros < candidate.joinedAtMicros) candidate = entry;
   }
   return candidate;
@@ -1291,6 +1314,10 @@ function findOpponentForEntry(ctx: ReducerContext, target: QueueEntryRow, now: b
 
 function entryAccountId(entry: QueueEntryRow) {
   return normalizeAccountId(entry.accountId, defaultAccountId(entry.identity));
+}
+
+function entryBalanceKind(entry: QueueEntryRow) {
+  return normalizeBalanceKind(entry.balanceKind, balanceKindForAccountId(entryAccountId(entry)));
 }
 
 function findLatestActiveMatchForAccount(ctx: ReducerContext, accountId: string) {
@@ -1323,9 +1350,9 @@ function requirePlayer(ctx: ReducerContext) {
 function linkPlayerAccount(ctx: ReducerContext, playerRow: MatchRow, requestedAccountId: string | undefined, name: string) {
   const previousAccountId = playerAccountId(playerRow);
   const accountId = normalizeAccountId(requestedAccountId, previousAccountId);
-  const existingAccount = ctx.db.account.id.find(accountId);
-  const accountRow = existingAccount ?? ensureAccount(ctx, accountId, name, playerRow);
-  const namedAccount = previousAccountId !== accountId && existingAccount && hasLegacyProgress(playerRow)
+  const accountRow = ensureAccount(ctx, accountId, name, playerRow);
+  const previousBalanceKind = balanceKindForAccountId(previousAccountId);
+  const namedAccount = previousAccountId !== accountId && previousBalanceKind === accountBalanceKind(accountRow) && hasLegacyProgress(playerRow)
     ? mergeLegacyPlayerIntoAccount(ctx, accountRow, playerRow, name)
     : accountRow.name === name ? accountRow : updateAccount(ctx, { ...accountRow, name });
   ctx.db.player.identity.update(playerFromAccount(playerRow, namedAccount, name, true));
@@ -1334,8 +1361,17 @@ function linkPlayerAccount(ctx: ReducerContext, playerRow: MatchRow, requestedAc
 
 function ensureAccount(ctx: ReducerContext, accountId: string, name: string, seed?: Partial<AccountRow>) {
   const normalizedId = normalizeAccountId(accountId, undefined);
+  const balanceKind = balanceKindForAccountId(normalizedId);
   const existing = ctx.db.account.id.find(normalizedId);
-  if (existing) return existing;
+  if (existing) {
+    return accountBalanceKind(existing) === balanceKind
+      ? existing
+      : updateAccount(ctx, {
+          ...existing,
+          balance: migratedBalanceForBalanceKind(ctx, normalizedId, balanceKind),
+          balanceKind,
+        });
+  }
 
   return ctx.db.account.insert({
     id: normalizedId,
@@ -1343,14 +1379,21 @@ function ensureAccount(ctx: ReducerContext, accountId: string, name: string, see
     rating: seed?.rating ?? INITIAL_RATING,
     wins: seed?.wins ?? 0,
     losses: seed?.losses ?? 0,
-    balance: seed?.balance ?? INITIAL_BALANCE,
+    balance: seed?.balance ?? initialBalanceForBalanceKind(balanceKind),
+    balanceKind,
   });
 }
 
 function updateAccount(ctx: ReducerContext, accountRow: AccountRow) {
-  ctx.db.account.id.update(accountRow);
-  syncAccountToPlayers(ctx, accountRow);
-  return accountRow;
+  const normalizedId = normalizeAccountId(accountRow.id, undefined);
+  const normalized = {
+    ...accountRow,
+    id: normalizedId,
+    balanceKind: balanceKindForAccountId(normalizedId),
+  };
+  ctx.db.account.id.update(normalized);
+  syncAccountToPlayers(ctx, normalized);
+  return normalized;
 }
 
 function mergeLegacyPlayerIntoAccount(ctx: ReducerContext, accountRow: AccountRow, playerRow: MatchRow, name: string) {
@@ -1361,6 +1404,7 @@ function mergeLegacyPlayerIntoAccount(ctx: ReducerContext, accountRow: AccountRo
     wins: accountRow.wins + (playerRow.wins ?? 0),
     losses: accountRow.losses + (playerRow.losses ?? 0),
     balance: Math.max(accountBalance(accountRow), playerRow.balance ?? INITIAL_BALANCE),
+    balanceKind: accountBalanceKind(accountRow),
   });
 }
 
@@ -1390,6 +1434,7 @@ function playerFromAccount(playerRow: MatchRow, accountRow: AccountRow, name = a
     wins: accountRow.wins,
     losses: accountRow.losses,
     balance: accountBalance(accountRow),
+    balanceKind: accountBalanceKind(accountRow),
   };
 }
 
@@ -1422,7 +1467,7 @@ function reserveStake(ctx: ReducerContext, playerRow: MatchRow, amount: number) 
 
 function assertCanStakeAccount(accountRow: AccountRow, amount: number) {
   if (accountBalance(accountRow) < amount) {
-    throw new SenderError(`Insufficient ELM balance: need ${amount}, have ${accountBalance(accountRow)}`);
+    throw new SenderError(`Insufficient ${currencyLabelForBalanceKind(accountBalanceKind(accountRow))} balance: need ${amount}, have ${accountBalance(accountRow)}`);
   }
 }
 
@@ -1559,6 +1604,59 @@ function calculateWinnerPayout(stake: number) {
 
 function accountBalance(accountRow: AccountRow) {
   return accountRow.balance ?? INITIAL_BALANCE;
+}
+
+function accountBalanceKind(accountRow: AccountRow) {
+  return normalizeBalanceKind(accountRow.balanceKind, balanceKindForAccountId(accountRow.id));
+}
+
+function balanceKindForAccountId(accountId: string) {
+  const normalized = normalizeAccountId(accountId, undefined);
+  if (normalized.startsWith('telegram:')) return PAID_ELM_BALANCE_KIND;
+  if (normalized === botAccountIdForBalanceKind(PAID_ELM_BALANCE_KIND)) return PAID_ELM_BALANCE_KIND;
+  return DEMO_TELM_BALANCE_KIND;
+}
+
+function normalizeBalanceKind(value: unknown, fallback = DEMO_TELM_BALANCE_KIND) {
+  return value === PAID_ELM_BALANCE_KIND || value === DEMO_TELM_BALANCE_KIND ? value : fallback;
+}
+
+function botAccountIdForBalanceKind(balanceKind: string) {
+  return `${BOT_ACCOUNT_PREFIX}:${normalizeBalanceKind(balanceKind)}`;
+}
+
+function botIdentityForBalanceKind(balanceKind: string) {
+  return normalizeBalanceKind(balanceKind) === PAID_ELM_BALANCE_KIND ? PAID_BOT_IDENTITY : DEMO_BOT_IDENTITY;
+}
+
+function initialBalanceForBalanceKind(balanceKind: string) {
+  return normalizeBalanceKind(balanceKind) === PAID_ELM_BALANCE_KIND ? 0 : INITIAL_BALANCE;
+}
+
+function migratedBalanceForBalanceKind(ctx: ReducerContext, accountId: string, balanceKind: string) {
+  if (normalizeBalanceKind(balanceKind) !== PAID_ELM_BALANCE_KIND) {
+    return initialBalanceForBalanceKind(balanceKind);
+  }
+
+  let credited = 0;
+  for (const row of ctx.db.paymentLedger.iter()) {
+    if (row.accountId !== accountId || row.status !== PAYMENT_STATUS_CREDITED) continue;
+    credited += Math.max(0, (row.elmAmount ?? 0) - (row.refundedElmAmount ?? 0));
+  }
+  return credited;
+}
+
+function assertSameEntryBalanceKind(p1Entry: QueueEntryRow, p2Entry: QueueEntryRow) {
+  const p1Kind = entryBalanceKind(p1Entry);
+  const p2Kind = entryBalanceKind(p2Entry);
+  if (p1Kind !== p2Kind) {
+    throw new SenderError('Cannot match paid ELM and demo tELM accounts');
+  }
+  return p1Kind;
+}
+
+function currencyLabelForBalanceKind(balanceKind: string) {
+  return normalizeBalanceKind(balanceKind) === PAID_ELM_BALANCE_KIND ? 'ELM' : 'tELM';
 }
 
 function enforceJoinQueueRateLimit(ctx: ReducerContext, now: bigint) {

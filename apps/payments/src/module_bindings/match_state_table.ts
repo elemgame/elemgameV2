@@ -19,6 +19,7 @@ export default __t.row({
   p1Rating: __t.i32().name("p_1_rating"),
   p2Rating: __t.i32().name("p_2_rating"),
   stake: __t.u32(),
+  balanceKind: __t.string().name("balance_kind"),
   mode: __t.string(),
   room: __t.string(),
   phase: __t.string(),

@@ -5,6 +5,7 @@ import { updatePlayerProfile } from '../services/gameService';
 import { haptic, sanitizeWebUserName, saveWebUser } from '../services/telegram';
 import { playerDisplayName, playerFullName } from '../services/playerProfile';
 import { opponentWinRate } from '../services/opponentStats';
+import { currencyForUser, formatCurrencyAmount } from '../services/economy';
 import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
 import { StarIcon } from '../components/icons/StarIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
@@ -24,6 +25,7 @@ export function ProfileScreen() {
       ? `@${telegramUser.username}`
       : '';
   const isWebUser = telegramUser?.source === 'web';
+  const currency = currencyForUser(telegramUser);
   const [draftName, setDraftName] = useState(displayName);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const cleanDraftName = useMemo(() => sanitizeWebUserName(draftName), [draftName]);
@@ -175,14 +177,14 @@ export function ProfileScreen() {
           </div>
         </motion.div>
 
-        {/* ELM Balance */}
+        {/* Balance */}
         <motion.div
           className="glass-card p-4 text-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">ELM Balance</div>
+          <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">{currency} Balance</div>
           <div className="glow-text-gold text-4xl font-black">{elmBalance.toLocaleString()}</div>
           <div className="text-xs text-text-muted mt-1">tokens</div>
         </motion.div>
@@ -352,7 +354,7 @@ export function ProfileScreen() {
                       <span className="text-text-secondary text-xs truncate">{tx.description}</span>
                     </div>
                     <span className="font-bold text-xs ml-2 flex-shrink-0" style={{ color }}>
-                      {tx.amount > 0 ? '+' : ''}{tx.amount !== 0 ? tx.amount : '—'}
+                      {tx.amount !== 0 ? formatCurrencyAmount(tx.amount, currency, { signed: true }) : '—'}
                     </span>
                   </div>
                 );

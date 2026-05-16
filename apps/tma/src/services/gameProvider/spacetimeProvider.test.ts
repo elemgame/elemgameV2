@@ -106,6 +106,7 @@ describe('SpacetimeDB provider mappers', () => {
       p1Rating: 1210,
       p2Rating: 1180,
       stake: 100,
+      balanceKind: 'demo_teml',
       mode: 'classic',
       room: 'test',
       phase: 'commit',

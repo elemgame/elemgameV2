@@ -9,6 +9,7 @@ import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stor
 import { showAlert } from './telegram';
 import { playSound } from './audio';
 import { playerAccountId, playerDisplayName } from './playerProfile';
+import { currencyForUser, formatCurrencyAmount } from './economy';
 import { createMockProvider } from './gameProvider/mockProvider';
 import { recordGameLog } from './bugReport';
 import {
@@ -220,6 +221,7 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
 
   if (!deductedMatchIds.has(event.matchId)) {
     deductedMatchIds.add(event.matchId);
+    const currency = activeCurrency();
     if (FORCE_MOCK) {
       store.setPlayerStats({
         elmBalance: store.elmBalance - event.stake - event.boostStake,
@@ -228,9 +230,9 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
         losses: store.stats.losses,
       });
     }
-    addTx('stake', -event.stake, event.matchId, `Staked ${event.stake} ELM for match vs ${event.opponentName}`);
+    addTx('stake', -event.stake, event.matchId, `Staked ${formatCurrencyAmount(event.stake, currency)} for match vs ${event.opponentName}`);
     if (event.boostStake > 0) {
-      addTx('stake', -event.boostStake, event.matchId, `Energy Boost investment: ${event.boostStake} ELM`);
+      addTx('stake', -event.boostStake, event.matchId, `Energy Boost investment: ${formatCurrencyAmount(event.boostStake, currency)}`);
     }
   }
 
@@ -312,6 +314,7 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
   const isDraw = event.winner === 'draw';
   const { winnerPayout, rake } = calculatePayout(event.stake, RAKE_PERCENT);
   const boostStake = store.matchBoostStake;
+  const currency = activeCurrency();
 
   let ratingDelta = 0;
   if (!isDraw) {
@@ -322,15 +325,15 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
   let balanceDelta = 0;
   if (isDraw) {
     balanceDelta = event.stake + boostStake;
-    addTx('win', event.stake, event.matchId, `Draw. Stake refunded: ${event.stake} ELM`);
-    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost refunded: ${boostStake} ELM`);
+    addTx('win', event.stake, event.matchId, `Draw. Stake refunded: ${formatCurrencyAmount(event.stake, currency)}`);
+    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost refunded: ${formatCurrencyAmount(boostStake, currency)}`);
   } else if (won) {
     balanceDelta = winnerPayout + boostStake;
-    addTx('win', winnerPayout, event.matchId, `Won. Payout: ${winnerPayout} ELM`);
-    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost returned: ${boostStake} ELM`);
+    addTx('win', winnerPayout, event.matchId, `Won. Payout: ${formatCurrencyAmount(winnerPayout, currency)}`);
+    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost returned: ${formatCurrencyAmount(boostStake, currency)}`);
   } else {
-    addTx('loss', -event.stake, event.matchId, `Lost match. Stake ${event.stake} ELM forfeited.`);
-    if (boostStake > 0) addTx('boost_burn', -boostStake, event.matchId, `Boost burned: ${boostStake} ELM`);
+    addTx('loss', -event.stake, event.matchId, `Lost match. Stake ${formatCurrencyAmount(event.stake, currency)} forfeited.`);
+    if (boostStake > 0) addTx('boost_burn', -boostStake, event.matchId, `Boost burned: ${formatCurrencyAmount(boostStake, currency)}`);
   }
 
   if (FORCE_MOCK) {
@@ -420,7 +423,7 @@ function addTx(type: EconomyTransaction['type'], amount: number, matchId: string
 
 function matchmakingErrorMessage(message: string): string {
   if (FORCE_MOCK) return 'Mock matchmaking is unavailable.';
-  if (message.includes('Insufficient ELM balance')) return message;
+  if (message.includes('Insufficient ') && message.includes(' balance')) return message;
   return 'SpacetimeDB matchmaking is unavailable. Check the backend logs and try again.';
 }
 
@@ -437,4 +440,9 @@ function trace(event: string, data: Record<string, unknown>): void {
   recordGameLog('info', event, data);
   if (!TRACE_ENABLED) return;
   console.info(`[elmental:client] ${event}`, data);
+}
+
+function activeCurrency() {
+  const store = useGameStore.getState();
+  return currencyForUser(store.telegramUser ?? currentUser);
 }
