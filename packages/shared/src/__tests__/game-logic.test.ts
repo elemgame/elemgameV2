@@ -23,6 +23,15 @@ import {
   REGEN_ON_WIN,
 } from '../constants.js';
 
+const ALL_MOVES = [
+  MoveId.Earth,
+  MoveId.Fire,
+  MoveId.Water,
+  MoveId.EarthPlus,
+  MoveId.FirePlus,
+  MoveId.WaterPlus,
+] as const;
+
 // ---------------------------------------------------------------------------
 // getMoveInfo
 // ---------------------------------------------------------------------------
@@ -55,6 +64,11 @@ describe('getMoveInfo', () => {
       expect(getMoveInfo(id).isEnhanced).toBe(true);
       expect(getMoveInfo(id).cost).toBe(ENHANCED_MOVE_COST);
     }
+  });
+
+  it('rejects unknown move ids', () => {
+    expect(() => getMoveInfo(99 as MoveId)).toThrow('Unknown moveId: 99');
+    expect(() => getMoveInfo(-1 as MoveId)).toThrow('Unknown moveId: -1');
   });
 });
 
@@ -143,6 +157,42 @@ describe('resolveRound — full 6×6 outcome matrix', () => {
       if (r1 === D) expect(r2).toBe(D);
     }
   });
+
+  it('reverse matchups invert non-draw outcomes', () => {
+    for (const p1 of ALL_MOVES) {
+      for (const p2 of ALL_MOVES) {
+        const forward = resolveRound(p1, p2);
+        const reverse = resolveRound(p2, p1);
+
+        expect(forward.p1Result).toBe(reverse.p2Result);
+        expect(forward.p2Result).toBe(reverse.p1Result);
+      }
+    }
+  });
+
+  it('keeps basic and enhanced move balance profiles from the spec', () => {
+    const basicMoves = [MoveId.Earth, MoveId.Fire, MoveId.Water];
+    const enhancedMoves = [MoveId.EarthPlus, MoveId.FirePlus, MoveId.WaterPlus];
+
+    for (const move of basicMoves) {
+      const outcomes = ALL_MOVES.map((opponent) => resolveRound(move, opponent).p1Result);
+      expect(outcomes.filter((result) => result === W)).toHaveLength(2);
+      expect(outcomes.filter((result) => result === L)).toHaveLength(3);
+      expect(outcomes.filter((result) => result === D)).toHaveLength(1);
+    }
+
+    for (const move of enhancedMoves) {
+      const outcomes = ALL_MOVES.map((opponent) => resolveRound(move, opponent).p1Result);
+      expect(outcomes.filter((result) => result === W)).toHaveLength(3);
+      expect(outcomes.filter((result) => result === L)).toHaveLength(2);
+      expect(outcomes.filter((result) => result === D)).toHaveLength(1);
+    }
+  });
+
+  it('rejects invalid p1 and p2 move ids', () => {
+    expect(() => resolveRound(99 as MoveId, MoveId.Earth)).toThrow('Invalid p1Move: 99');
+    expect(() => resolveRound(MoveId.Earth, 99 as MoveId)).toThrow('Invalid p2Move: 99');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -179,6 +229,13 @@ describe('getRegenAmount', () => {
 
     it('defaults to 10 when chaosRoll is not provided', () => {
       expect(getRegenAmount(RoundResult.Win, GameMode.Chaos)).toBe(10);
+    });
+
+    it('ignores round result and returns the provided chaos roll directly', () => {
+      for (const result of [RoundResult.Win, RoundResult.Lose, RoundResult.Draw]) {
+        expect(getRegenAmount(result, GameMode.Chaos, 0)).toBe(0);
+        expect(getRegenAmount(result, GameMode.Chaos, 20)).toBe(20);
+      }
     });
   });
 });
@@ -217,6 +274,13 @@ describe('calculateEnergy', () => {
     expect(result.energy).toBe(95);
   });
 
+  it('caps energy at 100 when regen would exceed the max', () => {
+    const state = { energy: 99, isOverclocked: false, boostActive: false };
+    const result = calculateEnergy(state, earthMove, RoundResult.Lose, GameMode.Classic);
+    // 99 - 10 + 15 = 104 -> capped at 100
+    expect(result.energy).toBe(100);
+  });
+
   it('allows energy to go negative (Hardcore, no regen)', () => {
     const state = { energy: 5, isOverclocked: false, boostActive: false };
     const result = calculateEnergy(state, earthPlusMove, RoundResult.Win, GameMode.Hardcore);
@@ -237,11 +301,31 @@ describe('calculateEnergy', () => {
     expect(result.energy).toBe(100);
   });
 
+  it.each([
+    [GameMode.Classic, RoundResult.Draw, undefined, 50 - BASIC_MOVE_COST + REGEN_ON_DRAW],
+    [GameMode.Classic, RoundResult.Lose, undefined, 50 - BASIC_MOVE_COST + REGEN_ON_LOSE],
+    [GameMode.Hardcore, RoundResult.Lose, undefined, 50 - BASIC_MOVE_COST],
+    [GameMode.Chaos, RoundResult.Win, 3, 50 - BASIC_MOVE_COST + 3],
+  ])(
+    'calculates post-round energy for %s/%s with chaosRoll=%s',
+    (mode, result, chaosRoll, expectedEnergy) => {
+      const state = { energy: 50, isOverclocked: false, boostActive: false };
+      expect(calculateEnergy(state, earthMove, result, mode, chaosRoll).energy).toBe(expectedEnergy);
+    },
+  );
+
   it('zero energy + basic move goes negative', () => {
     const state = { energy: 0, isOverclocked: false, boostActive: false };
     const result = calculateEnergy(state, earthMove, RoundResult.Win, GameMode.Classic);
     // 0 - 10 + 5 = -5
     expect(result.energy).toBe(-5);
+  });
+
+  it('keeps existing energy debt instead of flooring to zero', () => {
+    const state = { energy: -12, isOverclocked: true, boostActive: false };
+    const result = calculateEnergy(state, earthPlusMove, RoundResult.Draw, GameMode.Classic);
+    // -12 - 25 + 10 = -27
+    expect(result.energy).toBe(-27);
   });
 });
 
@@ -276,6 +360,13 @@ describe('resolveOverclock', () => {
     }
   });
 
+  it('wraps byte1 values above the move count with modulo 6', () => {
+    const seed = new Uint8Array([1, 255]);
+    const result = resolveOverclock(MoveId.Earth, seed);
+    expect(result.wasRandomized).toBe(true);
+    expect(result.finalMoveId).toBe(MoveId.EarthPlus);
+  });
+
   it('handles seed[0] = 0 (always randomizes)', () => {
     const seed = new Uint8Array([0, 2]);
     const result = resolveOverclock(MoveId.Earth, seed);
@@ -295,6 +386,12 @@ describe('resolveOverclock', () => {
     expect(result.wasRandomized).toBe(false);
   });
 
+  it('handles missing seed bytes deterministically', () => {
+    const result = resolveOverclock(MoveId.WaterPlus, new Uint8Array([]));
+    expect(result.wasRandomized).toBe(true);
+    expect(result.finalMoveId).toBe(MoveId.Earth);
+  });
+
   it('overclock with zero energy still works (pure function)', () => {
     // resolveOverclock is pure and does not care about energy
     const seed = new Uint8Array([5, 4]); // randomizes → move 4 = FirePlus
@@ -310,11 +407,14 @@ describe('resolveOverclock', () => {
 
 describe('getEnergyLevel', () => {
   it('returns Low for 0', () => expect(getEnergyLevel(0)).toBe(EnergyLevel.Low));
+  it('returns Low for 32', () => expect(getEnergyLevel(32)).toBe(EnergyLevel.Low));
   it('returns Low for 33', () => expect(getEnergyLevel(33)).toBe(EnergyLevel.Low));
   it('returns Medium for 34', () => expect(getEnergyLevel(34)).toBe(EnergyLevel.Medium));
+  it('returns Medium for 65', () => expect(getEnergyLevel(65)).toBe(EnergyLevel.Medium));
   it('returns Medium for 66', () => expect(getEnergyLevel(66)).toBe(EnergyLevel.Medium));
   it('returns High for 67', () => expect(getEnergyLevel(67)).toBe(EnergyLevel.High));
   it('returns High for 100', () => expect(getEnergyLevel(100)).toBe(EnergyLevel.High));
+  it('returns High for boosted energy over 100', () => expect(getEnergyLevel(120)).toBe(EnergyLevel.High));
   it('returns Low for negative energy', () => expect(getEnergyLevel(-10)).toBe(EnergyLevel.Low));
 });
 
@@ -356,6 +456,22 @@ describe('calculateElo', () => {
       expect(Math.abs(newWinner + newLoser - (w + l))).toBeLessThanOrEqual(1);
     }
   });
+
+  it('updates are monotonic for winner and loser across common rating gaps', () => {
+    const pairs: [number, number][] = [
+      [400, 2400],
+      [1000, 1400],
+      [1200, 1200],
+      [1800, 1200],
+      [2400, 400],
+    ];
+
+    for (const [winner, loser] of pairs) {
+      const { newWinner, newLoser } = calculateElo(winner, loser);
+      expect(newWinner).toBeGreaterThanOrEqual(winner);
+      expect(newLoser).toBeLessThanOrEqual(loser);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -385,6 +501,13 @@ describe('calculatePayout', () => {
     const stake = 73;
     const { winnerPayout, rake } = calculatePayout(stake, 5);
     expect(winnerPayout + rake).toBe(stake * 2);
+  });
+
+  it('floors fractional rake in favor of the winner payout', () => {
+    const { winnerPayout, rake } = calculatePayout(99, 5);
+    // pool = 198, 5% = 9.9 -> floor to 9
+    expect(rake).toBe(9);
+    expect(winnerPayout).toBe(189);
   });
 
   it('uses default RAKE_PERCENT when second arg omitted', () => {
