@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/elemgame/elemgameV2/actions/workflows/ci.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/ci.yml)
 [![Deploy TMA to GitHub Pages](https://github.com/elemgame/elemgameV2/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/deploy-pages.yml)
+[![Public Multiplayer Smoke](https://github.com/elemgame/elemgameV2/actions/workflows/public-smoke.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/public-smoke.yml)
 
 ### Strategic PvP on Blockchain. Not luck. Pressure.
 
@@ -205,6 +206,15 @@ VITE_GAME_TRANSPORT=spacetime
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com
 VITE_SPACETIME_DB=elmental-v2
 ```
+
+Run the public two-player first-to-3 smoke locally:
+
+```bash
+pnpm exec playwright install chromium
+pnpm smoke:public-match
+```
+
+The same smoke is available as the manual GitHub Actions workflow `Public Multiplayer Smoke`. It opens two browser clients against GitHub Pages, verifies matchmaking, three round resolutions, final result, Play Again, and fails on browser console errors or warnings.
 
 ### Local Test Multiplayer Instance
 

@@ -12,11 +12,15 @@
     "stdb:publish": "spacetime publish --server local --module-path apps/spacetime/spacetimedb elmental",
     "stdb:publish:clear": "spacetime publish --server local --module-path apps/spacetime/spacetimedb --clear-database -y elmental",
     "stdb:publish:cloud": "spacetime publish --server maincloud --module-path apps/spacetime/spacetimedb -y elmental-v2",
-    "stdb:generate": "spacetime generate --lang typescript --out-dir apps/tma/src/module_bindings --module-path apps/spacetime/spacetimedb"
+    "stdb:generate": "spacetime generate --lang typescript --out-dir apps/tma/src/module_bindings --module-path apps/spacetime/spacetimedb",
+    "smoke:public-match": "node scripts/public-match-smoke.mjs"
   },
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.0.0"
+  "packageManager": "pnpm@9.0.0",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
 }

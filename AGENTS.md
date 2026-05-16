@@ -138,6 +138,15 @@ pnpm --filter @elmental/shared test -- run
 pnpm --filter @elmental/tma build
 ```
 
+Public multiplayer smoke:
+
+```bash
+pnpm exec playwright install chromium
+pnpm smoke:public-match
+```
+
+The `Public Multiplayer Smoke` GitHub Actions workflow runs the same browser test manually against GitHub Pages and SpacetimeDB Cloud. It should stay manual unless we intentionally want every push to create cloud test matches.
+
 ## Deployment
 
 GitHub Pages deployment is handled by `.github/workflows/deploy-pages.yml` on pushes to `main`. The workflow builds `apps/tma/dist` with:
