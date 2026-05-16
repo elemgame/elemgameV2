@@ -44,6 +44,7 @@ jobs:
         run: pnpm --filter @elmental/tma build
         env:
           GITHUB_PAGES: 'true'
+          VITE_BUILD_ID: ${{ github.sha }}
           VITE_GAME_TRANSPORT: spacetime
           VITE_GAME_TRACE: 'true'
           VITE_SPACETIME_URI: https://maincloud.spacetimedb.com
