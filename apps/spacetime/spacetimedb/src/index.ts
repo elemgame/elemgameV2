@@ -32,7 +32,17 @@ const BOT_BALANCE = 1_000_000;
 const RAKE_PERCENT = 5;
 const BOOST_STAKE_PERCENT = 10;
 const BOT_ACCOUNT_ID = 'bot:practice';
+const PAYMENT_JWT_ISSUER = 'elmental-payments';
+const PAYMENT_JWT_AUDIENCE = 'elmental-v2-payments';
+const PAYMENT_JWT_SUBJECT = 'payments-service';
+const PAID_ELM_BALANCE_KIND = 'paid_elm';
+const PAYMENT_STATUS_CREDITED = 'credited';
 const ALL_MOVES = [0, 1, 2, 3, 4, 5] as const;
+const ELM_STARS_PACKAGES = [
+  { starsAmount: 1, elmAmount: 100 },
+  { starsAmount: 5, elmAmount: 600 },
+  { starsAmount: 10, elmAmount: 1300 },
+] as const;
 
 const account = table(
   { name: 'account', public: true },
@@ -243,6 +253,11 @@ export const init = spacetimedb.init(ctx => {
 });
 
 export const onConnect = spacetimedb.clientConnected(ctx => {
+  if (isPaymentService(ctx)) {
+    logEvent(ctx, 'payment_service.connected', undefined, 'Payment service connected', identityHex(ctx.sender));
+    return;
+  }
+
   const existing = ctx.db.player.identity.find(ctx.sender);
   if (existing) {
     const accountRow = ensureAccount(ctx, playerAccountId(existing), existing.name, existing);
@@ -267,6 +282,11 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
 });
 
 export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
+  if (isPaymentService(ctx)) {
+    logEvent(ctx, 'payment_service.disconnected', undefined, 'Payment service disconnected', identityHex(ctx.sender));
+    return;
+  }
+
   const existing = ctx.db.player.identity.find(ctx.sender);
   if (existing) {
     ctx.db.player.identity.update({ ...existing, online: false });
@@ -502,6 +522,101 @@ export const forfeit_match = spacetimedb.reducer(
     const p2Score = side === 'p2' ? match.p2Score : Math.max(match.p2Score, ROUNDS_TO_WIN);
 
     finishMatch(ctx, { ...match, p1Score, p2Score }, winner, { loserRatingPenaltyMultiplier: penaltyMultiplier });
+  }
+);
+
+export const record_stars_payment = spacetimedb.reducer(
+  {
+    paymentId: t.string(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+    starsAmount: t.u32(),
+    elmAmount: t.u32(),
+    telegramPaymentChargeId: t.string(),
+    invoicePayload: t.string(),
+  },
+  (ctx, {
+    paymentId,
+    accountId,
+    telegramUserId,
+    starsAmount,
+    elmAmount,
+    telegramPaymentChargeId,
+    invoicePayload,
+  }) => {
+    requirePaymentService(ctx);
+    const validatedPaymentId = validatePaymentId(paymentId);
+    const validatedTelegramUserId = validateTelegramUserId(telegramUserId);
+    const validatedAccountId = validateTelegramAccountId(accountId, validatedTelegramUserId);
+    const validatedChargeId = validateTelegramChargeId(telegramPaymentChargeId);
+    const validatedInvoicePayload = validateInvoicePayload(invoicePayload);
+    validateStarsPackage(starsAmount, elmAmount);
+
+    const existingByPaymentId = ctx.db.paymentLedger.paymentId.find(validatedPaymentId);
+    const existingByChargeId = findPaymentLedgerByChargeId(ctx, validatedChargeId);
+    const existing = existingByPaymentId ?? existingByChargeId;
+    if (existingByPaymentId && existingByChargeId && existingByPaymentId.paymentId !== existingByChargeId.paymentId) {
+      throw new SenderError('Telegram charge ID is already linked to another payment');
+    }
+    if (existing) {
+      assertSamePaymentLedger(existing, {
+        paymentId: validatedPaymentId,
+        accountId: validatedAccountId,
+        telegramUserId: validatedTelegramUserId,
+        starsAmount,
+        elmAmount,
+        telegramPaymentChargeId: validatedChargeId,
+      });
+      if (existing.status === PAYMENT_STATUS_CREDITED && existing.creditedAtMicros !== undefined) {
+        logEvent(
+          ctx,
+          'payment.duplicate_ignored',
+          undefined,
+          `Duplicate Stars payment ignored for ${validatedAccountId}`,
+          `paymentId=${validatedPaymentId} charge=${validatedChargeId}`
+        );
+        return;
+      }
+    }
+
+    const now = nowMicros(ctx);
+    const accountRow = ensureAccount(ctx, validatedAccountId, validatedAccountId);
+    updateAccount(ctx, {
+      ...accountRow,
+      balance: accountBalance(accountRow) + elmAmount,
+    });
+
+    const ledgerRow = {
+      paymentId: validatedPaymentId,
+      accountId: validatedAccountId,
+      telegramUserId: validatedTelegramUserId,
+      starsAmount,
+      elmAmount,
+      refundedStarsAmount: existing?.refundedStarsAmount ?? 0,
+      refundedElmAmount: existing?.refundedElmAmount ?? 0,
+      telegramPaymentChargeId: validatedChargeId,
+      invoicePayload: validatedInvoicePayload,
+      balanceKind: PAID_ELM_BALANCE_KIND,
+      status: PAYMENT_STATUS_CREDITED,
+      createdAtMicros: existing?.createdAtMicros ?? now,
+      paidAtMicros: existing?.paidAtMicros ?? now,
+      creditedAtMicros: now,
+      refundRequestedAtMicros: existing?.refundRequestedAtMicros,
+      refundedAtMicros: existing?.refundedAtMicros,
+      updatedAtMicros: now,
+    };
+    if (existing) {
+      ctx.db.paymentLedger.paymentId.update({ ...existing, ...ledgerRow });
+    } else {
+      ctx.db.paymentLedger.insert(ledgerRow);
+    }
+    logEvent(
+      ctx,
+      'payment.credited',
+      undefined,
+      `Credited ${elmAmount} paid ELM for ${validatedAccountId}`,
+      `paymentId=${validatedPaymentId} stars=${starsAmount} charge=${validatedChargeId}`
+    );
   }
 );
 
@@ -1309,6 +1424,98 @@ function assertCanStakeAccount(accountRow: AccountRow, amount: number) {
   if (accountBalance(accountRow) < amount) {
     throw new SenderError(`Insufficient ELM balance: need ${amount}, have ${accountBalance(accountRow)}`);
   }
+}
+
+function requirePaymentService(ctx: ReducerContext) {
+  if (!isPaymentService(ctx)) {
+    throw new SenderError('Payment service is not authorized');
+  }
+}
+
+function isPaymentService(ctx: ReducerContext) {
+  const jwt = ctx.senderAuth?.jwt;
+  if (!ctx.senderAuth?.hasJWT || !jwt) {
+    return false;
+  }
+  const audience = Array.isArray(jwt.audience) ? jwt.audience : [];
+  return (
+    jwt.issuer === PAYMENT_JWT_ISSUER &&
+    jwt.subject === PAYMENT_JWT_SUBJECT &&
+    audience.includes(PAYMENT_JWT_AUDIENCE)
+  );
+}
+
+function findPaymentLedgerByChargeId(ctx: ReducerContext, chargeId: string) {
+  for (const row of ctx.db.paymentLedger.iter()) {
+    if (row.telegramPaymentChargeId === chargeId) return row;
+  }
+  return undefined;
+}
+
+function assertSamePaymentLedger(
+  row: MatchRow,
+  expected: {
+    paymentId: string;
+    accountId: string;
+    telegramUserId: string;
+    starsAmount: number;
+    elmAmount: number;
+    telegramPaymentChargeId: string;
+  }
+) {
+  if (
+    row.paymentId !== expected.paymentId ||
+    row.accountId !== expected.accountId ||
+    row.telegramUserId !== expected.telegramUserId ||
+    row.starsAmount !== expected.starsAmount ||
+    row.elmAmount !== expected.elmAmount ||
+    (row.telegramPaymentChargeId !== '' && row.telegramPaymentChargeId !== expected.telegramPaymentChargeId)
+  ) {
+    throw new SenderError('Payment ledger conflict');
+  }
+}
+
+function validatePaymentId(value: string) {
+  const trimmed = value.trim();
+  if (!/^[a-zA-Z0-9:_-]{8,128}$/.test(trimmed)) throw new SenderError('Invalid payment id');
+  return trimmed;
+}
+
+function validateTelegramUserId(value: string) {
+  const trimmed = value.trim();
+  if (!/^[0-9]{1,20}$/.test(trimmed)) throw new SenderError('Invalid Telegram user id');
+  return trimmed;
+}
+
+function validateTelegramAccountId(value: string, telegramUserId: string) {
+  const normalized = normalizeAccountId(value, undefined);
+  const expected = `telegram:${telegramUserId}`;
+  if (normalized !== expected) throw new SenderError('Payment account must match Telegram user');
+  return normalized;
+}
+
+function validateTelegramChargeId(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length < 4 || trimmed.length > 256 || !/^[\x20-\x7e]+$/.test(trimmed)) {
+    throw new SenderError('Invalid Telegram payment charge id');
+  }
+  return trimmed;
+}
+
+function validateInvoicePayload(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length < 8 || trimmed.length > 128 || !/^[\x20-\x7e]+$/.test(trimmed)) {
+    throw new SenderError('Invalid invoice payload');
+  }
+  return trimmed;
+}
+
+function validateStarsPackage(starsAmount: number, elmAmount: number) {
+  const supported = ELM_STARS_PACKAGES.some(pkg => (
+    pkg.starsAmount === starsAmount &&
+    pkg.elmAmount === elmAmount
+  ));
+  if (!supported) throw new SenderError('Unsupported Stars to ELM package');
 }
 
 function refundDrawBalances(ctx: ReducerContext, match: MatchRow) {

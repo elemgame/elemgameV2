@@ -15,6 +15,7 @@ export interface SuccessfulStarsPaymentEvent {
 
 export interface PaymentEventRecorder {
   recordSuccessfulPayment(event: SuccessfulStarsPaymentEvent): Promise<void>;
+  dispose?(): void;
 }
 
 export const noopPaymentEventRecorder: PaymentEventRecorder = {
