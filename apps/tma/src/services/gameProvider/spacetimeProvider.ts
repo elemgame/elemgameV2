@@ -1,5 +1,5 @@
 import { Identity } from 'spacetimedb';
-import { GameMode, MoveId } from '@elmental/shared';
+import { BOOST_EXTRA_ENERGY, MoveId, STARTING_ENERGY } from '@elmental/shared';
 import { DbConnection } from '../../module_bindings';
 import { playerDisplayName } from '../playerProfile';
 import type {
@@ -322,7 +322,14 @@ export function createSpacetimeProvider(
     const rowKey = row.id.toString();
     if (processedRoundIds.has(rowKey)) return;
     processedRoundIds.add(rowKey);
-    const result = mapRoundResultPerspective(row, activeMatch, currentIdentity, identityEquals);
+    const isPlayer1 = identityEquals(activeMatch.p1, currentIdentity);
+    const result = mapRoundResultPerspective(
+      row,
+      activeMatch,
+      currentIdentity,
+      identityEquals,
+      roundEnergyBefore(row, activeMatch, isPlayer1),
+    );
     trace('spacetime.round.result', {
       matchId: row.matchId.toString(),
       round: row.round,
@@ -434,6 +441,20 @@ export function createSpacetimeProvider(
     }
   }
 
+  function roundEnergyBefore(row: StdbRoundResult, match: MatchState, isPlayer1: boolean): number {
+    if (row.round <= 1) {
+      return STARTING_ENERGY + ((isPlayer1 ? match.p1BoostEnabled : match.p2BoostEnabled) ? BOOST_EXTRA_ENERGY : 0);
+    }
+
+    for (const previous of conn?.db.roundResult.iter() ?? []) {
+      if (previous.matchId === row.matchId && previous.round === row.round - 1) {
+        return isPlayer1 ? previous.p1Energy : previous.p2Energy;
+      }
+    }
+
+    return isPlayer1 ? row.p1Energy : row.p2Energy;
+  }
+
   async function callReducer(name: string, call: () => Promise<unknown>): Promise<void> {
     try {
       await call();
@@ -506,6 +527,7 @@ export function mapRoundResultPerspective(
   match: MatchState,
   currentIdentity: Identity,
   identityEqualsFn: (a: Identity, b: Identity) => boolean,
+  myEnergyBefore?: number,
 ) {
   const isPlayer1 = identityEqualsFn(match.p1, currentIdentity);
   return {
@@ -515,6 +537,7 @@ export function mapRoundResultPerspective(
     myMove: (isPlayer1 ? row.p1Move : row.p2Move) as MoveId,
     opponentMove: (isPlayer1 ? row.p2Move : row.p1Move) as MoveId,
     result: (isPlayer1 ? row.p1Result : row.p2Result) as 'win' | 'lose' | 'draw',
+    myEnergyBefore: myEnergyBefore ?? (isPlayer1 ? row.p1Energy : row.p2Energy),
     myEnergyAfter: isPlayer1 ? row.p1Energy : row.p2Energy,
     opponentEnergy: isPlayer1 ? row.p2Energy : row.p1Energy,
     myScore: isPlayer1 ? row.p1Score : row.p2Score,

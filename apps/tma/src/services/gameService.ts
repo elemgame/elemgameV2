@@ -281,6 +281,7 @@ function applyRoundResult(event: Extract<GameplayProviderEvent, { type: 'roundRe
     opponentMove: event.opponentMove,
     result: event.result,
     score: `${event.myScore}:${event.opponentScore}`,
+    energy: `${event.myEnergyBefore}->${event.myEnergyAfter}`,
   });
   useGameStore.setState({ currentRound: event.round });
   store.updateEnergy(event.myEnergyAfter);
@@ -290,6 +291,7 @@ function applyRoundResult(event: Extract<GameplayProviderEvent, { type: 'roundRe
     myMove: event.myMove,
     opponentMove: event.opponentMove,
     result: event.result,
+    myEnergyBefore: event.myEnergyBefore,
     myEnergyAfter: event.myEnergyAfter,
     opponentEnergyLevel: toStoreEnergyLevel(getEnergyLevel(event.opponentEnergy)),
     wasOverclocked: event.wasOverclocked,

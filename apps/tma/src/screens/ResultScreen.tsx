@@ -319,24 +319,34 @@ export function ResultScreen() {
               {roundHistory.map((round) => (
                 <div
                   key={round.round}
-                  className="flex items-center justify-between text-sm py-1"
+                  className="rounded-xl px-3 py-2 text-sm"
+                  style={{ background: 'rgba(255,255,255,0.03)' }}
                 >
-                  <span className="text-text-muted text-xs">R{round.round}</span>
-                  <div className="flex items-center gap-2">
-                    <MoveArt moveId={round.myMove} size="sm" />
-                    <span className="text-text-muted">vs</span>
-                    <MoveArt moveId={round.opponentMove} size="sm" />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-text-muted text-xs w-7 flex-shrink-0">R{round.round}</span>
+                    <div className="flex items-center justify-center gap-2 min-w-0">
+                      <MoveArt moveId={round.myMove} size="sm" />
+                      <span className="text-text-muted">vs</span>
+                      <MoveArt moveId={round.opponentMove} size="sm" />
+                    </div>
+                    <span
+                      className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{
+                        color: round.result === 'win' ? '#22c55e' : round.result === 'lose' ? '#ef4444' : '#eab308',
+                        background: round.result === 'win' ? 'rgba(34,197,94,0.12)' : round.result === 'lose' ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)',
+                      }}
+                    >
+                      {round.result.toUpperCase()}
+                    </span>
                   </div>
-                  <span
-                    className="text-xs font-bold px-2 py-0.5 rounded-full"
-                    style={{
-                      color: round.result === 'win' ? '#22c55e' : round.result === 'lose' ? '#ef4444' : '#eab308',
-                      background: round.result === 'win' ? 'rgba(34,197,94,0.12)' : round.result === 'lose' ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)',
-                    }}
-                  >
-                    {round.result.toUpperCase()}
-                  </span>
-                  <span className="text-xs text-text-muted inline-flex items-center gap-0.5">{round.myEnergyAfter}<BoltIcon size={10} /></span>
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-text-secondary">Energy played</span>
+                    <span className="text-text-primary font-bold inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-0.5">{round.myEnergyBefore}<BoltIcon size={10} /></span>
+                      <span className="text-text-muted">to</span>
+                      <span className="inline-flex items-center gap-0.5">{round.myEnergyAfter}<BoltIcon size={10} /></span>
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

@@ -56,6 +56,7 @@ export interface RoundResultEvent {
   myMove: MoveId;
   opponentMove: MoveId;
   result: 'win' | 'lose' | 'draw';
+  myEnergyBefore: number;
   myEnergyAfter: number;
   opponentEnergy: number;
   myScore: number;

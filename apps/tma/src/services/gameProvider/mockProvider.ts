@@ -201,8 +201,9 @@ export function createMockProvider(
     const outcome = resolveRound(finalPlayerMove, opponentMove);
     const chaosRoll = match.request.mode === GameMode.Chaos ? Math.floor(random() * 21) : undefined;
     const opponentChaosRoll = match.request.mode === GameMode.Chaos ? Math.floor(random() * 21) : undefined;
+    const myEnergyBefore = match.myEnergy;
     const myEnergy = calculateEnergy(
-      { energy: match.myEnergy, isOverclocked: wasOverclocked, boostActive: match.request.boostEnabled },
+      { energy: myEnergyBefore, isOverclocked: wasOverclocked, boostActive: match.request.boostEnabled },
       getMoveInfo(finalPlayerMove),
       outcome.p1Result,
       match.request.mode,
@@ -237,6 +238,7 @@ export function createMockProvider(
       myMove: finalPlayerMove,
       opponentMove,
       result: outcome.p1Result,
+      myEnergyBefore,
       myEnergyAfter: myEnergy,
       opponentEnergy,
       myScore: match.myScore,

@@ -61,6 +61,7 @@ export interface RoundEntry {
   myMove: number;
   opponentMove: number;
   result: 'win' | 'lose' | 'draw';
+  myEnergyBefore: number;
   myEnergyAfter: number;
 }
 
@@ -68,6 +69,7 @@ export interface LastRoundResult {
   myMove: number;
   opponentMove: number;
   result: 'win' | 'lose' | 'draw';
+  myEnergyBefore: number;
   myEnergyAfter: number;
   opponentEnergyLevel: EnergyLevel;
   wasOverclocked: boolean;
@@ -271,6 +273,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           myMove: result.myMove,
           opponentMove: result.opponentMove,
           result: result.result,
+          myEnergyBefore: result.myEnergyBefore,
           myEnergyAfter: result.myEnergyAfter,
         },
       ],

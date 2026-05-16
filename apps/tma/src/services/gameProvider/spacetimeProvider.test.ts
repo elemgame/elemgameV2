@@ -43,14 +43,16 @@ describe('SpacetimeDB provider mappers', () => {
   });
 
   it('maps round results from both perspectives', () => {
-    const p1Result = mapRoundResultPerspective(roundRow(), matchRow(), p1 as never, identityEquals as never);
-    const p2Result = mapRoundResultPerspective(roundRow(), matchRow(), p2 as never, identityEquals as never);
+    const p1Result = mapRoundResultPerspective(roundRow(), matchRow(), p1 as never, identityEquals as never, 95);
+    const p2Result = mapRoundResultPerspective(roundRow(), matchRow(), p2 as never, identityEquals as never, 85);
 
     expect(p1Result).toMatchObject({
       type: 'roundResult',
       myMove: MoveId.Fire,
       opponentMove: MoveId.Earth,
       result: 'win',
+      myEnergyBefore: 95,
+      myEnergyAfter: 80,
       myScore: 2,
       opponentScore: 1,
     });
@@ -59,6 +61,8 @@ describe('SpacetimeDB provider mappers', () => {
       myMove: MoveId.Earth,
       opponentMove: MoveId.Fire,
       result: 'lose',
+      myEnergyBefore: 85,
+      myEnergyAfter: 60,
       myScore: 1,
       opponentScore: 2,
     });

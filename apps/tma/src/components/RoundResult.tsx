@@ -146,14 +146,19 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
               </motion.div>
             )}
 
-            {/* Energy after */}
+            {/* Energy before and after */}
             <motion.div
               className="text-sm text-text-secondary"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
-              Your energy: <span className="font-bold text-text-primary inline-flex items-center gap-0.5">{result.myEnergyAfter}<BoltIcon size={12} /></span>
+              Your energy:{' '}
+              <span className="font-bold text-text-primary inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-0.5">{result.myEnergyBefore}<BoltIcon size={12} /></span>
+                <span className="text-text-muted">to</span>
+                <span className="inline-flex items-center gap-0.5">{result.myEnergyAfter}<BoltIcon size={12} /></span>
+              </span>
             </motion.div>
 
             {/* Tap to continue */}

@@ -49,7 +49,17 @@ describe('mock gameplay provider contract', () => {
     expect(eventTypes()).toContain('playerStats');
     expect(eventTypes()).toContain('queueActive');
     expect(eventTypes()).toContain('matchFound');
-    expect(events.filter((event) => event.type === 'roundResult')).toHaveLength(3);
+    const roundResults = events.filter((event) => event.type === 'roundResult');
+    expect(roundResults).toHaveLength(3);
+    expect(roundResults[0]).toMatchObject({
+      type: 'roundResult',
+      myEnergyBefore: 100,
+      myEnergyAfter: 95,
+    });
+    expect(roundResults[1]).toMatchObject({
+      type: 'roundResult',
+      myEnergyBefore: 95,
+    });
     expect(events.at(-1)).toMatchObject({
       type: 'matchSettled',
       winner: 'me',
