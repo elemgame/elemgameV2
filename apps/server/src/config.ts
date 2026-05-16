@@ -12,6 +12,8 @@ function optionalEnv(name: string, defaultValue: string): string {
   return process.env[name] ?? defaultValue;
 }
 
+const defaultWebappUrl = 'https://elemgame.github.io/elemgameV2/';
+
 export interface Config {
   port: number;
   botToken: string;
@@ -70,7 +72,7 @@ function loadConfig(): Config {
     port: parseInt(optionalEnv('PORT', '3001'), 10),
     botToken,
     jwtSecret,
-    webappUrl: optionalEnv('WEBAPP_URL', optionalEnv('TELEGRAM_WEBAPP_URL', 'https://t.me/your_bot/app')),
+    webappUrl: optionalEnv('WEBAPP_URL', optionalEnv('TELEGRAM_WEBAPP_URL', defaultWebappUrl)),
     dataStore: optionalEnv('DATA_STORE', isDev ? 'memory' : 'postgres') === 'memory'
       ? 'memory'
       : 'postgres',
