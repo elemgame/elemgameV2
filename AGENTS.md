@@ -120,6 +120,7 @@ pnpm --filter @elmental/tma dev
 Build the exact GitHub Pages artifact:
 
 ```bash
+pnpm --filter @elmental/shared build
 GITHUB_PAGES=true \
 VITE_GAME_TRANSPORT=spacetime \
 VITE_GAME_TRACE=true \
@@ -132,6 +133,7 @@ Core verification:
 
 ```bash
 spacetime build --module-path apps/spacetime/spacetimedb
+pnpm --filter @elmental/shared build
 pnpm --filter @elmental/shared test -- run
 pnpm --filter @elmental/tma build
 ```
