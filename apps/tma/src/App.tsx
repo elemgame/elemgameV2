@@ -27,16 +27,17 @@ export default function App() {
 
     const tgUser = getTelegramUser();
     const user = tgUser ?? getMockUser();
-    const source = tgUser ? 'telegram' : 'web';
-
-    setTelegramUser({
+    const source: 'telegram' | 'web' = tgUser ? 'telegram' : 'web';
+    const profileUser = {
       id: user.id,
       first_name: user.first_name,
       last_name: user.last_name,
       username: user.username,
       photo_url: user.photo_url,
       source,
-    });
+    };
+
+    setTelegramUser(profileUser);
 
     setPlayerStats({
       elmBalance: 1000,
@@ -45,7 +46,7 @@ export default function App() {
       losses: 0,
     });
 
-    void initializeGameSession(user);
+    void initializeGameSession(profileUser);
   }, [setTelegramUser, setPlayerStats]);
 
   const renderScreen = () => {

@@ -1,6 +1,7 @@
 import { Identity } from 'spacetimedb';
 import { GameMode, MoveId } from '@elmental/shared';
 import { DbConnection } from '../../module_bindings';
+import { playerDisplayName } from '../playerProfile';
 import type {
   GameEvent,
   MatchState,
@@ -534,7 +535,7 @@ function identityEquals(a: Identity, b: Identity): boolean {
 }
 
 function displayName(user: PlayerProfileInput): string {
-  return `${user.first_name}${user.last_name ? ` ${user.last_name}` : ''}`;
+  return playerDisplayName(user);
 }
 
 function errorMessage(err: unknown): string {

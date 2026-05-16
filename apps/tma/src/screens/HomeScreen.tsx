@@ -4,6 +4,7 @@ import { useGameStore } from '../stores/gameStore';
 import { GameMode } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { startMatchmaking } from '../services/gameService';
+import { playerDisplayName } from '../services/playerProfile';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { VortexIcon } from '../components/icons/VortexIcon';
@@ -51,9 +52,7 @@ export function HomeScreen() {
     setScreen,
   } = useGameStore();
 
-  const displayName = telegramUser
-    ? `${telegramUser.first_name}${telegramUser.last_name ? ` ${telegramUser.last_name}` : ''}`
-    : 'Player';
+  const displayName = playerDisplayName(telegramUser);
 
   const winRate =
     stats.wins + stats.losses > 0

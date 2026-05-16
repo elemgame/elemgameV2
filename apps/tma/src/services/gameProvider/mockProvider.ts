@@ -10,6 +10,7 @@ import {
   resolveOverclock,
   resolveRound,
 } from '@elmental/shared';
+import { playerDisplayName } from '../playerProfile';
 import type {
   GameplayProvider,
   GameplayProviderContext,
@@ -321,7 +322,7 @@ export function createMockProvider(
 }
 
 function displayName(user: PlayerProfileInput): string {
-  return `${user.first_name}${user.last_name ? ` ${user.last_name}` : ''}`;
+  return playerDisplayName(user);
 }
 
 function randomSeed(): Uint8Array {

@@ -120,6 +120,26 @@ describe('mock gameplay provider contract', () => {
     });
   });
 
+  it('uses Telegram username for player profile events', async () => {
+    const provider = createMockProvider(
+      { emit: (event) => events.push(event) },
+      { deterministic: true },
+    );
+
+    await provider.initialize({
+      id: 1,
+      first_name: 'Telegram',
+      last_name: 'User',
+      username: 'tg_nick',
+      source: 'telegram',
+    });
+
+    expect(events.find((event) => event.type === 'playerStats')).toMatchObject({
+      type: 'playerStats',
+      name: 'tg_nick',
+    });
+  });
+
   it('can start a fresh match after results are applied', async () => {
     const provider = createMockProvider(
       { emit: (event) => events.push(event) },

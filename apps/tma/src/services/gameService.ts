@@ -8,6 +8,7 @@ import {
 import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stores/gameStore';
 import { showAlert } from './telegram';
 import { playSound } from './audio';
+import { playerDisplayName } from './playerProfile';
 import { createMockProvider } from './gameProvider/mockProvider';
 import { recordGameLog } from './bugReport';
 import {
@@ -405,8 +406,7 @@ function addTx(type: EconomyTransaction['type'], amount: number, matchId: string
 }
 
 function displayName(user?: PlayerProfileInput | null): string {
-  if (!user) return 'Player';
-  return `${user.first_name}${user.last_name ? ` ${user.last_name}` : ''}`;
+  return playerDisplayName(user);
 }
 
 function toStoreEnergyLevel(level: string): EnergyLevel {

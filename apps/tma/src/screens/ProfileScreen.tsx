@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { updatePlayerProfile } from '../services/gameService';
 import { haptic, sanitizeWebUserName, saveWebUser } from '../services/telegram';
+import { playerDisplayName, playerFullName } from '../services/playerProfile';
 import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
 import { StarIcon } from '../components/icons/StarIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
@@ -15,9 +16,12 @@ import { SwordsIcon } from '../components/icons/SwordsIcon';
 export function ProfileScreen() {
   const { telegramUser, rating, stats, elmBalance, setScreen, setTelegramUser, transactions } = useGameStore();
 
-  const displayName = telegramUser
-    ? `${telegramUser.first_name}${telegramUser.last_name ? ` ${telegramUser.last_name}` : ''}`
-    : 'Player';
+  const displayName = playerDisplayName(telegramUser);
+  const profileSubtitle = telegramUser?.source === 'telegram' && telegramUser.username
+    ? playerFullName(telegramUser)
+    : telegramUser?.username
+      ? `@${telegramUser.username}`
+      : '';
   const isWebUser = telegramUser?.source === 'web';
   const [draftName, setDraftName] = useState(displayName);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -104,8 +108,8 @@ export function ProfileScreen() {
 
           <div className="text-center">
             <div className="text-xl font-black text-text-primary">{displayName}</div>
-            {telegramUser?.username && (
-              <div className="text-sm text-text-secondary">@{telegramUser.username}</div>
+            {profileSubtitle && (
+              <div className="text-sm text-text-secondary">{profileSubtitle}</div>
             )}
           </div>
 
