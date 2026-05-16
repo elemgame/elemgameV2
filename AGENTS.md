@@ -150,6 +150,16 @@ pnpm smoke:public-timeouts
 The `Public Multiplayer Smoke` GitHub Actions workflow runs the same browser test manually against GitHub Pages and SpacetimeDB Cloud. It should stay manual unless we intentionally want every push to create cloud test matches.
 The longer `Public Timeout Smoke` workflow verifies one-player timeout win and both-player disconnect/reconnect draw recovery.
 
+Telegram bot configuration:
+
+```bash
+TELEGRAM_BOT_TOKEN='...' \
+TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/' \
+pnpm telegram:configure
+```
+
+The token must never be committed. Detailed launch notes are in `docs/telegram-launch.md`.
+
 ## Deployment
 
 GitHub Pages deployment is handled by `.github/workflows/deploy-pages.yml` on pushes to `main`. The workflow builds `apps/tma/dist` with:

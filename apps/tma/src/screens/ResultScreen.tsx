@@ -5,9 +5,6 @@ import { RAKE_PERCENT } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { applyResults } from '../services/gameService';
 import { playSound } from '../services/audio';
-import { EarthIcon } from '../components/icons/EarthIcon';
-import { FireIcon } from '../components/icons/FireIcon';
-import { WaterIcon } from '../components/icons/WaterIcon';
 import { TrophyIcon } from '../components/icons/TrophyIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { HandshakeIcon } from '../components/icons/HandshakeIcon';
@@ -18,6 +15,7 @@ import { HomeIcon } from '../components/icons/HomeIcon';
 import { FlameIcon } from '../components/icons/FlameIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
 import { BoltIcon } from '../components/icons/BoltIcon';
+import { MoveArt } from '../components/MoveArt';
 
 interface ConfettiPiece {
   id: number;
@@ -41,18 +39,6 @@ function generateConfetti(count: number): ConfettiPiece[] {
 }
 
 const CONFETTI = generateConfetti(30);
-
-function MoveIconDisplay({ id, size }: { id: number; size: number }) {
-  const enhanced = id >= 3;
-  const cls = enhanced
-    ? 'text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]'
-    : id === 0 ? 'text-earth-light' : id === 1 ? 'text-fire' : 'text-water-light';
-  switch (id % 3) {
-    case 0: return <EarthIcon size={size} className={cls} />;
-    case 1: return <FireIcon size={size} className={cls} />;
-    case 2: return <WaterIcon size={size} className={cls} />;
-  }
-}
 
 export function ResultScreen() {
   const {
@@ -337,9 +323,9 @@ export function ResultScreen() {
                 >
                   <span className="text-text-muted text-xs">R{round.round}</span>
                   <div className="flex items-center gap-2">
-                    <MoveIconDisplay id={round.myMove} size={20} />
+                    <MoveArt moveId={round.myMove} size="sm" />
                     <span className="text-text-muted">vs</span>
-                    <MoveIconDisplay id={round.opponentMove} size={20} />
+                    <MoveArt moveId={round.opponentMove} size="sm" />
                   </div>
                   <span
                     className="text-xs font-bold px-2 py-0.5 rounded-full"

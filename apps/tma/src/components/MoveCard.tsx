@@ -2,10 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { MoveId } from '@elmental/shared';
 import { BASIC_MOVE_COST, ENHANCED_MOVE_COST } from '@elmental/shared';
-import { EarthIcon } from './icons/EarthIcon';
-import { FireIcon } from './icons/FireIcon';
-import { WaterIcon } from './icons/WaterIcon';
 import { BoltIcon } from './icons/BoltIcon';
+import { MoveArt } from './MoveArt';
 
 interface MoveCardProps {
   moveId: MoveId;
@@ -26,7 +24,6 @@ interface MoveConfig {
   gradientTo: string;
   glowColor: string;
   borderColor: string;
-  element: 'earth' | 'fire' | 'water';
 }
 
 const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
@@ -40,7 +37,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     gradientTo: '#8b4513',
     glowColor: 'rgba(139,69,19,0.6)',
     borderColor: '#8b4513',
-    element: 'earth',
   },
   [MoveId.Fire]: {
     name: 'Fire',
@@ -52,7 +48,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     gradientTo: '#ef4444',
     glowColor: 'rgba(239,68,68,0.6)',
     borderColor: '#ef4444',
-    element: 'fire',
   },
   [MoveId.Water]: {
     name: 'Water',
@@ -64,7 +59,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     gradientTo: '#3b82f6',
     glowColor: 'rgba(59,130,246,0.6)',
     borderColor: '#3b82f6',
-    element: 'water',
   },
   [MoveId.EarthPlus]: {
     name: 'Earth+',
@@ -76,7 +70,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     gradientTo: '#a0522d',
     glowColor: 'rgba(255,215,0,0.6)',
     borderColor: '#ffd700',
-    element: 'earth',
   },
   [MoveId.FirePlus]: {
     name: 'Fire+',
@@ -88,7 +81,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     gradientTo: '#dc2626',
     glowColor: 'rgba(255,215,0,0.6)',
     borderColor: '#ffd700',
-    element: 'fire',
   },
   [MoveId.WaterPlus]: {
     name: 'Water+',
@@ -100,7 +92,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     gradientTo: '#2563eb',
     glowColor: 'rgba(255,215,0,0.6)',
     borderColor: '#ffd700',
-    element: 'water',
   },
 };
 
@@ -134,22 +125,6 @@ export function MoveCard({
   const background = selected
     ? `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`
     : `linear-gradient(135deg, ${cfg.gradientFrom}80, ${cfg.gradientTo}40)`;
-
-  const renderIcon = (px: number) => {
-    if (cfg.isEnhanced) {
-      const cls = 'text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]';
-      switch (cfg.element) {
-        case 'earth': return <EarthIcon size={px} className={cls} />;
-        case 'fire': return <FireIcon size={px} className={cls} />;
-        case 'water': return <WaterIcon size={px} className={cls} />;
-      }
-    }
-    switch (cfg.element) {
-      case 'earth': return <EarthIcon size={px} className="text-earth-light" />;
-      case 'fire': return <FireIcon size={px} className="text-fire" />;
-      case 'water': return <WaterIcon size={px} className="text-water-light" />;
-    }
-  };
 
   return (
     <motion.button
@@ -204,8 +179,8 @@ export function MoveCard({
       )}
 
       {/* Icon */}
-      <span className="flex items-center justify-center" style={{ height: 28, width: 28 }}>
-        {renderIcon(28)}
+      <span className="flex items-center justify-center" style={{ height: 32, width: 32 }}>
+        <MoveArt moveId={moveId} size="sm" />
       </span>
 
       {/* Name */}

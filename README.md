@@ -222,6 +222,18 @@ The same smoke is available as the manual GitHub Actions workflow `Public Multip
 
 `Public Timeout Smoke` is a longer manual workflow for reconnect/timeout behavior. It verifies a one-player timeout win and a both-player disconnect/reconnect draw recovery against the public SpacetimeDB instance.
 
+### Telegram Bot Launch
+
+Telegram launch for the public mechanics instance is documented in `docs/telegram-launch.md`.
+
+```bash
+export TELEGRAM_BOT_TOKEN='...'
+export TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/'
+pnpm telegram:configure
+```
+
+This configures bot commands and the Telegram menu button. The token must stay outside git.
+
 ### Local Test Multiplayer Instance
 
 For mechanics testing, run SpacetimeDB locally. No blockchain, Postgres, or Redis is required.
@@ -303,7 +315,7 @@ elmental-v2/
 ### Phase 2: Infrastructure
 - [x] Local SpacetimeDB test instance for real multiplayer mechanics
 - [ ] Production SpacetimeDB deployment
-- [ ] Telegram Bot configuration ([#6](https://github.com/elemgame/elemgameV2/issues/6))
+- [ ] Telegram Bot configuration ([#19](https://github.com/elemgame/elemgameV2/issues/19))
 - [ ] CI/CD pipeline ([#11](https://github.com/elemgame/elemgameV2/issues/11))
 
 ### Phase 3: Blockchain

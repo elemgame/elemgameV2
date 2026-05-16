@@ -1,14 +1,12 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LastRoundResult } from '../stores/gameStore';
-import { EarthIcon } from './icons/EarthIcon';
-import { FireIcon } from './icons/FireIcon';
-import { WaterIcon } from './icons/WaterIcon';
 import { TrophyIcon } from './icons/TrophyIcon';
 import { SkullIcon } from './icons/SkullIcon';
 import { HandshakeIcon } from './icons/HandshakeIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { ArrowRightIcon } from './icons/ArrowRightIcon';
+import { MoveArt } from './MoveArt';
 
 interface RoundResultProps {
   result: LastRoundResult | null;
@@ -20,18 +18,6 @@ const MOVE_NAMES: Record<number, string> = {
   0: 'Earth', 1: 'Fire', 2: 'Water',
   3: 'Earth+', 4: 'Fire+', 5: 'Water+',
 };
-
-function MoveIconDisplay({ id, size }: { id: number; size: number }) {
-  const enhanced = id >= 3;
-  const cls = enhanced
-    ? 'text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]'
-    : id === 0 ? 'text-earth-light' : id === 1 ? 'text-fire' : 'text-water-light';
-  switch (id % 3) {
-    case 0: return <EarthIcon size={size} className={cls} />;
-    case 1: return <FireIcon size={size} className={cls} />;
-    case 2: return <WaterIcon size={size} className={cls} />;
-  }
-}
 
 export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
   if (!result) return null;
@@ -120,7 +106,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
                 transition={{ delay: 0.3, type: 'spring' }}
               >
                 <span className="text-xs text-text-secondary font-semibold">YOU</span>
-                <MoveIconDisplay id={result.myMove} size={36} />
+                <MoveArt moveId={result.myMove} size="lg" />
                 <span className="text-xs font-bold text-text-primary">{MOVE_NAMES[result.myMove]}</span>
               </motion.div>
 
@@ -142,7 +128,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
                 transition={{ delay: 0.3, type: 'spring' }}
               >
                 <span className="text-xs text-text-secondary font-semibold">OPP</span>
-                <MoveIconDisplay id={result.opponentMove} size={36} />
+                <MoveArt moveId={result.opponentMove} size="lg" />
                 <span className="text-xs font-bold text-text-primary">{MOVE_NAMES[result.opponentMove]}</span>
               </motion.div>
             </motion.div>
