@@ -71,12 +71,12 @@ function pickAIMove(
   // Adaptive: counter player's last move
   if (personality === 'adaptive' && playerLastMove !== null) {
     const counterMap: Record<number, MoveId[]> = {
-      [MoveId.Earth]: [MoveId.Water, MoveId.WaterPlus],
-      [MoveId.Fire]: [MoveId.Earth, MoveId.EarthPlus],
-      [MoveId.Water]: [MoveId.Fire, MoveId.FirePlus],
-      [MoveId.EarthPlus]: [MoveId.WaterPlus, MoveId.Fire],
-      [MoveId.FirePlus]: [MoveId.EarthPlus, MoveId.Water],
-      [MoveId.WaterPlus]: [MoveId.FirePlus, MoveId.Earth],
+      [MoveId.Earth]: [MoveId.Fire, MoveId.WaterPlus],
+      [MoveId.Fire]: [MoveId.Water, MoveId.FirePlus],
+      [MoveId.Water]: [MoveId.Earth, MoveId.WaterPlus],
+      [MoveId.EarthPlus]: [MoveId.Water, MoveId.FirePlus],
+      [MoveId.FirePlus]: [MoveId.Earth, MoveId.WaterPlus],
+      [MoveId.WaterPlus]: [MoveId.Fire, MoveId.EarthPlus],
     };
     const counters = (counterMap[playerLastMove] ?? []).filter(
       (m) => getMoveInfo(m).cost <= aiEnergy,

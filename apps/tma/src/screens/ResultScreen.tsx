@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { RAKE_PERCENT } from '@elmental/shared';
 import { haptic } from '../services/telegram';
-import { applyMockResults } from '../services/mockGame';
+import { applyResults } from '../services/gameService';
 import { EarthIcon } from '../components/icons/EarthIcon';
 import { FireIcon } from '../components/icons/FireIcon';
 import { WaterIcon } from '../components/icons/WaterIcon';
@@ -80,10 +80,23 @@ export function ResultScreen() {
     }
   }, [matchResult]);
 
+  const handlePlayAgain = () => {
+    haptic.medium();
+    applyResults('playAgain');
+  };
+
+  const handleHome = () => {
+    haptic.light();
+    applyResults('home');
+  };
+
   if (!matchResult) {
     return (
-      <div className="flex h-full items-center justify-center bg-game-bg">
-        <div className="text-text-secondary">Loading result...</div>
+      <div className="flex h-full flex-col items-center justify-center bg-game-bg p-6 gap-4 text-center">
+        <div className="text-text-secondary">Result is still syncing...</div>
+        <button data-nav className="btn-ghost w-full max-w-xs py-3 text-sm" onClick={handleHome}>
+          Back to Home
+        </button>
       </div>
     );
   }
@@ -115,16 +128,6 @@ export function ResultScreen() {
         bg: 'linear-gradient(180deg, rgba(239,68,68,0.12) 0%, #0a0a1a 60%)',
         subtext: 'Better luck next time',
       };
-
-  const handlePlayAgain = () => {
-    haptic.medium();
-    applyMockResults('playAgain');
-  };
-
-  const handleHome = () => {
-    haptic.light();
-    applyMockResults('home');
-  };
 
   return (
     <div
@@ -291,8 +294,6 @@ export function ResultScreen() {
                   <div className="flex justify-between">
                     <span className="text-text-secondary">Boost Status</span>
                     {matchResult.boostBurned ? (
-                      <span className="text-energy-low font-bold"><FlameIcon size={14} className="inline" /> BURNED</span>
-                    ) : matchResult.boostBurned ? (
                       <span className="text-energy-low font-bold"><FlameIcon size={14} className="inline" /> BURNED</span>
                     ) : matchResult.boostReturned ? (
                       <span className="text-energy-high font-bold"><CheckIcon size={14} className="inline" /> Returned</span>

@@ -18,6 +18,9 @@ const RATING_RANGE = 200;
 
 export class MatchmakingService {
   private redis: Redis;
+  private memoryMode = false;
+  private memoryQueues = new Map<string, Map<number, QueueEntry>>();
+  private memoryEntries = new Map<number, QueueEntry>();
   private onMatchFound: (
     entry1: QueueEntry,
     entry2: QueueEntry,
@@ -31,12 +34,28 @@ export class MatchmakingService {
     this.onMatchFound = onMatchFound;
   }
 
+  setMatchFoundHandler(
+    handler: (entry1: QueueEntry, entry2: QueueEntry) => void | Promise<void>,
+  ): void {
+    this.onMatchFound = handler;
+  }
+
+  useMemoryQueue(): void {
+    this.memoryMode = true;
+    console.log('[matchmaking] Using in-memory queue');
+  }
+
   /**
    * Add a player to the matchmaking queue.
    * Uses a Redis sorted set keyed by mode+stake, scored by rating.
    * After adding, immediately tries to find a match.
    */
   async addToQueue(entry: QueueEntry): Promise<void> {
+    if (this.memoryMode) {
+      await this.addToMemoryQueue(entry);
+      return;
+    }
+
     const queueKey = QUEUE_KEY(entry.mode, entry.stake);
     const entryKey = ENTRY_KEY(entry.userId);
 
@@ -58,6 +77,11 @@ export class MatchmakingService {
    * Remove a player from the matchmaking queue.
    */
   async removeFromQueue(userId: number): Promise<void> {
+    if (this.memoryMode) {
+      this.removeFromMemoryQueue(userId);
+      return;
+    }
+
     const entryRaw = await this.redis.get(ENTRY_KEY(userId));
     if (!entryRaw) return;
 
@@ -81,6 +105,11 @@ export class MatchmakingService {
    * Looks for opponents within ±RATING_RANGE in the same mode+stake bucket.
    */
   async findMatch(seeker: QueueEntry): Promise<void> {
+    if (this.memoryMode) {
+      await this.findMemoryMatch(seeker);
+      return;
+    }
+
     const queueKey = QUEUE_KEY(seeker.mode, seeker.stake);
     const minScore = seeker.rating - RATING_RANGE;
     const maxScore = seeker.rating + RATING_RANGE;
@@ -135,6 +164,10 @@ export class MatchmakingService {
    * Get queue size for a given mode+stake bucket.
    */
   async getQueueSize(mode: GameMode, stake: number): Promise<number> {
+    if (this.memoryMode) {
+      return this.memoryQueues.get(QUEUE_KEY(mode, stake))?.size ?? 0;
+    }
+
     return this.redis.zcard(QUEUE_KEY(mode, stake));
   }
 
@@ -142,8 +175,65 @@ export class MatchmakingService {
    * Check whether a user is currently queued.
    */
   async isInQueue(userId: number): Promise<boolean> {
+    if (this.memoryMode) {
+      return this.memoryEntries.has(userId);
+    }
+
     const exists = await this.redis.exists(ENTRY_KEY(userId));
     return exists > 0;
+  }
+
+  private async addToMemoryQueue(entry: QueueEntry): Promise<void> {
+    this.removeFromMemoryQueue(entry.userId);
+
+    const queueKey = QUEUE_KEY(entry.mode, entry.stake);
+    const queue = this.memoryQueues.get(queueKey) ?? new Map<number, QueueEntry>();
+    queue.set(entry.userId, entry);
+    this.memoryQueues.set(queueKey, queue);
+    this.memoryEntries.set(entry.userId, entry);
+
+    console.log(
+      `[matchmaking] Player ${entry.userId} joined memory queue (mode=${entry.mode}, stake=${entry.stake}, rating=${entry.rating})`,
+    );
+
+    await this.findMemoryMatch(entry);
+  }
+
+  private removeFromMemoryQueue(userId: number): void {
+    const entry = this.memoryEntries.get(userId);
+    if (!entry) return;
+
+    const queue = this.memoryQueues.get(QUEUE_KEY(entry.mode, entry.stake));
+    queue?.delete(userId);
+    this.memoryEntries.delete(userId);
+
+    console.log(`[matchmaking] Player ${userId} left memory queue`);
+  }
+
+  private async findMemoryMatch(seeker: QueueEntry): Promise<void> {
+    const queueKey = QUEUE_KEY(seeker.mode, seeker.stake);
+    const queue = this.memoryQueues.get(queueKey);
+    if (!queue) return;
+
+    const minScore = seeker.rating - RATING_RANGE;
+    const maxScore = seeker.rating + RATING_RANGE;
+
+    for (const opponent of queue.values()) {
+      if (opponent.userId === seeker.userId) continue;
+      if (opponent.rating < minScore || opponent.rating > maxScore) continue;
+
+      queue.delete(seeker.userId);
+      queue.delete(opponent.userId);
+      this.memoryEntries.delete(seeker.userId);
+      this.memoryEntries.delete(opponent.userId);
+
+      console.log(
+        `[matchmaking] Memory match found: ${seeker.userId} vs ${opponent.userId}`,
+      );
+
+      await this.onMatchFound(seeker, opponent);
+      return;
+    }
   }
 }
 

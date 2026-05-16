@@ -1,5 +1,11 @@
 import type { Server as HttpServer } from 'http';
 import { Server } from 'socket.io';
+import {
+  BOOST_EXTRA_ENERGY,
+  ROUNDS_TO_WIN,
+  STARTING_ENERGY,
+  calculateElo,
+} from '@elmental/shared';
 import type { GameMode, MoveId } from '@elmental/shared';
 import { verifySessionToken } from '../auth/index.js';
 import {
@@ -11,10 +17,10 @@ import {
 import type { EngineEvent } from '../game/engine.js';
 import { MatchmakingService } from '../matchmaking/index.js';
 import {
-  upsertUser,
   getUserById,
   createMatch,
   updateMatchStatus,
+  updateUserRating,
   insertRound,
 } from '../db/index.js';
 import type {
@@ -94,19 +100,26 @@ export function createSocketServer(
     socket.on('join-queue', (data) => {
       const { stake, mode } = data;
 
-      const entry: QueueEntry = {
-        userId,
-        rating: 1200, // TODO: fetch from DB
-        stake,
-        mode,
-        socketId: socket.id,
-        joinedAt: Date.now(),
-      };
+      getUserById(userId)
+        .then(async (user) => {
+          const entry: QueueEntry = {
+            userId,
+            rating: user?.rating ?? 1200,
+            stake,
+            mode,
+            boostEnabled: data.boostEnabled ?? false,
+            socketId: socket.id,
+            joinedAt: Date.now(),
+          };
 
-      matchmakingService.addToQueue(entry).catch((err: unknown) => {
-        console.error('[socket] addToQueue error:', err);
-        socket.emit('error', { message: 'Failed to join queue' });
-      });
+          await matchmakingService.addToQueue(entry);
+          const queuedPlayers = await matchmakingService.getQueueSize(mode, stake);
+          socket.emit('queue-joined', { stake, mode, queuedPlayers });
+        })
+        .catch((err: unknown) => {
+          console.error('[socket] addToQueue error:', err);
+          socket.emit('error', { message: 'Failed to join queue' });
+        });
     });
 
     // ------------------------------------------------------------------
@@ -116,6 +129,7 @@ export function createSocketServer(
       matchmakingService.removeFromQueue(userId).catch((err: unknown) => {
         console.error('[socket] removeFromQueue error:', err);
       });
+      socket.emit('queue-left');
     });
 
     // ------------------------------------------------------------------
@@ -140,7 +154,7 @@ export function createSocketServer(
           engine.stopCommitTimer();
           // Notify both players to reveal
           const snap = engine.getSnapshot();
-          io.to(snap.p1SocketId).to(snap.p2SocketId).emit('round-commit-received', {
+          io.to(snap.p1SocketId).to(snap.p2SocketId).emit('round-reveal-start', {
             matchId,
             round: snap.currentRound,
           });
@@ -184,6 +198,22 @@ export function createSocketServer(
     });
 
     // ------------------------------------------------------------------
+    // forfeit-match
+    // ------------------------------------------------------------------
+    socket.on('forfeit-match', (data) => {
+      const engine = getActiveMatch(data.matchId);
+      if (!engine) {
+        socket.emit('error', { message: 'Match not found' });
+        return;
+      }
+
+      engine.forfeit(userId).catch((err: unknown) => {
+        console.error('[socket] forfeitMatch error:', err);
+        socket.emit('error', { message: 'Failed to forfeit match' });
+      });
+    });
+
+    // ------------------------------------------------------------------
     // disconnect
     // ------------------------------------------------------------------
     socket.on('disconnect', (reason) => {
@@ -199,16 +229,18 @@ export function createSocketServer(
   // Match found handler (called by MatchmakingService)
   // ---------------------------------------------------------------------------
 
-  matchmakingService['onMatchFound'] = async (
+  matchmakingService.setMatchFoundHandler(async (
     entry1: QueueEntry,
     entry2: QueueEntry,
   ) => {
     try {
-      // Persist to DB
       const [user1, user2] = await Promise.all([
-        upsertUser(entry1.userId, null, `Player${entry1.userId}`),
-        upsertUser(entry2.userId, null, `Player${entry2.userId}`),
+        getUserById(entry1.userId),
+        getUserById(entry2.userId),
       ]);
+      if (!user1 || !user2) {
+        throw new Error('Cannot create match: queued user no longer exists');
+      }
 
       const dbMatch = await createMatch(user1.id, user2.id, entry1.stake, entry1.mode);
 
@@ -221,6 +253,12 @@ export function createSocketServer(
         p2SocketId: entry2.socketId,
         stake: entry1.stake,
         mode: entry1.mode as GameMode,
+        p1StartingEnergy: entry1.boostEnabled
+          ? STARTING_ENERGY + BOOST_EXTRA_ENERGY
+          : STARTING_ENERGY,
+        p2StartingEnergy: entry2.boostEnabled
+          ? STARTING_ENERGY + BOOST_EXTRA_ENERGY
+          : STARTING_ENERGY,
         onEvent: makeEngineEventHandler(io, dbMatch.id),
       });
 
@@ -229,6 +267,7 @@ export function createSocketServer(
         matchId: dbMatch.id,
         opponentId: user2.telegram_id,
         opponentName: user2.first_name,
+        opponentRating: user2.rating,
         stake: entry1.stake,
         mode: entry1.mode as GameMode,
         isPlayer1: true,
@@ -238,6 +277,7 @@ export function createSocketServer(
         matchId: dbMatch.id,
         opponentId: user1.telegram_id,
         opponentName: user1.first_name,
+        opponentRating: user1.rating,
         stake: entry2.stake,
         mode: entry2.mode as GameMode,
         isPlayer1: false,
@@ -252,7 +292,7 @@ export function createSocketServer(
     } catch (err) {
       console.error('[socket] onMatchFound error:', err);
     }
-  };
+  });
 
   return io;
 }
@@ -313,8 +353,13 @@ function makeEngineEventHandler(
 
         // Start next round commit timer if match still active
         const engine = getActiveMatch(matchId);
-        if (engine) {
-          engine.startCommitTimer();
+        const shouldContinue =
+          match.p1Score < ROUNDS_TO_WIN && match.p2Score < ROUNDS_TO_WIN;
+        if (engine && shouldContinue) {
+          setTimeout(() => {
+            const activeEngine = getActiveMatch(matchId);
+            activeEngine?.startCommitTimer();
+          }, 1_500);
         }
         break;
       }
@@ -324,6 +369,20 @@ function makeEngineEventHandler(
 
         // Update DB
         await updateMatchStatus(matchId, MatchStatus.Settled, winnerId, replayHash);
+        if (winnerId !== null) {
+          const loserId = winnerId === match.player1Id ? match.player2Id : match.player1Id;
+          const [winner, loser] = await Promise.all([
+            getUserById(winnerId),
+            getUserById(loserId),
+          ]);
+          if (winner && loser) {
+            const { newWinner, newLoser } = calculateElo(winner.rating, loser.rating);
+            await Promise.all([
+              updateUserRating(winner.id, newWinner, true),
+              updateUserRating(loser.id, newLoser, false),
+            ]);
+          }
+        }
 
         const result = {
           matchId,

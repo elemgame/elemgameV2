@@ -96,10 +96,10 @@ function base64urlDecode(str: string): string {
   return Buffer.from(padded + '='.repeat(pad), 'base64').toString('utf8');
 }
 
-export function createSessionToken(userId: number, secret: string): string {
+export function createSessionToken(userId: number, telegramId: number, secret: string): string {
   const payload: SessionPayload = {
     userId,
-    telegramId: userId,
+    telegramId,
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24h
   };

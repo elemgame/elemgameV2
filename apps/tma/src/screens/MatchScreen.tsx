@@ -7,7 +7,7 @@ import { MoveCard } from '../components/MoveCard';
 import { Timer } from '../components/Timer';
 import { OpponentInfo } from '../components/OpponentInfo';
 import { RoundResult } from '../components/RoundResult';
-import { submitMockMove, advanceMockRound, forfeitMockMatch } from '../services/mockGame';
+import { submitMove, advanceRound, forfeitMatch } from '../services/gameService';
 import { haptic } from '../services/telegram';
 import { STARTING_ENERGY, BOOST_EXTRA_ENERGY } from '@elmental/shared';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
@@ -51,23 +51,25 @@ export function MatchScreen() {
     if (roundPhase === 'result') {
       haptic.success();
       setShowRoundResult(true);
+      return;
     }
+    setShowRoundResult(false);
   }, [roundPhase]);
 
   const handleMoveSelect = (moveId: MoveId) => {
     if (roundPhase !== 'select') return;
     haptic.medium();
-    submitMockMove(moveId);
+    void submitMove(moveId);
   };
 
   const handleDismissResult = () => {
     setShowRoundResult(false);
-    advanceMockRound();
+    advanceRound();
   };
 
   const handleForfeit = () => {
     haptic.warning();
-    forfeitMockMatch();
+    forfeitMatch();
   };
 
   const phaseInfo = PHASE_LABELS[roundPhase] ?? PHASE_LABELS.select;

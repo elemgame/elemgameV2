@@ -17,6 +17,8 @@ export interface Config {
   botToken: string;
   webappUrl: string;
   jwtSecret: string;
+  dataStore: 'memory' | 'postgres';
+  allowDevAuth: boolean;
   ackiNackiEndpoint: string;
   serverKeys: string[];
   contractAddrs: {
@@ -35,8 +37,8 @@ function loadConfig(): Config {
   const isDev = nodeEnv === 'development';
 
   const botToken = isDev
-    ? optionalEnv('BOT_TOKEN', 'placeholder_bot_token')
-    : requireEnv('BOT_TOKEN');
+    ? optionalEnv('BOT_TOKEN', optionalEnv('TELEGRAM_BOT_TOKEN', 'placeholder_bot_token'))
+    : (process.env['BOT_TOKEN'] ?? requireEnv('TELEGRAM_BOT_TOKEN'));
 
   const jwtSecret = isDev
     ? optionalEnv('JWT_SECRET', 'dev_jwt_secret_change_in_production')
@@ -68,7 +70,11 @@ function loadConfig(): Config {
     port: parseInt(optionalEnv('PORT', '3001'), 10),
     botToken,
     jwtSecret,
-    webappUrl: optionalEnv('WEBAPP_URL', 'https://t.me/your_bot/app'),
+    webappUrl: optionalEnv('WEBAPP_URL', optionalEnv('TELEGRAM_WEBAPP_URL', 'https://t.me/your_bot/app')),
+    dataStore: optionalEnv('DATA_STORE', isDev ? 'memory' : 'postgres') === 'memory'
+      ? 'memory'
+      : 'postgres',
+    allowDevAuth: optionalEnv('ALLOW_DEV_AUTH', isDev ? 'true' : 'false') === 'true',
     ackiNackiEndpoint: optionalEnv(
       'ACKI_NACKI_ENDPOINT',
       'https://network.ackinacki.com/graphql',

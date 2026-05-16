@@ -101,6 +101,13 @@ export function getTelegramUser() {
 }
 
 /**
+ * Raw signed Telegram initData used by the backend auth endpoint.
+ */
+export function getTelegramInitData(): string {
+  return getTelegramWebApp()?.initData ?? '';
+}
+
+/**
  * Haptic feedback helpers (no-op outside Telegram).
  */
 export const haptic = {
@@ -146,11 +153,48 @@ export function showConfirm(message: string): Promise<boolean> {
  * Generate a mock user for development/testing outside Telegram.
  */
 export function getMockUser() {
-  return {
-    id: 123456789,
-    first_name: 'Test',
-    last_name: 'Player',
-    username: 'testplayer',
+  const params = new URLSearchParams(window.location.search);
+  const explicitName = params.get('player') ?? params.get('user');
+  if (explicitName) {
+    let hash = 0;
+    for (let i = 0; i < explicitName.length; i++) {
+      hash = (hash * 31 + explicitName.charCodeAt(i)) >>> 0;
+    }
+    return {
+      id: 100_000_000 + (hash % 800_000_000),
+      first_name: explicitName,
+      last_name: undefined,
+      username: explicitName.toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+      photo_url: undefined,
+    };
+  }
+
+  const storageKey = 'elmental.devUser';
+  const stored = sessionStorage.getItem(storageKey);
+  if (stored) {
+    try {
+      return JSON.parse(stored) as {
+        id: number;
+        first_name: string;
+        last_name?: string;
+        username?: string;
+        photo_url?: string;
+      };
+    } catch {
+      sessionStorage.removeItem(storageKey);
+    }
+  }
+
+  const id = Math.floor(100_000_000 + Math.random() * 800_000_000);
+  const user = {
+    id,
+    first_name: `Player${String(id).slice(-4)}`,
+    last_name: undefined,
+    username: `player_${String(id).slice(-6)}`,
     photo_url: undefined,
+  };
+  sessionStorage.setItem(storageKey, JSON.stringify(user));
+  return {
+    ...user,
   };
 }

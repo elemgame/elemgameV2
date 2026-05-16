@@ -34,7 +34,7 @@ Basic moves:     10 energy  (Earth, Fire, Water)
 Enhanced moves:  25 energy  (Earth+, Fire+, Water+)
 ```
 
-Enhanced moves **flip your weakness**. Earth normally loses to Water, but Earth+ **beats** Water. The trade-off: 2.5x the energy cost.
+Enhanced moves **flip your weakness**. Earth normally loses to Fire, but Earth+ **beats** Fire. The trade-off: 2.5x the energy cost.
 
 **This creates a decision tree, not a coin flip.**
 
@@ -110,12 +110,12 @@ The skill curve:
 
 ```
          Earth   Fire   Water   Earth+  Fire+   Water+
-Earth     --     WIN    LOSE    LOSE    LOSE    WIN
-Fire     LOSE     --    WIN     WIN     LOSE    LOSE
-Water    WIN     LOSE    --     LOSE    WIN     LOSE
-Earth+   WIN     LOSE   WIN      --     WIN     LOSE
-Fire+    WIN     WIN    LOSE    LOSE     --     WIN
-Water+   LOSE    LOSE   WIN     WIN     LOSE     --
+Earth     --     LOSE   WIN     LOSE    WIN     LOSE
+Fire      WIN     --    LOSE    LOSE    LOSE    WIN
+Water    LOSE    WIN     --     WIN     LOSE    LOSE
+Earth+    WIN    WIN    LOSE     --     LOSE    WIN
+Fire+    LOSE    WIN    WIN     WIN      --     LOSE
+Water+    WIN    LOSE   WIN     LOSE    WIN      --
 ```
 
 **Balance**: Each basic move wins 2, loses 3. Each enhanced wins 3, loses 2.
@@ -130,14 +130,15 @@ Enhanced costs 2.5x more energy but has better odds. Risk vs. reward.
          |                            |
     [ Telegram Mini App — React + Vite ]
          |                            |
-    [    Game Server — Node.js + Socket.io    ]
-    [  Matchmaking | Rounds | Energy | Replay  ]
+    [        SpacetimeDB TypeScript Module       ]
+    [  Tables | Reducers | Matchmaking | Rounds  ]
          |
-    [ Acki Nacki Blockchain ]
-    [ ELM Token | Escrow | Settlement ]
+    [ Acki Nacki Blockchain — later settlement ]
 ```
 
-**Hybrid model**: gameplay happens off-chain (instant, free), settlement happens on-chain (trustless, verifiable).
+**Current test model**: gameplay, matchmaking, energy, rounds, and rating run in SpacetimeDB so multiple real clients can test the mechanics without blockchain.
+
+**Later hybrid model**: gameplay stays off-chain (instant, free), settlement happens on-chain (trustless, verifiable).
 
 Only **2 transactions per match**: stake escrow + settlement. Everything else is off-chain with a verifiable replay hash.
 
@@ -154,13 +155,13 @@ Only **2 transactions per match**: stake escrow + settlement. Everything else is
 
 ### Playable Demo
 
-The frontend is a **fully functional standalone demo**. No server needed. AI opponent. Real game logic. Real economy simulation.
+The frontend can still run as a **standalone mock demo** with an AI opponent and local economy simulation.
 
 ```bash
 git clone https://github.com/elemgame/elemgameV2.git
 cd elemgameV2
 pnpm install
-cd apps/tma && npx vite --host
+VITE_GAME_TRANSPORT=mock pnpm --filter @elmental/tma dev
 # Open http://localhost:5173
 ```
 
@@ -171,7 +172,8 @@ cd apps/tma && npx vite --host
 | **Game Logic** | **Production-ready** | 6x6 matrix, energy calc, overclock, ELO — 78 tests passing |
 | **Frontend (TMA)** | **Demo-ready** | 6 screens, full game flow, animations, keyboard nav |
 | **Mock Engine** | **Complete** | AI with 3 personalities, full economy, transaction ledger |
-| **Game Server** | Scaffolded | Express + Socket.io + Bot — compiles, needs DB/Redis |
+| **SpacetimeDB Backend** | **Cloud test instance** | TypeScript module with players, queue, matches, round resolution, ELO |
+| **Legacy Node Server** | Optional fallback | Express + Socket.io memory server kept for experiments |
 | **Smart Contracts** | Written | 6 Solidity contracts — need compilation + deployment |
 | **Blockchain Client** | Stubs | @eversdk integration points marked, need real implementation |
 
@@ -183,6 +185,59 @@ cd apps/tma && npx vite --host
 4. **Try all 3 modes** — Classic (comeback-friendly), Hardcore (no regen), Chaos (random)
 5. **Review the code** — clean TypeScript, shared game logic with 78 tests, documented spec
 
+### Public Test Multiplayer Instance
+
+The current public mechanics test runs without blockchain:
+
+- Frontend: `https://elemgame.github.io/elemgameV2/`
+- SpacetimeDB Cloud: `https://maincloud.spacetimedb.com`
+- Database: `elmental-v2`
+- Dashboard: `https://spacetimedb.com/elmental-v2`
+
+GitHub Pages builds `apps/tma` with:
+
+```bash
+GITHUB_PAGES=true
+VITE_GAME_TRANSPORT=spacetime
+VITE_SPACETIME_URI=https://maincloud.spacetimedb.com
+VITE_SPACETIME_DB=elmental-v2
+```
+
+### Local Test Multiplayer Instance
+
+For mechanics testing, run SpacetimeDB locally. No blockchain, Postgres, or Redis is required.
+
+```bash
+pnpm install
+```
+
+Terminal 1:
+
+```bash
+pnpm stdb:start
+```
+
+Terminal 2:
+
+```bash
+pnpm stdb:publish:clear
+```
+
+Terminal 3:
+
+```bash
+pnpm --filter @elmental/tma dev
+```
+
+Open two clients with different dev users:
+
+```text
+http://localhost:5173/?player=alice
+http://localhost:5173/?player=bob
+```
+
+Both clients connect to SpacetimeDB at `VITE_SPACETIME_URI`, enter the reducer-driven queue, and play a real PvP match through the local database module. For LAN/mobile testing, set `VITE_SPACETIME_URI` to the reachable SpacetimeDB URL.
+
 ---
 
 ## Tech Stack
@@ -193,9 +248,10 @@ cd apps/tma && npx vite --host
 | UI | Tailwind CSS + Framer Motion | Dark gaming theme, smooth animations |
 | State | Zustand | Simple, performant, no boilerplate |
 | Telegram | @telegram-apps/sdk (TWA) | Native Mini App integration |
-| Server | Node.js + Express + Socket.io | Real-time PvP rounds |
+| Realtime Backend | SpacetimeDB TypeScript module | Tables, reducers, subscriptions, persistent local state |
+| Legacy Server | Node.js + Express + Socket.io | Optional fallback for experiments |
 | Bot | Telegram Bot API | Matchmaking, onboarding |
-| Database | PostgreSQL + Redis | Persistence + matchmaking queue |
+| Database | SpacetimeDB | Persistent tables + realtime subscriptions |
 | Blockchain | Acki Nacki (TVM Solidity) | Fast, cheap, freemium gas |
 | SDK | @eversdk/core | Official TVM SDK |
 | Token | ELM (TIP-3) | Standard fungible token on TVM |
@@ -205,8 +261,9 @@ cd apps/tma && npx vite --host
 ```
 elmental-v2/
   apps/
-    tma/          — Telegram Mini App (React, 6 screens, mock engine)
-    server/       — Game server (Node.js, 13 modules)
+    tma/          — Telegram Mini App (React, SpacetimeDB client, mock fallback)
+    spacetime/    — SpacetimeDB module (matchmaking, rounds, player state)
+    server/       — Legacy Node.js realtime server experiments
   contracts/      — Smart contracts (6 Solidity files)
   packages/
     shared/       — Game logic (types, constants, matrix, energy, ELO)
@@ -225,7 +282,8 @@ elmental-v2/
 - [x] Full economy simulation
 
 ### Phase 2: Infrastructure
-- [ ] PostgreSQL + Redis setup ([#5](https://github.com/elemgame/elemgameV2/issues/5))
+- [x] Local SpacetimeDB test instance for real multiplayer mechanics
+- [ ] Production SpacetimeDB deployment
 - [ ] Telegram Bot configuration ([#6](https://github.com/elemgame/elemgameV2/issues/6))
 - [ ] CI/CD pipeline ([#11](https://github.com/elemgame/elemgameV2/issues/11))
 
@@ -236,9 +294,9 @@ elmental-v2/
 - [ ] Escrow token flow ([#7](https://github.com/elemgame/elemgameV2/issues/7))
 
 ### Phase 4: Multiplayer
-- [ ] Socket.io client-server integration ([#4](https://github.com/elemgame/elemgameV2/issues/4))
+- [x] SpacetimeDB client-server integration
 - [ ] Disconnect recovery ([#13](https://github.com/elemgame/elemgameV2/issues/13))
-- [ ] E2E: first real PvP match ([#10](https://github.com/elemgame/elemgameV2/issues/10))
+- [x] E2E: first real PvP match on local SpacetimeDB
 
 ### Phase 5: Polish
 - [ ] Card art integration ([#15](https://github.com/elemgame/elemgameV2/issues/15))

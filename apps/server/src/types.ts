@@ -75,6 +75,7 @@ export interface QueueEntry {
   rating: number;
   stake: number;
   mode: GameMode;
+  boostEnabled: boolean;
   socketId: string;
   joinedAt: number;
 }
@@ -122,22 +123,27 @@ export interface ActiveMatch {
 // ---------------------------------------------------------------------------
 
 export interface ClientToServerEvents {
-  'join-queue': (data: { stake: number; mode: GameMode }) => void;
+  'join-queue': (data: { stake: number; mode: GameMode; boostEnabled?: boolean }) => void;
   'leave-queue': () => void;
   'commit-move': (data: { matchId: string; hash: string }) => void;
   'reveal-move': (data: { matchId: string; move: MoveId; salt: string }) => void;
+  'forfeit-match': (data: { matchId: string }) => void;
 }
 
 export interface ServerToClientEvents {
+  'queue-joined': (data: { stake: number; mode: GameMode; queuedPlayers: number }) => void;
+  'queue-left': () => void;
   'match-found': (data: {
     matchId: string;
     opponentId: number;
     opponentName: string;
+    opponentRating: number;
     stake: number;
     mode: GameMode;
     isPlayer1: boolean;
   }) => void;
   'round-commit-received': (data: { matchId: string; round: number }) => void;
+  'round-reveal-start': (data: { matchId: string; round: number }) => void;
   'round-result': (data: {
     matchId: string;
     round: number;
@@ -169,7 +175,7 @@ export interface SocketData {
   userId: number;
   telegramId: number;
   username?: string;
-  firstName: string;
+  firstName?: string;
 }
 
 export type AuthenticatedSocket = Socket<

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { GameMode } from '@elmental/shared';
 import { haptic } from '../services/telegram';
-import { startMockMatchmaking } from '../services/mockGame';
+import { startMatchmaking } from '../services/gameService';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { VortexIcon } from '../components/icons/VortexIcon';
@@ -69,7 +69,7 @@ export function HomeScreen() {
       return;
     }
     haptic.medium();
-    startMockMatchmaking();
+    void startMatchmaking();
   };
 
   return (

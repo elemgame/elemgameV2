@@ -287,18 +287,36 @@ export class MatchEngine {
   // Match conclusion
   // ---------------------------------------------------------------------------
 
-  private async finishMatch(): Promise<void> {
+  async forfeit(playerId: number): Promise<void> {
+    const { match } = this;
+    let winnerId: number;
+
+    if (playerId === match.player1Id) {
+      winnerId = match.player2Id;
+      match.p2Score = Math.max(match.p2Score, ROUNDS_TO_WIN);
+    } else if (playerId === match.player2Id) {
+      winnerId = match.player1Id;
+      match.p1Score = Math.max(match.p1Score, ROUNDS_TO_WIN);
+    } else {
+      throw new Error(`Unknown player ${playerId} for match ${match.matchId}`);
+    }
+
+    await this.finishMatch(winnerId);
+  }
+
+  private async finishMatch(forcedWinnerId?: number): Promise<void> {
     const { match } = this;
 
     this.stopCommitTimer();
     this.stopRevealTimer();
 
-    let winnerId: number | null = null;
-    if (match.p1Score >= ROUNDS_TO_WIN) {
-      winnerId = match.player1Id;
-    } else if (match.p2Score >= ROUNDS_TO_WIN) {
-      winnerId = match.player2Id;
-    }
+    const winnerId: number | null = forcedWinnerId ?? (
+      match.p1Score >= ROUNDS_TO_WIN
+        ? match.player1Id
+        : match.p2Score >= ROUNDS_TO_WIN
+          ? match.player2Id
+          : null
+    );
 
     // Generate replay hash
     const replayLog = buildReplayLog(
@@ -337,6 +355,8 @@ export function createActiveMatch(params: {
   p2SocketId: string;
   stake: number;
   mode: GameMode;
+  p1StartingEnergy?: number;
+  p2StartingEnergy?: number;
   onEvent: EngineEventHandler;
 }): MatchEngine {
   const match: ActiveMatch = {
@@ -349,8 +369,8 @@ export function createActiveMatch(params: {
     mode: params.mode,
     p1Score: 0,
     p2Score: 0,
-    p1Energy: STARTING_ENERGY,
-    p2Energy: STARTING_ENERGY,
+    p1Energy: params.p1StartingEnergy ?? STARTING_ENERGY,
+    p2Energy: params.p2StartingEnergy ?? STARTING_ENERGY,
     currentRound: 1,
     p1Commit: null,
     p2Commit: null,

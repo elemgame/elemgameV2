@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { haptic } from '../services/telegram';
-import { cancelMockMatchmaking } from '../services/mockGame';
+import { cancelMatchmaking as cancelGameMatchmaking } from '../services/gameService';
 import { EarthIcon } from '../components/icons/EarthIcon';
 import { FireIcon } from '../components/icons/FireIcon';
 import { WaterIcon } from '../components/icons/WaterIcon';
@@ -185,7 +185,7 @@ export function MatchmakingScreen() {
         whileTap={{ scale: 0.96 }}
         onClick={() => {
           haptic.medium();
-          cancelMockMatchmaking();
+          cancelGameMatchmaking();
         }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

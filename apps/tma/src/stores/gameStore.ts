@@ -95,6 +95,7 @@ interface GameStore {
 
   // Match state
   matchId: string | null;
+  isPlayer1: boolean;
   matchStatus: MatchStatus;
   opponentName: string;
   opponentRating: number;
@@ -115,7 +116,12 @@ interface GameStore {
   setMatchStatus: (status: MatchStatus) => void;
   startMatchmaking: () => void;
   cancelMatchmaking: () => void;
-  setMatchFound: (matchId: string, opponentName: string, opponentRating: number) => void;
+  setMatchFound: (
+    matchId: string,
+    opponentName: string,
+    opponentRating: number,
+    isPlayer1?: boolean,
+  ) => void;
   selectMove: (moveId: number) => void;
   setRoundPhase: (phase: RoundPhase) => void;
   updateEnergy: (energy: number) => void;
@@ -162,6 +168,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // Match state
   matchId: null,
+  isPlayer1: true,
   matchStatus: 'idle',
   opponentName: '',
   opponentRating: 1200,
@@ -187,9 +194,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cancelMatchmaking: () =>
     set({ matchStatus: 'idle', currentScreen: 'home' }),
 
-  setMatchFound: (matchId, opponentName, opponentRating) =>
+  setMatchFound: (matchId, opponentName, opponentRating, isPlayer1 = true) =>
     set({
       matchId,
+      isPlayer1,
       opponentName,
       opponentRating,
       matchStatus: 'playing',
@@ -253,6 +261,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetMatch: () =>
     set({
       matchId: null,
+      isPlayer1: true,
       matchStatus: 'idle',
       opponentName: '',
       opponentRating: 1200,
