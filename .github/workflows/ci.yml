@@ -47,6 +47,9 @@ jobs:
       - name: Test shared game logic
         run: pnpm --filter @elmental/shared test -- run
 
+      - name: Check shared/backend matrix parity
+        run: pnpm test:matrix-parity
+
       - name: Build SpacetimeDB module
         run: spacetime build --module-path apps/spacetime/spacetimedb
 

@@ -135,6 +135,7 @@ Core verification:
 spacetime build --module-path apps/spacetime/spacetimedb
 pnpm --filter @elmental/shared build
 pnpm --filter @elmental/shared test -- run
+pnpm test:matrix-parity
 pnpm --filter @elmental/tma build
 ```
 

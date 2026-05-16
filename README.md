@@ -210,6 +210,8 @@ VITE_SPACETIME_DB=elmental-v2
 Run the public two-player first-to-3 smoke locally:
 
 ```bash
+pnpm --filter @elmental/shared build
+pnpm test:matrix-parity
 pnpm exec playwright install chromium
 pnpm smoke:public-match
 ```
