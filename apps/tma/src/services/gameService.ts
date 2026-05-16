@@ -13,6 +13,7 @@ import type {
   GameEvent,
   MatchState,
   Player,
+  QueueEntry,
   RoundResult as StdbRoundResult,
 } from '../module_bindings/types';
 import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stores/gameStore';
@@ -49,6 +50,7 @@ let wiredConnection: DbConnection | null = null;
 let activeMatch: MatchState | null = null;
 let pendingReveal: { matchId: bigint; round: number; move: MoveId; salt: string; revealed: boolean } | null = null;
 let roundTimerInterval: ReturnType<typeof setInterval> | null = null;
+let queueRemovalTimer: ReturnType<typeof setTimeout> | null = null;
 const deductedMatchIds = new Set<string>();
 const processedRoundIds = new Set<string>();
 const finalizedMatchIds = new Set<string>();
@@ -149,6 +151,7 @@ async function ensureConnection(user?: AuthUserInput): Promise<DbConnection> {
         activeMatch = null;
         pendingReveal = null;
         stopRoundTimer();
+        clearQueueRemovalTimer();
       })
       .build();
 
@@ -164,6 +167,9 @@ function wireCallbacks(connection: DbConnection): void {
 
   connection.db.player.onInsert((_ctx, row) => handlePlayer(row));
   connection.db.player.onUpdate((_ctx, _oldRow, row) => handlePlayer(row));
+
+  connection.db.queueEntry.onInsert((_ctx, row) => handleQueueEntry(row));
+  connection.db.queueEntry.onDelete((_ctx, row) => handleQueueRemoved(row));
 
   connection.db.matchState.onInsert((_ctx, row) => handleMatch(row));
   connection.db.matchState.onUpdate((_ctx, _oldRow, row) => handleMatch(row));
@@ -181,6 +187,7 @@ export async function startMatchmaking(): Promise<void> {
   const store = useGameStore.getState();
   try {
     const connection = await ensureConnection(store.telegramUser ?? undefined);
+    clearQueueRemovalTimer();
     trace('matchmaking.join.call', {
       name: displayName(store.telegramUser ?? currentUser),
       stake: MATCH_STAKE,
@@ -210,6 +217,7 @@ export function cancelMatchmaking(): void {
   }
 
   stopRoundTimer();
+  clearQueueRemovalTimer();
   trace('matchmaking.leave.call', {});
   conn?.reducers.leaveQueue({}).catch(reportReducerError);
   useGameStore.getState().cancelMatchmaking();
@@ -271,6 +279,7 @@ export function applyResults(action: 'home' | 'playAgain'): void {
   activeMatch = null;
   pendingReveal = null;
   stopRoundTimer();
+  clearQueueRemovalTimer();
 
   const store = useGameStore.getState();
   store.resetMatch();
@@ -290,6 +299,38 @@ function handlePlayer(row: Player): void {
     wins: row.wins,
     losses: row.losses,
   });
+}
+
+function handleQueueEntry(row: QueueEntry): void {
+  if (!currentIdentity || !identityEquals(row.identity, currentIdentity)) return;
+  clearQueueRemovalTimer();
+  trace('queue.entry.active', {
+    name: row.name,
+    room: row.room,
+    mode: row.mode,
+    stake: row.stake,
+  });
+}
+
+function handleQueueRemoved(row: QueueEntry): void {
+  if (!currentIdentity || !identityEquals(row.identity, currentIdentity)) return;
+  clearQueueRemovalTimer();
+  trace('queue.entry.removed', {
+    name: row.name,
+    room: row.room,
+    mode: row.mode,
+    stake: row.stake,
+  });
+
+  queueRemovalTimer = setTimeout(() => {
+    const store = useGameStore.getState();
+    if (store.matchStatus !== 'queuing') return;
+    if (activeMatch?.status === 'active') return;
+
+    trace('matchmaking.expired.local', { room: getMatchRoom() });
+    store.cancelMatchmaking();
+    void showAlert('Matchmaking expired. Tap PLAY NOW to search again.');
+  }, 1000);
 }
 
 function handleMatch(row: MatchState): void {
@@ -319,6 +360,7 @@ function handleMatch(row: MatchState): void {
   }
 
   activeMatch = row;
+  if (row.status === 'active') clearQueueRemovalTimer();
   trace('match.update', {
     matchId: row.id.toString(),
     phase: row.phase,
@@ -634,6 +676,13 @@ function stopRoundTimer(): void {
   if (roundTimerInterval) {
     clearInterval(roundTimerInterval);
     roundTimerInterval = null;
+  }
+}
+
+function clearQueueRemovalTimer(): void {
+  if (queueRemovalTimer) {
+    clearTimeout(queueRemovalTimer);
+    queueRemovalTimer = null;
   }
 }
 

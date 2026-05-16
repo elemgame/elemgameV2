@@ -14,6 +14,7 @@ const INITIAL_RATING = 1200;
 const ELO_K_FACTOR = 32;
 const ROUND_TIMEOUT_MICROS = 60_000_000n;
 const RESULT_TIMEOUT_MICROS = 60_000_000n;
+const QUEUE_TIMEOUT_MICROS = 180_000_000n;
 const GAME_TICK_MICROS = 2_000_000n;
 
 const player = table(
@@ -164,7 +165,11 @@ export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
     ctx.db.player.identity.update({ ...existing, online: false });
     logEvent(ctx, 'player.disconnected', undefined, `Player disconnected ${existing.name}`, identityHex(ctx.sender));
   }
-  ctx.db.queueEntry.identity.delete(ctx.sender);
+  const queueRow = ctx.db.queueEntry.identity.find(ctx.sender);
+  if (queueRow) {
+    ctx.db.queueEntry.identity.delete(ctx.sender);
+    logEvent(ctx, 'queue.disconnected', undefined, `${queueRow.name} removed from queue after disconnect`, `room=${queueRow.room}`);
+  }
 });
 
 export const set_profile = spacetimedb.reducer(
@@ -186,6 +191,8 @@ export const join_queue = spacetimedb.reducer(
       throw new SenderError('Stake must be positive');
     }
 
+    cleanupQueue(ctx, nowMicros(ctx));
+
     const playerRow = requirePlayer(ctx);
     ctx.db.player.identity.update({ ...playerRow, name: validatedName, online: true });
     ctx.db.queueEntry.identity.delete(ctx.sender);
@@ -202,7 +209,7 @@ export const join_queue = spacetimedb.reducer(
       return;
     }
 
-    const opponent = findOpponent(ctx, stake, validatedMode, validatedRoom);
+    const opponent = findOpponent(ctx, stake, validatedMode, validatedRoom, nowMicros(ctx));
     if (!opponent) {
       ctx.db.queueEntry.insert({
         identity: ctx.sender,
@@ -264,7 +271,11 @@ export const join_queue = spacetimedb.reducer(
 );
 
 export const leave_queue = spacetimedb.reducer(ctx => {
+  const existing = ctx.db.queueEntry.identity.find(ctx.sender);
   ctx.db.queueEntry.identity.delete(ctx.sender);
+  if (existing) {
+    logEvent(ctx, 'queue.left', undefined, `${existing.name} left queue`, `room=${existing.room}`);
+  }
 });
 
 export const commit_move = spacetimedb.reducer(
@@ -402,6 +413,7 @@ export const forfeit_match = spacetimedb.reducer(
 
 export const run_game_tick = spacetimedb.reducer({ arg: gameTick.rowType }, (ctx, { arg: _arg }) => {
   const now = nowMicros(ctx);
+  cleanupQueue(ctx, now);
   for (const match of ctx.db.matchState.iter()) {
     if (match.status !== 'active') continue;
     if (match.phase === 'result') {
@@ -417,6 +429,34 @@ export const run_game_tick = spacetimedb.reducer({ arg: gameTick.rowType }, (ctx
   }
   scheduleNextTick(ctx);
 });
+
+function cleanupQueue(ctx: ReducerContext, now: bigint) {
+  for (const entry of ctx.db.queueEntry.iter()) {
+    const activeMatch = findLatestActiveMatchForPlayer(ctx, entry.identity);
+    if (activeMatch) {
+      ctx.db.queueEntry.identity.delete(entry.identity);
+      logEvent(
+        ctx,
+        'queue.removed_active_match',
+        activeMatch,
+        `${entry.name} removed from queue because an active match exists`,
+        `room=${entry.room} identity=${identityHex(entry.identity)}`
+      );
+      continue;
+    }
+
+    if (now - entry.joinedAtMicros >= QUEUE_TIMEOUT_MICROS) {
+      ctx.db.queueEntry.identity.delete(entry.identity);
+      logEvent(
+        ctx,
+        'queue.expired',
+        undefined,
+        `${entry.name} removed from queue after timeout`,
+        `room=${entry.room} waitedMicros=${now - entry.joinedAtMicros}`
+      );
+    }
+  }
+}
 
 function logTimedOutRound(ctx: ReducerContext, match: MatchRow) {
   const missingSides: string[] = [];
@@ -642,17 +682,38 @@ function hasBothMoves(match: MatchRow) {
   );
 }
 
-function findOpponent(ctx: ReducerContext, stake: number, mode: string, room?: string) {
+function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: string, now: bigint) {
+  let candidate: MatchRow | undefined = undefined;
   for (const entry of ctx.db.queueEntry.iter()) {
     if (identityEquals(entry.identity, ctx.sender)) continue;
-    if (findLatestActiveMatchForPlayer(ctx, entry.identity)) {
+    const activeMatch = findLatestActiveMatchForPlayer(ctx, entry.identity);
+    if (activeMatch) {
       ctx.db.queueEntry.identity.delete(entry.identity);
+      logEvent(
+        ctx,
+        'queue.removed_active_match',
+        activeMatch,
+        `${entry.name} removed from queue because an active match exists`,
+        `room=${entry.room} identity=${identityHex(entry.identity)}`
+      );
       continue;
     }
-    if (room !== undefined && entry.room !== room) continue;
-    if (entry.stake === stake && entry.mode === mode) return entry;
+    if (now - entry.joinedAtMicros >= QUEUE_TIMEOUT_MICROS) {
+      ctx.db.queueEntry.identity.delete(entry.identity);
+      logEvent(
+        ctx,
+        'queue.expired',
+        undefined,
+        `${entry.name} removed from queue after timeout`,
+        `room=${entry.room} waitedMicros=${now - entry.joinedAtMicros}`
+      );
+      continue;
+    }
+    if (entry.room !== room) continue;
+    if (entry.stake !== stake || entry.mode !== mode) continue;
+    if (!candidate || entry.joinedAtMicros < candidate.joinedAtMicros) candidate = entry;
   }
-  return undefined;
+  return candidate;
 }
 
 function findLatestActiveMatchForPlayer(ctx: ReducerContext, identity: IdentityLike) {
