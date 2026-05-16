@@ -172,13 +172,15 @@ The longer `Public Timeout Smoke` workflow verifies one-player timeout win and b
 
 Telegram bot configuration:
 
+Pages deploys from `main` automatically run the bot configuration after GitHub Pages succeeds. The workflow computes `TELEGRAM_WEBAPP_URL` from the deployed Pages URL and `github.sha`, then configures only the real app-opening commands: `/start` and `/play`.
+
 ```bash
 TELEGRAM_BOT_TOKEN='...' \
-TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/' \
+TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/?v=<commit-sha>' \
 pnpm telegram:configure
 ```
 
-When the token is stored in GitHub, run the manual `Configure Telegram Bot` workflow instead:
+When the token is stored in GitHub, the manual `Configure Telegram Bot` workflow can be used for a one-off sync:
 
 ```bash
 gh workflow run configure-telegram.yml --repo elemgame/elemgameV2

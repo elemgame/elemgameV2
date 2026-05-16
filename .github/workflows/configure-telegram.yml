@@ -2,6 +2,11 @@ name: Configure Telegram Bot
 
 on:
   workflow_dispatch:
+    inputs:
+      webapp_url:
+        description: Optional explicit Mini App URL. Defaults to the current GitHub Pages build URL.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -24,4 +29,4 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || vars.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME || 'elemgamebot' }}
-          TELEGRAM_WEBAPP_URL: ${{ vars.TELEGRAM_WEBAPP_URL || secrets.TELEGRAM_WEBAPP_URL }}
+          TELEGRAM_WEBAPP_URL: ${{ inputs.webapp_url || format('https://elemgame.github.io/elemgameV2/?v={0}', github.sha) }}

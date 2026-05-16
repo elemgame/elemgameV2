@@ -3,6 +3,13 @@
  * Provides safe access to the TWA SDK (works in both browser and Telegram).
  */
 
+interface SafeAreaInset {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+}
+
 export interface TelegramWebApp {
   ready(): void;
   expand(): void;
@@ -22,6 +29,9 @@ export interface TelegramWebApp {
   colorScheme: 'light' | 'dark';
   themeParams: Record<string, string>;
   isExpanded: boolean;
+  isFullscreen?: boolean;
+  safeAreaInset?: SafeAreaInset;
+  contentSafeAreaInset?: SafeAreaInset;
   viewportHeight: number;
   viewportStableHeight: number;
   MainButton: {
@@ -51,8 +61,11 @@ export interface TelegramWebApp {
     notificationOccurred(type: 'error' | 'success' | 'warning'): void;
     selectionChanged(): void;
   };
-  onEvent(eventType: string, cb: () => void): void;
-  offEvent(eventType: string, cb: () => void): void;
+  setHeaderColor?(color: string): void;
+  setBackgroundColor?(color: string): void;
+  setBottomBarColor?(color: string): void;
+  onEvent(eventType: string, cb: (event?: unknown) => void): void;
+  offEvent(eventType: string, cb: (event?: unknown) => void): void;
   sendData(data: string): void;
   openLink(url: string): void;
   openTelegramLink(url: string): void;
@@ -85,24 +98,66 @@ declare global {
  * Returns the Telegram WebApp object, or null when running outside Telegram.
  */
 export function getTelegramWebApp(): TelegramWebApp | null {
-  const app = window.Telegram?.WebApp;
+  const app = getTelegramRuntime();
   if (!app) return null;
   if (!app.initData && !app.initDataUnsafe?.user) return null;
   return app;
+}
+
+function getTelegramRuntime(): TelegramWebApp | null {
+  return window.Telegram?.WebApp ?? null;
 }
 
 /**
  * Initialize the TWA: call ready() and expand().
  */
 export function initTelegram(): void {
-  const twa = getTelegramWebApp();
+  const twa = getTelegramRuntime();
   if (!twa) return;
   try {
     twa.ready();
     twa.expand();
+    twa.setHeaderColor?.('#0a0a1a');
+    twa.setBackgroundColor?.('#0a0a1a');
+    twa.setBottomBarColor?.('#0a0a1a');
   } catch {
     // swallow — not critical
   }
+}
+
+export function installTelegramViewportSync(): () => void {
+  const twa = getTelegramRuntime();
+  if (!twa || typeof document === 'undefined') return () => {};
+
+  const applyViewport = () => {
+    const root = document.documentElement;
+    const viewportHeight = Math.round(twa.viewportStableHeight || twa.viewportHeight || window.innerHeight || 0);
+    if (viewportHeight > 0) {
+      root.style.setProperty('--elmental-js-viewport-height', `${viewportHeight}px`);
+    }
+
+    const safe = twa.safeAreaInset ?? {};
+    const contentSafe = twa.contentSafeAreaInset ?? {};
+    root.style.setProperty('--elmental-js-safe-top', `${Math.max(toInset(safe.top), toInset(contentSafe.top))}px`);
+    root.style.setProperty('--elmental-js-safe-right', `${Math.max(toInset(safe.right), toInset(contentSafe.right))}px`);
+    root.style.setProperty('--elmental-js-safe-bottom', `${Math.max(toInset(safe.bottom), toInset(contentSafe.bottom))}px`);
+    root.style.setProperty('--elmental-js-safe-left', `${Math.max(toInset(safe.left), toInset(contentSafe.left))}px`);
+  };
+
+  const events = ['viewportChanged', 'safeAreaChanged', 'contentSafeAreaChanged', 'fullscreenChanged'];
+  for (const event of events) twa.onEvent(event, applyViewport);
+
+  applyViewport();
+  const timers = [window.setTimeout(applyViewport, 100), window.setTimeout(applyViewport, 600)];
+
+  return () => {
+    for (const event of events) twa.offEvent(event, applyViewport);
+    for (const timer of timers) window.clearTimeout(timer);
+  };
+}
+
+function toInset(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 }
 
 /**

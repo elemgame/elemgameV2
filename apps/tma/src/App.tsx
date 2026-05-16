@@ -1,6 +1,12 @@
 import React, { useEffect } from 'react';
 import { useGameStore } from './stores/gameStore';
-import { initTelegram, getTelegramInitData, getTelegramUser, getMockUser } from './services/telegram';
+import {
+  initTelegram,
+  installTelegramViewportSync,
+  getTelegramInitData,
+  getTelegramUser,
+  getMockUser,
+} from './services/telegram';
 import { initializeGameSession } from './services/gameService';
 import { installBugReportCapture } from './services/bugReport';
 import { useSpatialNavigation } from './hooks/useSpatialNavigation';
@@ -24,6 +30,7 @@ export default function App() {
   useEffect(() => {
     installBugReportCapture();
     initTelegram();
+    const uninstallViewportSync = installTelegramViewportSync();
 
     const tgUser = getTelegramUser();
     const user = tgUser ?? getMockUser();
@@ -41,6 +48,7 @@ export default function App() {
     setTelegramUser(profileUser);
 
     void initializeGameSession(profileUser);
+    return uninstallViewportSync;
   }, [setTelegramUser]);
 
   const renderScreen = () => {
@@ -66,14 +74,16 @@ export default function App() {
     <div
       className="relative w-full overflow-hidden"
       style={{
-        height: '100dvh',
+        height: 'var(--elmental-app-height)',
         background: '#0a0a1a',
         maxWidth: '430px',
         margin: '0 auto',
       }}
     >
-      <div key={currentScreen} className="absolute inset-0">
-        {renderScreen()}
+      <div className="app-safe-shell absolute inset-0 overflow-hidden">
+        <div key={currentScreen} className="relative h-full w-full">
+          {renderScreen()}
+        </div>
       </div>
       <ReportBugButton />
     </div>
