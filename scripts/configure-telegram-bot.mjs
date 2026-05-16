@@ -40,8 +40,8 @@ console.log(`[telegram] Menu button configured: ${webappUrl}`);
 
 const menuButton = await callTelegram('getChatMenuButton');
 console.log(`[telegram] Current menu button: ${JSON.stringify(menuButton)}`);
-console.log(`[telegram] Main Mini App URL for BotFather: ${webappUrl}`);
-console.log(`[telegram] Direct launch link after BotFather Main Mini App setup: https://t.me/${bot.username}/?startapp`);
+console.log('[telegram] Bot API configured the chat menu button only.');
+console.log(`[telegram] Main Mini App URL must be set in @BotFather to make https://t.me/${bot.username}/?startapp open this build: ${webappUrl}`);
 console.log('[telegram] Configuration complete.');
 
 function readEnv(name) {
