@@ -32,8 +32,10 @@
         if (!buildId || buildId.charAt(0) === '%') return;
         if (window.location.hostname !== 'elemgame.github.io') return;
         if (!window.location.pathname.endsWith('/elemgameV2/')) return;
-        if (new URLSearchParams(window.location.search).has('v')) return;
-        window.location.replace(window.location.pathname + '?v=' + encodeURIComponent(buildId.slice(0, 12)) + window.location.hash);
+        var params = new URLSearchParams(window.location.search);
+        if (params.has('v')) return;
+        params.set('v', buildId.slice(0, 12));
+        window.location.replace(window.location.pathname + '?' + params.toString() + window.location.hash);
       })();
     </script>
   </head>
