@@ -39,6 +39,8 @@ const PAYMENT_JWT_SUBJECT = 'payments-service';
 const PAID_ELM_BALANCE_KIND = 'paid_elm';
 const DEMO_TELM_BALANCE_KIND = 'demo_teml';
 const PAYMENT_STATUS_CREDITED = 'credited';
+const PAYMENT_STATUS_REFUND_PENDING = 'refund_pending';
+const PAYMENT_STATUS_REFUNDED = 'refunded';
 const ALL_MOVES = [0, 1, 2, 3, 4, 5] as const;
 const ELM_STARS_PACKAGES = [
   { starsAmount: 1, elmAmount: 100 },
@@ -130,6 +132,7 @@ const paymentLedger = table(
     telegramUserId: t.string(),
     starsAmount: t.u32(),
     elmAmount: t.u32(),
+    refundableElmAmount: t.u32().default(0),
     refundedStarsAmount: t.u32().default(0),
     refundedElmAmount: t.u32().default(0),
     telegramPaymentChargeId: t.string().default(''),
@@ -600,6 +603,7 @@ export const record_stars_payment = spacetimedb.reducer(
       telegramUserId: validatedTelegramUserId,
       starsAmount,
       elmAmount,
+      refundableElmAmount: existing?.refundableElmAmount ?? elmAmount,
       refundedStarsAmount: existing?.refundedStarsAmount ?? 0,
       refundedElmAmount: existing?.refundedElmAmount ?? 0,
       telegramPaymentChargeId: validatedChargeId,
@@ -624,6 +628,114 @@ export const record_stars_payment = spacetimedb.reducer(
       undefined,
       `Credited ${elmAmount} paid ELM for ${validatedAccountId}`,
       `paymentId=${validatedPaymentId} stars=${starsAmount} charge=${validatedChargeId}`
+    );
+  }
+);
+
+export const reserve_stars_refund = spacetimedb.reducer(
+  {
+    paymentId: t.string(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+  },
+  (ctx, { paymentId, accountId, telegramUserId }) => {
+    requirePaymentService(ctx);
+    const ledger = requireRefundableLedger(ctx, paymentId, accountId, telegramUserId);
+    if (ledger.status === PAYMENT_STATUS_REFUND_PENDING) return;
+
+    const accountRow = ensureAccount(ctx, ledger.accountId, ledger.accountId);
+    if (accountBalance(accountRow) < ledger.elmAmount) {
+      throw new SenderError(`Insufficient refundable ELM balance: need ${ledger.elmAmount}, have ${accountBalance(accountRow)}`);
+    }
+
+    const now = nowMicros(ctx);
+    updateAccount(ctx, {
+      ...accountRow,
+      balance: accountBalance(accountRow) - ledger.elmAmount,
+    });
+    ctx.db.paymentLedger.paymentId.update({
+      ...ledger,
+      status: PAYMENT_STATUS_REFUND_PENDING,
+      refundRequestedAtMicros: ledger.refundRequestedAtMicros ?? now,
+      updatedAtMicros: now,
+    });
+    logEvent(
+      ctx,
+      'payment.refund_reserved',
+      undefined,
+      `Reserved ${ledger.elmAmount} ELM for Stars refund ${ledger.accountId}`,
+      `paymentId=${ledger.paymentId} stars=${ledger.starsAmount}`
+    );
+  }
+);
+
+export const record_stars_refund = spacetimedb.reducer(
+  {
+    paymentId: t.string(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+    telegramPaymentChargeId: t.string(),
+  },
+  (ctx, { paymentId, accountId, telegramUserId, telegramPaymentChargeId }) => {
+    requirePaymentService(ctx);
+    const ledger = requirePaymentLedger(ctx, paymentId, accountId, telegramUserId);
+    const validatedChargeId = validateTelegramChargeId(telegramPaymentChargeId);
+    if (ledger.telegramPaymentChargeId !== validatedChargeId) {
+      throw new SenderError('Refund charge ID does not match payment ledger');
+    }
+    if (ledger.status === PAYMENT_STATUS_REFUNDED && ledger.refundedAtMicros !== undefined) return;
+    if (ledger.status !== PAYMENT_STATUS_REFUND_PENDING) {
+      throw new SenderError('Stars refund must be reserved before recording success');
+    }
+
+    const now = nowMicros(ctx);
+    ctx.db.paymentLedger.paymentId.update({
+      ...ledger,
+      refundableElmAmount: 0,
+      refundedStarsAmount: ledger.starsAmount,
+      refundedElmAmount: ledger.elmAmount,
+      status: PAYMENT_STATUS_REFUNDED,
+      refundedAtMicros: now,
+      updatedAtMicros: now,
+    });
+    logEvent(
+      ctx,
+      'payment.refunded',
+      undefined,
+      `Recorded Stars refund for ${ledger.accountId}`,
+      `paymentId=${ledger.paymentId} stars=${ledger.starsAmount} charge=${validatedChargeId}`
+    );
+  }
+);
+
+export const cancel_stars_refund = spacetimedb.reducer(
+  {
+    paymentId: t.string(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+  },
+  (ctx, { paymentId, accountId, telegramUserId }) => {
+    requirePaymentService(ctx);
+    const ledger = requirePaymentLedger(ctx, paymentId, accountId, telegramUserId);
+    if (ledger.status !== PAYMENT_STATUS_REFUND_PENDING) return;
+
+    const accountRow = ensureAccount(ctx, ledger.accountId, ledger.accountId);
+    const now = nowMicros(ctx);
+    updateAccount(ctx, {
+      ...accountRow,
+      balance: accountBalance(accountRow) + ledger.elmAmount,
+    });
+    ctx.db.paymentLedger.paymentId.update({
+      ...ledger,
+      status: PAYMENT_STATUS_CREDITED,
+      updatedAtMicros: now,
+    });
+    logEvent(
+      ctx,
+      'payment.refund_cancelled',
+      undefined,
+      `Released reserved refund ELM for ${ledger.accountId}`,
+      `paymentId=${ledger.paymentId} stars=${ledger.starsAmount}`
     );
   }
 );
@@ -1459,6 +1571,7 @@ function normalizeAccountId(accountId: string | undefined, fallback: string | un
 function reserveStake(ctx: ReducerContext, playerRow: MatchRow, amount: number) {
   const accountRow = accountForPlayer(ctx, playerRow);
   assertCanStakeAccount(accountRow, amount);
+  consumeRefundableElm(ctx, accountRow, amount);
   return updateAccount(ctx, {
     ...accountRow,
     balance: accountBalance(accountRow) - amount,
@@ -1495,6 +1608,32 @@ function findPaymentLedgerByChargeId(ctx: ReducerContext, chargeId: string) {
     if (row.telegramPaymentChargeId === chargeId) return row;
   }
   return undefined;
+}
+
+function requirePaymentLedger(ctx: ReducerContext, paymentId: string, accountId: string, telegramUserId: string) {
+  const validatedPaymentId = validatePaymentId(paymentId);
+  const validatedTelegramUserId = validateTelegramUserId(telegramUserId);
+  const validatedAccountId = validateTelegramAccountId(accountId, validatedTelegramUserId);
+  const ledger = ctx.db.paymentLedger.paymentId.find(validatedPaymentId);
+  if (!ledger) throw new SenderError('Payment ledger row not found');
+  if (ledger.accountId !== validatedAccountId || ledger.telegramUserId !== validatedTelegramUserId) {
+    throw new SenderError('Payment ledger account mismatch');
+  }
+  return ledger;
+}
+
+function requireRefundableLedger(ctx: ReducerContext, paymentId: string, accountId: string, telegramUserId: string) {
+  const ledger = requirePaymentLedger(ctx, paymentId, accountId, telegramUserId);
+  if (ledger.status !== PAYMENT_STATUS_CREDITED && ledger.status !== PAYMENT_STATUS_REFUND_PENDING) {
+    throw new SenderError('Payment is not refundable');
+  }
+  if (ledger.refundedStarsAmount !== 0 || ledger.refundedElmAmount !== 0 || ledger.refundedAtMicros !== undefined) {
+    throw new SenderError('Payment is already refunded');
+  }
+  if (ledger.refundableElmAmount < ledger.elmAmount) {
+    throw new SenderError('Payment ELM has already been used in gameplay');
+  }
+  return ledger;
 }
 
 function assertSamePaymentLedger(
@@ -1561,6 +1700,34 @@ function validateStarsPackage(starsAmount: number, elmAmount: number) {
     pkg.elmAmount === elmAmount
   ));
   if (!supported) throw new SenderError('Unsupported Stars to ELM package');
+}
+
+function consumeRefundableElm(ctx: ReducerContext, accountRow: AccountRow, amount: number) {
+  if (accountBalanceKind(accountRow) !== PAID_ELM_BALANCE_KIND || amount <= 0) return;
+  let remaining = amount;
+  const rows = [...ctx.db.paymentLedger.iter()]
+    .filter(row => (
+      row.accountId === accountRow.id &&
+      row.status === PAYMENT_STATUS_CREDITED &&
+      row.balanceKind === PAID_ELM_BALANCE_KIND &&
+      row.refundableElmAmount > 0
+    ))
+    .sort((a, b) => {
+      const aTime = a.paidAtMicros ?? a.createdAtMicros;
+      const bTime = b.paidAtMicros ?? b.createdAtMicros;
+      return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
+    });
+
+  for (const row of rows) {
+    if (remaining <= 0) break;
+    const consumed = Math.min(row.refundableElmAmount, remaining);
+    ctx.db.paymentLedger.paymentId.update({
+      ...row,
+      refundableElmAmount: row.refundableElmAmount - consumed,
+      updatedAtMicros: nowMicros(ctx),
+    });
+    remaining -= consumed;
+  }
 }
 
 function refundDrawBalances(ctx: ReducerContext, match: MatchRow) {

@@ -8,8 +8,11 @@ import { playerDisplayName } from '../services/playerProfile';
 import {
   ELM_STARS_PACKAGES,
   openTelegramStarsInvoice,
+  requestStarsRefund,
+  requestStarsRefundQuote,
   requestStarsInvoice,
   type ElmStarsPackageId,
+  type StarsRefundQuote,
   type TelegramInvoiceStatus,
 } from '../services/payments';
 import { currencyForUser, formatCurrencyAmount } from '../services/economy';
@@ -55,6 +58,12 @@ interface TopUpState {
   message?: string;
 }
 
+interface RefundState {
+  status: 'idle' | 'loading' | 'ready' | 'refunded' | 'failed';
+  quote?: StarsRefundQuote;
+  message?: string;
+}
+
 export function HomeScreen() {
   const {
     telegramUser,
@@ -68,6 +77,7 @@ export function HomeScreen() {
     setScreen,
   } = useGameStore();
   const [topUpState, setTopUpState] = React.useState<TopUpState>({ status: 'idle' });
+  const [refundState, setRefundState] = React.useState<RefundState>({ status: 'idle' });
 
   const displayName = playerDisplayName(telegramUser);
 
@@ -110,6 +120,49 @@ export function HomeScreen() {
     } catch {
       haptic.error();
       setTopUpState({ status: 'failed', message: 'Payment failed.' });
+    }
+  };
+
+  const handleRefundQuote = async () => {
+    const initData = telegramUser?.initData ?? '';
+    if (!initData) {
+      haptic.error();
+      setRefundState({ status: 'failed', message: 'Telegram session unavailable.' });
+      return;
+    }
+
+    haptic.selection();
+    setRefundState({ status: 'loading', message: 'Checking refundable lots...' });
+    try {
+      const quote = await requestStarsRefundQuote({ initData });
+      setRefundState({
+        status: 'ready',
+        quote,
+        message: refundQuoteMessage(quote),
+      });
+    } catch {
+      haptic.error();
+      setRefundState({ status: 'failed', message: 'Refund check failed.' });
+    }
+  };
+
+  const handleRefundNextLot = async () => {
+    const initData = telegramUser?.initData ?? '';
+    const lot = refundState.quote?.nextLot;
+    if (!initData || !lot) return;
+
+    haptic.warning();
+    setRefundState({ ...refundState, status: 'loading', message: 'Refunding Stars...' });
+    try {
+      const result = await requestStarsRefund({ initData, starsAmount: lot.starsAmount });
+      haptic.success();
+      setRefundState({
+        status: 'refunded',
+        message: `Refunded ${result.refundedStarsAmount} Stars. Balance updates from server.`,
+      });
+    } catch {
+      haptic.error();
+      setRefundState({ status: 'failed', message: 'Refund failed. Contact support if Stars were already refunded.' });
     }
   };
 
@@ -263,6 +316,39 @@ export function HomeScreen() {
                   {topUpState.message}
                 </div>
               ) : null}
+
+              <div className="mt-4 pt-4 border-t border-bg-border">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    data-nav
+                    className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-bold text-text-primary disabled:opacity-60"
+                    style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+                    disabled={refundState.status === 'loading'}
+                    onClick={() => void handleRefundQuote()}
+                  >
+                    Refund eligible ELM
+                  </button>
+                  {refundState.quote?.nextLot ? (
+                    <button
+                      data-nav
+                      className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-black text-gold disabled:opacity-60"
+                      style={{ background: 'rgba(255, 215, 0, 0.1)', borderColor: 'rgba(255,215,0,0.25)' }}
+                      disabled={refundState.status === 'loading'}
+                      onClick={() => void handleRefundNextLot()}
+                    >
+                      {refundState.quote.nextLot.starsAmount}★ / {refundState.quote.nextLot.elmAmount} ELM
+                    </button>
+                  ) : null}
+                </div>
+                {refundState.message ? (
+                  <div
+                    role="status"
+                    className={`mt-3 text-xs font-semibold leading-tight ${refundStatusClass(refundState.status)}`}
+                  >
+                    {refundState.message}
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </motion.div>
@@ -439,6 +525,26 @@ function topUpStatusClass(status: TopUpStatus): string {
       return 'text-water-light';
     case 'cancelled':
       return 'text-text-muted';
+    case 'loading':
+    case 'idle':
+      return 'text-text-secondary';
+  }
+}
+
+function refundQuoteMessage(quote: StarsRefundQuote): string {
+  if (quote.nextLot) {
+    return `Next refundable lot: ${quote.nextLot.starsAmount} Stars for ${quote.nextLot.elmAmount} unused ELM.`;
+  }
+  return quote.note ?? 'No refundable unused purchase lots.';
+}
+
+function refundStatusClass(status: RefundState['status']): string {
+  switch (status) {
+    case 'ready':
+    case 'refunded':
+      return 'text-energy-high';
+    case 'failed':
+      return 'text-energy-low';
     case 'loading':
     case 'idle':
       return 'text-text-secondary';

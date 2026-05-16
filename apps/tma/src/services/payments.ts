@@ -17,11 +17,42 @@ export interface StarsInvoiceResponse {
   package: ElmStarsPackage;
 }
 
+export interface StarsRefundLot {
+  paymentId: string;
+  starsAmount: number;
+  elmAmount: number;
+}
+
+export interface StarsRefundQuote {
+  accountId: string;
+  telegramUserId: string;
+  refundableStarsAmount: number;
+  refundableElmAmount: number;
+  lots: StarsRefundLot[];
+  nextLot?: StarsRefundLot;
+  note?: string;
+}
+
+export interface StarsRefundResult {
+  accountId: string;
+  telegramUserId: string;
+  refundedStarsAmount: number;
+  refundedElmAmount: number;
+  refundedLots: StarsRefundLot[];
+}
+
 export type TelegramInvoiceStatus = 'paid' | 'cancelled' | 'failed' | 'pending' | 'unknown';
 
 interface RequestStarsInvoiceInput {
   initData: string;
   packageId: ElmStarsPackageId;
+  paymentsUrl?: string;
+  fetchImpl?: typeof fetch;
+}
+
+interface RequestStarsRefundInput {
+  initData: string;
+  starsAmount: number;
   paymentsUrl?: string;
   fetchImpl?: typeof fetch;
 }
@@ -73,12 +104,59 @@ export function openTelegramStarsInvoice(invoiceLink: string): Promise<TelegramI
   });
 }
 
+export async function requestStarsRefundQuote(input: Omit<RequestStarsRefundInput, 'starsAmount'>): Promise<StarsRefundQuote> {
+  return requestPaymentsJson<StarsRefundQuote>({
+    path: '/payments/stars/refund/quote',
+    initData: input.initData,
+    paymentsUrl: input.paymentsUrl,
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+export async function requestStarsRefund(input: RequestStarsRefundInput): Promise<StarsRefundResult> {
+  if (!Number.isInteger(input.starsAmount) || input.starsAmount <= 0) {
+    throw new Error('Refund Stars amount must be positive');
+  }
+  return requestPaymentsJson<StarsRefundResult>({
+    path: '/payments/stars/refund',
+    initData: input.initData,
+    paymentsUrl: input.paymentsUrl,
+    fetchImpl: input.fetchImpl,
+    body: { starsAmount: input.starsAmount },
+  });
+}
+
 export function findElmStarsPackage(packageId: string): ElmStarsPackage | undefined {
   return ELM_STARS_PACKAGES.find(pkg => pkg.id === packageId);
 }
 
 function configuredPaymentsUrl(): string {
   return import.meta.env.VITE_PAYMENTS_URL ?? import.meta.env.VITE_PAYMENT_SERVICE_URL ?? '';
+}
+
+async function requestPaymentsJson<T>(input: {
+  path: string;
+  initData: string;
+  paymentsUrl?: string;
+  fetchImpl?: typeof fetch;
+  body?: Record<string, unknown>;
+}): Promise<T> {
+  if (!input.initData) throw new Error('Telegram session is missing');
+  const paymentsUrl = normalizePaymentsUrl(input.paymentsUrl ?? configuredPaymentsUrl());
+  if (!paymentsUrl) throw new Error('Payments service URL is not configured');
+
+  const response = await (input.fetchImpl ?? fetch)(`${paymentsUrl}${input.path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      initData: input.initData,
+      ...input.body,
+    }),
+  });
+  const body = await readJsonBody(response);
+  if (!response.ok) throw new Error(readApiError(body) ?? 'Payments request failed');
+  if (!isRecord(body)) throw new Error('Invalid payments response');
+  return body as T;
 }
 
 function normalizePaymentsUrl(value: string): string {

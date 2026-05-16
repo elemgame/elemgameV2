@@ -34,13 +34,17 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import CancelStarsRefundReducer from "./cancel_stars_refund_reducer";
 import CommitMoveReducer from "./commit_move_reducer";
 import ForfeitMatchReducer from "./forfeit_match_reducer";
 import JoinQueueReducer from "./join_queue_reducer";
 import LeaveQueueReducer from "./leave_queue_reducer";
 import NextRoundReducer from "./next_round_reducer";
 import RecordStarsPaymentReducer from "./record_stars_payment_reducer";
+import RecordStarsRefundReducer from "./record_stars_refund_reducer";
+import ReserveStarsRefundReducer from "./reserve_stars_refund_reducer";
 import RevealMoveReducer from "./reveal_move_reducer";
+import RunGameTickReducer from "./run_game_tick_reducer";
 import SetProfileReducer from "./set_profile_reducer";
 import SubmitMoveReducer from "./submit_move_reducer";
 
@@ -48,8 +52,12 @@ import SubmitMoveReducer from "./submit_move_reducer";
 
 // Import all table schema definitions
 import AccountRow from "./account_table";
+import AutomationGuardRow from "./automation_guard_table";
+import BotMoveCommitRow from "./bot_move_commit_table";
 import GameEventRow from "./game_event_table";
+import GameTickRow from "./game_tick_table";
 import MatchStateRow from "./match_state_table";
+import PaymentLedgerRow from "./payment_ledger_table";
 import PlayerRow from "./player_table";
 import QueueEntryRow from "./queue_entry_table";
 import RoundResultRow from "./round_result_table";
@@ -69,6 +77,28 @@ const tablesSchema = __schema({
       { name: 'account_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, AccountRow),
+  automationGuard: __table({
+    name: 'automation_guard',
+    indexes: [
+      { accessor: 'identity', name: 'automation_guard_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'automation_guard_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, AutomationGuardRow),
+  botMoveCommit: __table({
+    name: 'bot_move_commit',
+    indexes: [
+      { accessor: 'id', name: 'bot_move_commit_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'bot_move_commit_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, BotMoveCommitRow),
   gameEvent: __table({
     name: 'game_event',
     indexes: [
@@ -83,6 +113,17 @@ const tablesSchema = __schema({
       { name: 'game_event_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, GameEventRow),
+  gameTick: __table({
+    name: 'game_tick',
+    indexes: [
+      { accessor: 'scheduledId', name: 'game_tick_scheduled_id_idx_btree', algorithm: 'btree', columns: [
+        'scheduledId',
+      ] },
+    ],
+    constraints: [
+      { name: 'game_tick_scheduled_id_key', constraint: 'unique', columns: ['scheduledId'] },
+    ],
+  }, GameTickRow),
   matchState: __table({
     name: 'match_state',
     indexes: [
@@ -94,6 +135,29 @@ const tablesSchema = __schema({
       { name: 'match_state_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, MatchStateRow),
+  paymentLedger: __table({
+    name: 'payment_ledger',
+    indexes: [
+      { accessor: 'payment_ledger_account_id', name: 'payment_ledger_account_id_idx_btree', algorithm: 'btree', columns: [
+        'accountId',
+      ] },
+      { accessor: 'paymentId', name: 'payment_ledger_payment_id_idx_btree', algorithm: 'btree', columns: [
+        'paymentId',
+      ] },
+      { accessor: 'payment_ledger_status', name: 'payment_ledger_status_idx_btree', algorithm: 'btree', columns: [
+        'status',
+      ] },
+      { accessor: 'payment_ledger_charge_id', name: 'payment_ledger_telegram_payment_charge_id_idx_btree', algorithm: 'btree', columns: [
+        'telegramPaymentChargeId',
+      ] },
+      { accessor: 'payment_ledger_telegram_user_id', name: 'payment_ledger_telegram_user_id_idx_btree', algorithm: 'btree', columns: [
+        'telegramUserId',
+      ] },
+    ],
+    constraints: [
+      { name: 'payment_ledger_payment_id_key', constraint: 'unique', columns: ['paymentId'] },
+    ],
+  }, PaymentLedgerRow),
   player: __table({
     name: 'player',
     indexes: [
@@ -134,13 +198,17 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("cancel_stars_refund", CancelStarsRefundReducer),
   __reducerSchema("commit_move", CommitMoveReducer),
   __reducerSchema("forfeit_match", ForfeitMatchReducer),
   __reducerSchema("join_queue", JoinQueueReducer),
   __reducerSchema("leave_queue", LeaveQueueReducer),
   __reducerSchema("next_round", NextRoundReducer),
   __reducerSchema("record_stars_payment", RecordStarsPaymentReducer),
+  __reducerSchema("record_stars_refund", RecordStarsRefundReducer),
+  __reducerSchema("reserve_stars_refund", ReserveStarsRefundReducer),
   __reducerSchema("reveal_move", RevealMoveReducer),
+  __reducerSchema("run_game_tick", RunGameTickReducer),
   __reducerSchema("set_profile", SetProfileReducer),
   __reducerSchema("submit_move", SubmitMoveReducer),
 );

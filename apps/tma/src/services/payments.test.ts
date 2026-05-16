@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   openTelegramStarsInvoice,
+  requestStarsRefund,
+  requestStarsRefundQuote,
   requestStarsInvoice,
 } from './payments';
 
@@ -74,5 +76,61 @@ describe('TMA Stars payments', () => {
 
     await expect(openTelegramStarsInvoice('https://t.me/$invoice/test')).resolves.toBe('paid');
     expect(openInvoice).toHaveBeenCalledWith('https://t.me/$invoice/test', expect.any(Function));
+  });
+
+  it('requests a Stars refund quote from the payment service', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      accountId: 'telegram:123',
+      telegramUserId: '123',
+      refundableStarsAmount: 1,
+      refundableElmAmount: 100,
+      lots: [{ paymentId: 'purchase_1', starsAmount: 1, elmAmount: 100 }],
+      nextLot: { paymentId: 'purchase_1', starsAmount: 1, elmAmount: 100 },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })) as unknown as typeof fetch;
+
+    await expect(requestStarsRefundQuote({
+      initData: 'signed-init-data',
+      paymentsUrl: 'https://payments.example.test',
+      fetchImpl,
+    })).resolves.toMatchObject({
+      refundableStarsAmount: 1,
+      nextLot: { starsAmount: 1, elmAmount: 100 },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith('https://payments.example.test/payments/stars/refund/quote', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ initData: 'signed-init-data' }),
+    }));
+  });
+
+  it('requests a Stars refund execution from the payment service', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      accountId: 'telegram:123',
+      telegramUserId: '123',
+      refundedStarsAmount: 1,
+      refundedElmAmount: 100,
+      refundedLots: [{ paymentId: 'purchase_1', starsAmount: 1, elmAmount: 100 }],
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })) as unknown as typeof fetch;
+
+    await expect(requestStarsRefund({
+      initData: 'signed-init-data',
+      starsAmount: 1,
+      paymentsUrl: 'https://payments.example.test',
+      fetchImpl,
+    })).resolves.toMatchObject({
+      refundedStarsAmount: 1,
+      refundedElmAmount: 100,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith('https://payments.example.test/payments/stars/refund', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ initData: 'signed-init-data', starsAmount: 1 }),
+    }));
   });
 });

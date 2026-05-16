@@ -2,6 +2,15 @@
 
 Small Telegram Stars payment service for the Telegram Mini App. It is separate from the legacy Socket.io gameplay server.
 
+## Endpoints
+
+- `GET /health`
+- `GET /payments/stars/packages`
+- `POST /payments/stars/invoice`
+- `POST /payments/stars/refund/quote`
+- `POST /payments/stars/refund`
+- `POST /telegram/webhook`
+
 ## Required Environment
 
 - `TELEGRAM_BOT_TOKEN`: Telegram bot token used for `createInvoiceLink` and `answerPreCheckoutQuery`.
@@ -22,4 +31,8 @@ The SpacetimeDB module accepts `record_stars_payment` only when the caller has a
 - subject: `payments-service`
 - audience containing: `elmental-v2-payments`
 
-Without `PAYMENTS_SPACETIME_TOKEN`, successful payments are validated and logged but not credited.
+Without `PAYMENTS_SPACETIME_TOKEN`, successful payments are validated and logged but not credited, and refunds are disabled.
+
+Refunds are intentionally whole-lot only. Telegram's Bot API refunds by original
+`telegram_payment_charge_id`, not by arbitrary partial Star amount, so a partially
+spent purchase lot is not refundable.

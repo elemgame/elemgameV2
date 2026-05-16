@@ -34,12 +34,15 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import CancelStarsRefundReducer from "./cancel_stars_refund_reducer";
 import CommitMoveReducer from "./commit_move_reducer";
 import ForfeitMatchReducer from "./forfeit_match_reducer";
 import JoinQueueReducer from "./join_queue_reducer";
 import LeaveQueueReducer from "./leave_queue_reducer";
 import NextRoundReducer from "./next_round_reducer";
 import RecordStarsPaymentReducer from "./record_stars_payment_reducer";
+import RecordStarsRefundReducer from "./record_stars_refund_reducer";
+import ReserveStarsRefundReducer from "./reserve_stars_refund_reducer";
 import RevealMoveReducer from "./reveal_move_reducer";
 import SetProfileReducer from "./set_profile_reducer";
 import SubmitMoveReducer from "./submit_move_reducer";
@@ -134,12 +137,15 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("cancel_stars_refund", CancelStarsRefundReducer),
   __reducerSchema("commit_move", CommitMoveReducer),
   __reducerSchema("forfeit_match", ForfeitMatchReducer),
   __reducerSchema("join_queue", JoinQueueReducer),
   __reducerSchema("leave_queue", LeaveQueueReducer),
   __reducerSchema("next_round", NextRoundReducer),
   __reducerSchema("record_stars_payment", RecordStarsPaymentReducer),
+  __reducerSchema("record_stars_refund", RecordStarsRefundReducer),
+  __reducerSchema("reserve_stars_refund", ReserveStarsRefundReducer),
   __reducerSchema("reveal_move", RevealMoveReducer),
   __reducerSchema("set_profile", SetProfileReducer),
   __reducerSchema("submit_move", SubmitMoveReducer),

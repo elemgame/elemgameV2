@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadConfig } from './config.js';
 import { createSignedInvoicePayload } from './invoicePayload.js';
 import { createPaymentsServer } from './server.js';
+import type { StarsRefundService } from './starsRefunds.js';
 import type { TelegramBotApi } from './telegramBotApi.js';
 import type { PaymentEventRecorder } from './telegramUpdates.js';
 
@@ -28,6 +29,7 @@ describe('payments server', () => {
     const telegram: TelegramBotApi = {
       createInvoiceLink: vi.fn(async () => 'https://t.me/$invoice/test'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
+      refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
 
@@ -55,6 +57,7 @@ describe('payments server', () => {
     const telegram: TelegramBotApi = {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
+      refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
 
@@ -72,6 +75,7 @@ describe('payments server', () => {
     const telegram: TelegramBotApi = {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
+      refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
     const payload = createPayload('stars_1', 99);
@@ -101,6 +105,7 @@ describe('payments server', () => {
     const telegram: TelegramBotApi = {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
+      refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const recorder: PaymentEventRecorder = {
       recordSuccessfulPayment: vi.fn(async () => undefined),
@@ -133,14 +138,87 @@ describe('payments server', () => {
       telegramPaymentChargeId: 'charge_123',
     }));
   });
+
+  it('returns refund quotes for Telegram users', async () => {
+    const telegram = createTelegramMock();
+    const refundService: StarsRefundService = {
+      quote: vi.fn(async () => ({
+        accountId: 'telegram:99',
+        telegramUserId: '99',
+        refundableStarsAmount: 1,
+        refundableElmAmount: 100,
+        lots: [{ paymentId: 'purchase_1', starsAmount: 1, elmAmount: 100 }],
+        nextLot: { paymentId: 'purchase_1', starsAmount: 1, elmAmount: 100 },
+      })),
+      refund: vi.fn(),
+    };
+    const baseUrl = await listen(telegram, undefined, refundService);
+
+    const response = await fetch(`${baseUrl}/payments/stars/refund/quote`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ initData: signedInitData({ id: 99, first_name: 'Buyer' }) }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as Record<string, unknown>;
+    expect(body['refundableStarsAmount']).toBe(1);
+    expect(refundService.quote).toHaveBeenCalledWith({
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+    });
+  });
+
+  it('requests refund execution through the refund service', async () => {
+    const telegram = createTelegramMock();
+    const refundService: StarsRefundService = {
+      quote: vi.fn(),
+      refund: vi.fn(async () => ({
+        accountId: 'telegram:99',
+        telegramUserId: '99',
+        refundedStarsAmount: 1,
+        refundedElmAmount: 100,
+        refundedLots: [{ paymentId: 'purchase_1', starsAmount: 1, elmAmount: 100 }],
+      })),
+    };
+    const baseUrl = await listen(telegram, undefined, refundService);
+
+    const response = await fetch(`${baseUrl}/payments/stars/refund`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        initData: signedInitData({ id: 99, first_name: 'Buyer' }),
+        starsAmount: 1,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(refundService.refund).toHaveBeenCalledWith({
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+      starsAmount: 1,
+    });
+  });
 });
 
-async function listen(telegram: TelegramBotApi, paymentRecorder?: PaymentEventRecorder): Promise<string> {
-  server = createPaymentsServer({ config, telegram, paymentRecorder });
+async function listen(
+  telegram: TelegramBotApi,
+  paymentRecorder?: PaymentEventRecorder,
+  refundService?: StarsRefundService,
+): Promise<string> {
+  server = createPaymentsServer({ config, telegram, paymentRecorder, refundService });
   await new Promise<void>(resolve => server?.listen(0, resolve));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Server did not listen on a TCP port');
   return `http://127.0.0.1:${address.port}`;
+}
+
+function createTelegramMock(): TelegramBotApi {
+  return {
+    createInvoiceLink: vi.fn(async () => 'unused'),
+    answerPreCheckoutQuery: vi.fn(async () => undefined),
+    refundStarPayment: vi.fn(async () => 'refunded' as const),
+  };
 }
 
 function createPayload(packageId: string, telegramUserId: number): string {

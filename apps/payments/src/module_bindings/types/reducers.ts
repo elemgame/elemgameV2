@@ -6,23 +6,35 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import CancelStarsRefundReducer from "../cancel_stars_refund_reducer";
 import CommitMoveReducer from "../commit_move_reducer";
 import ForfeitMatchReducer from "../forfeit_match_reducer";
 import JoinQueueReducer from "../join_queue_reducer";
 import LeaveQueueReducer from "../leave_queue_reducer";
 import NextRoundReducer from "../next_round_reducer";
+import OnConnectReducer from "../on_connect_reducer";
+import OnDisconnectReducer from "../on_disconnect_reducer";
 import RecordStarsPaymentReducer from "../record_stars_payment_reducer";
+import RecordStarsRefundReducer from "../record_stars_refund_reducer";
+import ReserveStarsRefundReducer from "../reserve_stars_refund_reducer";
 import RevealMoveReducer from "../reveal_move_reducer";
+import RunGameTickReducer from "../run_game_tick_reducer";
 import SetProfileReducer from "../set_profile_reducer";
 import SubmitMoveReducer from "../submit_move_reducer";
 
+export type CancelStarsRefundParams = __Infer<typeof CancelStarsRefundReducer>;
 export type CommitMoveParams = __Infer<typeof CommitMoveReducer>;
 export type ForfeitMatchParams = __Infer<typeof ForfeitMatchReducer>;
 export type JoinQueueParams = __Infer<typeof JoinQueueReducer>;
 export type LeaveQueueParams = __Infer<typeof LeaveQueueReducer>;
 export type NextRoundParams = __Infer<typeof NextRoundReducer>;
+export type OnConnectParams = __Infer<typeof OnConnectReducer>;
+export type OnDisconnectParams = __Infer<typeof OnDisconnectReducer>;
 export type RecordStarsPaymentParams = __Infer<typeof RecordStarsPaymentReducer>;
+export type RecordStarsRefundParams = __Infer<typeof RecordStarsRefundReducer>;
+export type ReserveStarsRefundParams = __Infer<typeof ReserveStarsRefundReducer>;
 export type RevealMoveParams = __Infer<typeof RevealMoveReducer>;
+export type RunGameTickParams = __Infer<typeof RunGameTickReducer>;
 export type SetProfileParams = __Infer<typeof SetProfileReducer>;
 export type SubmitMoveParams = __Infer<typeof SubmitMoveReducer>;
 

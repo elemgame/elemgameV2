@@ -4,6 +4,7 @@ import { ELM_STARS_PACKAGES, findElmStarsPackage } from './packages.js';
 import { validateTelegramInitData } from './telegramInitData.js';
 import { handleTelegramUpdate, noopPaymentEventRecorder } from './telegramUpdates.js';
 import type { PaymentsConfig } from './config.js';
+import type { StarsRefundService } from './starsRefunds.js';
 import type { TelegramBotApi } from './telegramBotApi.js';
 import type { PaymentEventRecorder } from './telegramUpdates.js';
 
@@ -11,6 +12,7 @@ interface ServerDeps {
   config: PaymentsConfig;
   telegram: TelegramBotApi;
   paymentRecorder?: PaymentEventRecorder;
+  refundService?: StarsRefundService;
 }
 
 interface InvoiceRequestBody {
@@ -18,9 +20,19 @@ interface InvoiceRequestBody {
   packageId?: unknown;
 }
 
-export function createPaymentsServer({ config, telegram, paymentRecorder = noopPaymentEventRecorder }: ServerDeps): http.Server {
+interface RefundRequestBody {
+  initData?: unknown;
+  starsAmount?: unknown;
+}
+
+export function createPaymentsServer({
+  config,
+  telegram,
+  paymentRecorder = noopPaymentEventRecorder,
+  refundService,
+}: ServerDeps): http.Server {
   return http.createServer((req, res) => {
-    void handleRequest(req, res, config, telegram, paymentRecorder).catch(err => {
+    void handleRequest(req, res, config, telegram, paymentRecorder, refundService).catch(err => {
       console.error('[payments] Request failed:', err);
       sendJson(res, 500, { error: 'Internal server error' });
     });
@@ -33,6 +45,7 @@ async function handleRequest(
   config: PaymentsConfig,
   telegram: TelegramBotApi,
   paymentRecorder: PaymentEventRecorder,
+  refundService?: StarsRefundService,
 ): Promise<void> {
   setCors(req, res, config);
 
@@ -59,12 +72,91 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === 'POST' && url.pathname === '/payments/stars/refund/quote') {
+    await handleRefundQuote(req, res, config, refundService);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/payments/stars/refund') {
+    await handleRefund(req, res, config, refundService);
+    return;
+  }
+
   if (req.method === 'POST' && url.pathname === '/telegram/webhook') {
     await handleTelegramWebhook(req, res, config, telegram, paymentRecorder);
     return;
   }
 
   sendJson(res, 404, { error: 'Not found' });
+}
+
+async function handleRefundQuote(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  config: PaymentsConfig,
+  refundService?: StarsRefundService,
+): Promise<void> {
+  if (!refundService) {
+    sendJson(res, 503, { error: 'Refund service is not configured' });
+    return;
+  }
+
+  const user = await readTelegramUser(req, res, config);
+  if (!user) return;
+
+  const telegramUserId = String(user.id);
+  const accountId = `telegram:${telegramUserId}`;
+  try {
+    const quote = await refundService.quote({ accountId, telegramUserId });
+    sendJson(res, 200, quote);
+  } catch (err) {
+    sendJson(res, 400, { error: err instanceof Error ? err.message : 'Refund quote failed' });
+  }
+}
+
+async function handleRefund(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  config: PaymentsConfig,
+  refundService?: StarsRefundService,
+): Promise<void> {
+  if (!refundService) {
+    sendJson(res, 503, { error: 'Refund service is not configured' });
+    return;
+  }
+
+  const body = await readJsonBody<RefundRequestBody>(req);
+  const initData = typeof body.initData === 'string' ? body.initData : '';
+  const user = validateTelegramInitData(initData, config.botToken);
+  if (!user) {
+    sendJson(res, 401, { error: 'Invalid Telegram init data' });
+    return;
+  }
+
+  const starsAmount = typeof body.starsAmount === 'number' ? body.starsAmount : 0;
+  const telegramUserId = String(user.id);
+  const accountId = `telegram:${telegramUserId}`;
+  try {
+    const result = await refundService.refund({ accountId, telegramUserId, starsAmount });
+    sendJson(res, 200, result);
+  } catch (err) {
+    sendJson(res, 400, { error: err instanceof Error ? err.message : 'Refund failed' });
+  }
+}
+
+async function readTelegramUser(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  config: PaymentsConfig,
+): Promise<{ id: number } | null> {
+  const body = await readJsonBody<RefundRequestBody>(req);
+  const initData = typeof body.initData === 'string' ? body.initData : '';
+  const user = validateTelegramInitData(initData, config.botToken);
+  if (!user) {
+    sendJson(res, 401, { error: 'Invalid Telegram init data' });
+    return null;
+  }
+  return user;
 }
 
 async function handleTelegramWebhook(

@@ -9,12 +9,28 @@ export interface CreateInvoiceLinkInput {
 export interface TelegramBotApi {
   createInvoiceLink(input: CreateInvoiceLinkInput): Promise<string>;
   answerPreCheckoutQuery(input: AnswerPreCheckoutQueryInput): Promise<void>;
+  refundStarPayment(input: RefundStarPaymentInput): Promise<'refunded' | 'already_refunded'>;
 }
 
 export interface AnswerPreCheckoutQueryInput {
   preCheckoutQueryId: string;
   ok: boolean;
   errorMessage?: string;
+}
+
+export interface RefundStarPaymentInput {
+  telegramUserId: string;
+  telegramPaymentChargeId: string;
+}
+
+export class TelegramBotApiError extends Error {
+  readonly confirmedFailure: boolean;
+
+  constructor(message: string, options?: { confirmedFailure?: boolean }) {
+    super(message);
+    this.name = 'TelegramBotApiError';
+    this.confirmedFailure = options?.confirmedFailure ?? false;
+  }
 }
 
 interface BotApiResponse<T> {
@@ -72,6 +88,30 @@ export function createTelegramBotApi(
       if (!response.ok || !parsed.ok) {
         throw new Error(parsed.description || `Telegram Bot API failed with HTTP ${response.status}`);
       }
+    },
+
+    async refundStarPayment(input: RefundStarPaymentInput): Promise<'refunded' | 'already_refunded'> {
+      const response = await fetchImpl(`${baseUrl}/bot${botToken}/refundStarPayment`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          user_id: Number(input.telegramUserId),
+          telegram_payment_charge_id: input.telegramPaymentChargeId,
+        }),
+      });
+
+      const parsed = await response.json() as BotApiResponse<boolean>;
+      if (!response.ok || !parsed.ok) {
+        if (parsed.description?.includes('CHARGE_ALREADY_REFUNDED')) {
+          return 'already_refunded';
+        }
+        throw new TelegramBotApiError(
+          parsed.description || `Telegram Bot API failed with HTTP ${response.status}`,
+          { confirmedFailure: true },
+        );
+      }
+
+      return 'refunded';
     },
   };
 }

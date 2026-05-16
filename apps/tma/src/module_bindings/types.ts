@@ -99,6 +99,7 @@ export const PaymentLedger = __t.object("PaymentLedger", {
   telegramUserId: __t.string(),
   starsAmount: __t.u32(),
   elmAmount: __t.u32(),
+  refundableElmAmount: __t.u32(),
   refundedStarsAmount: __t.u32(),
   refundedElmAmount: __t.u32(),
   telegramPaymentChargeId: __t.string(),
