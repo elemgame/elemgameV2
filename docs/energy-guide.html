@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Энергия в Elmental — гайд по режимам</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f13;
+  --surface: #1a1a24;
+  --surface2: #22222e;
+  --border: #2a2a3a;
+  --text: #e8e8f0;
+  --text-dim: #8888a0;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --red: #ef4444;
+  --blue: #6366f1;
+  --purple: #a855f7;
+  --orange: #f97316;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  padding: 40px 20px;
+}
+
+.container { max-width: 1100px; margin: 0 auto; }
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--green), var(--yellow), var(--red));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  margin-bottom: 48px;
+}
+
+/* Base stats bar */
+.base-stats {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 32px;
+  margin-bottom: 40px;
+}
+
+.base-stats h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 20px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.stat-item {
+  background: var(--surface2);
+  border-radius: 12px;
+  padding: 16px 20px;
+  text-align: center;
+}
+
+.stat-item .value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.stat-item .label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.stat-item .cost-basic { color: var(--green); }
+.stat-item .cost-enhanced { color: var(--purple); }
+.stat-item .cap { color: var(--yellow); }
+.stat-item .overclock { color: var(--red); }
+
+/* Mode cards */
+.modes { display: grid; gap: 24px; margin-bottom: 48px; }
+
+.mode-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.mode-card:hover { border-color: var(--text-dim); }
+
+.mode-header {
+  padding: 24px 28px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mode-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.mode-icon.classic { background: rgba(34,197,94,0.15); color: var(--green); }
+.mode-icon.hardcore { background: rgba(239,68,68,0.15); color: var(--red); }
+.mode-icon.chaos { background: rgba(168,85,247,0.15); color: var(--purple); }
+
+.mode-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.mode-desc {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  margin-top: 2px;
+}
+
+.mode-body { padding: 0 28px 24px; }
+
+/* Regen table */
+.regen-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.regen-table th {
+  background: var(--surface2);
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.regen-table td {
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  border-top: 1px solid var(--border);
+}
+
+.regen-table tr:last-child td:first-child { border-radius: 0 0 0 12px; }
+.regen-table tr:last-child td:last-child { border-radius: 0 0 12px 0; }
+
+.tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.tag-green { background: rgba(34,197,94,0.15); color: var(--green); }
+.tag-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.tag-red { background: rgba(239,68,68,0.15); color: var(--red); }
+.tag-purple { background: rgba(168,85,247,0.15); color: var(--purple); }
+.tag-dim { background: rgba(136,136,160,0.15); color: var(--text-dim); }
+.tag-orange { background: rgba(249,115,22,0.15); color: var(--orange); }
+
+/* Energy bar visual */
+.energy-visual {
+  background: var(--surface2);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 16px;
+}
+
+.energy-visual .bar-track {
+  height: 24px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.energy-visual .bar-fill {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 0.6s ease;
+  position: relative;
+}
+
+.energy-visual .bar-fill.high { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.energy-visual .bar-fill.med { background: linear-gradient(90deg, #eab308, #facc15); }
+.energy-visual .bar-fill.low { background: linear-gradient(90deg, #ef4444, #f87171); }
+.energy-visual .bar-fill.debt { background: linear-gradient(90deg, #7f1d1d, #ef4444); }
+
+.energy-visual .bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* Overclock section */
+.overclock-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.overclock-section h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--orange);
+}
+
+.overclock-section p {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+/* Boost section */
+.boost-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-bottom: 40px;
+}
+
+.boost-section h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.boost-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.boost-item {
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+.boost-item .value {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.boost-item .label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.boost-item .plus { color: var(--green); }
+.boost-item .percent { color: var(--orange); }
+
+/* Strategy tip */
+.strategy {
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-top: 16px;
+  font-size: 0.9rem;
+  color: var(--blue);
+}
+
+.strategy strong { color: #fff; }
+
+/* Energy levels legend */
+.levels-guide {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.levels-guide .level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.levels-guide .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+/* Responsive */
+@media (min-width: 768px) {
+  .modes { grid-template-columns: 1fr; }
+  body { padding: 60px 40px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>⚡ Энергия в Elmental</h1>
+<p class="subtitle">Как работает энергия в разных игровых режимах</p>
+
+<!-- Base Stats -->
+<div class="base-stats">
+  <h2>Общие правила</h2>
+  <div class="stat-grid">
+    <div class="stat-item">
+      <div class="value">100</div>
+      <div class="label">Стартовая энергия</div>
+    </div>
+    <div class="stat-item">
+      <div class="value cost-basic">10</div>
+      <div class="label">Стоимость базового хода</div>
+    </div>
+    <div class="stat-item">
+      <div class="value cost-enhanced">25</div>
+      <div class="label">Стоимость усиленного хода</div>
+    </div>
+    <div class="stat-item">
+      <div class="value cap">100</div>
+      <div class="label">Максимум энергии</div>
+    </div>
+    <div class="stat-item">
+      <div class="value overclock">≤ 0</div>
+      <div class="label">Порог оверклока</div>
+    </div>
+  </div>
+
+  <div style="margin-top: 16px;">
+    <div style="font-size:0.9rem;color:var(--text-dim);margin-bottom:8px;">Уровни энергии:</div>
+    <div class="levels-guide">
+      <span class="level"><span class="dot" style="background:var(--green)"></span> High (67+)</span>
+      <span class="level"><span class="dot" style="background:var(--yellow)"></span> Medium (34–66)</span>
+      <span class="level"><span class="dot" style="background:var(--red)"></span> Low (0–33)</span>
+      <span class="level"><span class="dot" style="background:var(--red);opacity:0.5"></span> Debt (&lt; 0)</span>
+    </div>
+  </div>
+</div>
+
+<!-- Modes -->
+<div class="modes">
+
+  <!-- Classic -->
+  <div class="mode-card">
+    <div class="mode-header">
+      <div class="mode-icon classic">C</div>
+      <div>
+        <div class="mode-title">Classic — Классический</div>
+        <div class="mode-desc">Энергия восстанавливается после каждого раунда</div>
+      </div>
+    </div>
+    <div class="mode-body">
+      <table class="regen-table">
+        <thead><tr><th>Результат раунда</th><th>Регенерация</th></tr></thead>
+        <tbody>
+          <tr><td>🏆 Победа</td><td><span class="tag tag-green">+5</span></td></tr>
+          <tr><td>💀 Поражение</td><td><span class="tag tag-yellow">+15</span> <span style="color:var(--text-dim);font-size:0.85rem;margin-left:6px;">(механика догонялок)</span></td></tr>
+          <tr><td>🤝 Ничья</td><td><span class="tag tag-dim">+10</span></td></tr>
+        </tbody>
+      </table>
+
+      <div class="energy-visual">
+        <div style="font-size:0.9rem;font-weight:600;margin-bottom:8px;">Пример: после хода (стоимость 10) и победы</div>
+        <div class="bar-track">
+          <div class="bar-fill high" style="width:95%"></div>
+        </div>
+        <div class="bar-labels">
+          <span>0</span>
+          <span style="color:var(--green);font-weight:600;">95 ⚡</span>
+          <span>100</span>
+        </div>
+      </div>
+
+      <div class="strategy">
+        <strong>Стратегия:</strong> Прощающий режим. Проигрыш даёт +15 энергии — вы получаете больше, чем тратите на базовый ход (10). Можно позволить себе роскошные усиленные ходы за 25 энергии.
+      </div>
+    </div>
+  </div>
+
+  <!-- Hardcore -->
+  <div class="mode-card">
+    <div class="mode-header">
+      <div class="mode-icon hardcore">H</div>
+      <div>
+        <div class="mode-title">Hardcore — Хардкор</div>
+        <div class="mode-desc">Энергия НЕ восстанавливается вообще</div>
+      </div>
+    </div>
+    <div class="mode-body">
+      <table class="regen-table">
+        <thead><tr><th>Результат раунда</th><th>Регенерация</th></tr></thead>
+        <tbody>
+          <tr><td>🏆 Победа</td><td><span class="tag tag-red">0</span></td></tr>
+          <tr><td>💀 Поражение</td><td><span class="tag tag-red">0</span></td></tr>
+          <tr><td>🤝 Ничья</td><td><span class="tag tag-red">0</span></td></tr>
+        </tbody>
+      </table>
+
+      <div class="energy-visual">
+        <div style="font-size:0.9rem;font-weight:600;margin-bottom:8px;">Пример: ход за 10 → энергии остаётся 90 и больше не растёт</div>
+        <div class="bar-track">
+          <div class="bar-fill low" style="width:30%"></div>
+        </div>
+        <div class="bar-labels">
+          <span>0</span>
+          <span style="color:var(--red);font-weight:600;">30 ⚡</span>
+          <span>100</span>
+        </div>
+      </div>
+
+      <div class="strategy" style="border-color:rgba(239,68,68,0.2);background:rgba(239,68,68,0.08);color:var(--red);">
+        <strong>Стратегия:</strong> Ресурс истощается безвозвратно. Каждый ход — на вес золота. Усиленные ходы (25 ед.) — это ¼ всего запаса. Длинные матчи почти гарантированно приводят к оверклоку.
+      </div>
+    </div>
+  </div>
+
+  <!-- Chaos -->
+  <div class="mode-card">
+    <div class="mode-header">
+      <div class="mode-icon chaos">X</div>
+      <div>
+        <div class="mode-title">Chaos — Хаос</div>
+        <div class="mode-desc">Регенерация случайная: 0–20 за раунд</div>
+      </div>
+    </div>
+    <div class="mode-body">
+      <table class="regen-table">
+        <thead><tr><th>Результат раунда</th><th>Регенерация</th></tr></thead>
+        <tbody>
+          <tr><td>🏆 Победа</td><td><span class="tag tag-purple">🎲 0–20</span></td></tr>
+          <tr><td>💀 Поражение</td><td><span class="tag tag-purple">🎲 0–20</span></td></tr>
+          <tr><td>🤝 Ничья</td><td><span class="tag tag-purple">🎲 0–20</span></td></tr>
+        </tbody>
+      </table>
+
+      <div class="energy-visual">
+        <div style="font-size:0.9rem;font-weight:600;margin-bottom:8px;">Пример: было 70, ход за 10, реген 🎲 3 → стало 63</div>
+        <div class="bar-track">
+          <div class="bar-fill med" style="width:63%"></div>
+        </div>
+        <div class="bar-labels">
+          <span>0</span>
+          <span style="color:var(--yellow);font-weight:600;">63 ⚡</span>
+          <span>100</span>
+        </div>
+      </div>
+
+      <div class="strategy" style="border-color:rgba(168,85,247,0.2);background:rgba(168,85,247,0.08);color:var(--purple);">
+        <strong>Стратегия:</strong> Полная непредсказуемость. Нельзя планировать энергию дальше одного раунда. Иногда хаос даст +20 — иногда 0. Адаптируйтесь на ходу.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Overclock -->
+<div class="boost-section" style="border-color:rgba(249,115,22,0.3);">
+  <h2>⚠️ Оверклок</h2>
+  <p style="color:var(--text-dim);font-size:0.95rem;margin-bottom:16px;">
+    Когда энергия падает до <strong style="color:var(--red);">≤ 0</strong>, срабатывает оверклок:
+  </p>
+  <div class="boost-details">
+    <div class="boost-item">
+      <div class="value" style="color:var(--orange);">30%</div>
+      <div class="label">шанс, что ход заменится на случайный</div>
+    </div>
+    <div class="boost-item">
+      <div class="value" style="color:var(--red);">0–5</div>
+      <div class="label">любой из 6 ходов может выпасть</div>
+    </div>
+    <div class="boost-item">
+      <div class="value" style="color:var(--text);">70%</div>
+      <div class="label">шанс сыграть выбранный ход без изменений</div>
+    </div>
+  </div>
+  <p style="color:var(--text-dim);font-size:0.85rem;margin-top:12px;">
+    Если у вас &lt; 0 энергии — ходы полностью заблокированы до восстановления.
+  </p>
+</div>
+
+<!-- Boost -->
+<div class="boost-section">
+  <h2>🚀 Energy Boost — Усиление энергии</h2>
+  <p style="color:var(--text-dim);font-size:0.95rem;">
+    Можно купить перед матчем за <strong style="color:var(--orange);">+10%</strong> от ставки:
+  </p>
+  <div class="boost-details">
+    <div class="boost-item">
+      <div class="value plus">+20 ⚡</div>
+      <div class="label">дополнительной стартовой энергии</div>
+    </div>
+    <div class="boost-item">
+      <div class="value" style="font-size:1rem;">100 → <strong style="color:var(--green);">120</strong></div>
+      <div class="label">стартовый запас с бустом</div>
+    </div>
+    <div class="boost-item">
+      <div class="value percent">+10%</div>
+      <div class="label">дополнительно к ставке</div>
+    </div>
+  </div>
+  <p style="color:var(--text-dim);font-size:0.85rem;margin-top:12px;">
+    При победе — буст возвращается. При поражении или форфейте — сгорает.
+  </p>
+</div>
+
+<!-- Summary Table -->
+<div class="base-stats">
+  <h2>Сравнение режимов</h2>
+  <div style="overflow-x:auto;">
+    <table class="regen-table" style="min-width:600px;">
+      <thead>
+        <tr>
+          <th></th>
+          <th style="color:var(--green)">Classic</th>
+          <th style="color:var(--red)">Hardcore</th>
+          <th style="color:var(--purple)">Chaos</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="font-weight:500;color:var(--text-dim)">Реген на победу</td><td><span class="tag tag-green">+5</span></td><td><span class="tag tag-red">0</span></td><td><span class="tag tag-purple">🎲 0–20</span></td></tr>
+        <tr><td style="font-weight:500;color:var(--text-dim)">Реген на поражение</td><td><span class="tag tag-yellow">+15</span></td><td><span class="tag tag-red">0</span></td><td><span class="tag tag-purple">🎲 0–20</span></td></tr>
+        <tr><td style="font-weight:500;color:var(--text-dim)">Реген на ничью</td><td><span class="tag tag-dim">+10</span></td><td><span class="tag tag-red">0</span></td><td><span class="tag tag-purple">🎲 0–20</span></td></tr>
+        <tr><td style="font-weight:500;color:var(--text-dim)">Расход ресурса</td><td>Восполняемый</td><td>Невосполняемый</td><td>Непредсказуемый</td></tr>
+        <tr><td style="font-weight:500;color:var(--text-dim)">Стиль игры</td><td>Размеренный, прощает ошибки</td><td>Каждый ход критичен</td><td>Имровизация</td></tr>
+        <tr><td style="font-weight:500;color:var(--text-dim)">Оверклок</td><td>Редко</td><td>Почти неизбежен в затяжных матчах</td><td>Зависит от удачи</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ELMENTAL — Правила и Гид</title>
+<style>
+  :root {
+    --bg: #0a0a14;
+    --bg-2: #11121f;
+    --surface: #1a1b2e;
+    --border: rgba(150, 120, 255, 0.15);
+    --accent: #a78bfa;
+    --accent-2: #22d3ee;
+    --earth: #84cc16;
+    --fire: #f97316;
+    --water: #38bdf8;
+    --win: #4ade80;
+    --lose: #f87171;
+    --draw: #94a3b8;
+    --text: #e5e7ff;
+    --text-dim: #8b8fb3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    overflow: hidden;
+  }
+  body {
+    background:
+      radial-gradient(circle at 20% 30%, rgba(167, 139, 250, 0.12), transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(34, 211, 238, 0.08), transparent 50%),
+      var(--bg);
+  }
+
+  .deck { position: relative; width: 100vw; height: 100vh; }
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 64px clamp(24px, 6vw, 96px);
+    opacity: 0; pointer-events: none;
+    transform: translateY(20px) scale(0.99);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    overflow-y: auto;
+  }
+  .slide.active { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+  .slide-inner { width: 100%; max-width: 1100px; }
+
+  h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+  h1 { font-size: clamp(40px, 6vw, 84px); }
+  h2 { font-size: clamp(28px, 3.6vw, 48px); margin-bottom: 24px; }
+  h3 { font-size: clamp(18px, 1.6vw, 22px); margin-bottom: 12px; color: var(--accent); }
+  p  { font-size: clamp(15px, 1.2vw, 18px); line-height: 1.6; color: var(--text-dim); }
+  strong { color: var(--text); font-weight: 600; }
+  .accent { color: var(--accent); }
+  .accent-2 { color: var(--accent-2); }
+  .muted { color: var(--text-dim); }
+
+  .tag {
+    display: inline-block; padding: 6px 14px; border-radius: 999px;
+    background: rgba(167, 139, 250, 0.12); color: var(--accent);
+    font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
+    margin-bottom: 24px; text-transform: uppercase;
+    border: 1px solid var(--border);
+  }
+
+  .grid { display: grid; gap: 20px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 760px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .card:hover { border-color: rgba(167, 139, 250, 0.4); transform: translateY(-2px); }
+
+  .card-title { font-size: 14px; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .card-value { font-size: clamp(28px, 3vw, 40px); font-weight: 800; color: var(--text); }
+  .card-sub { font-size: 14px; color: var(--text-dim); margin-top: 8px; }
+
+  /* Title slide */
+  .title-slide { text-align: center; }
+  .title-slide .logo {
+    font-size: clamp(60px, 10vw, 140px); font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    letter-spacing: -0.04em; line-height: 1; margin-bottom: 12px;
+  }
+  .title-slide .subtitle { font-size: clamp(18px, 2vw, 24px); color: var(--text-dim); margin-bottom: 32px; }
+  .title-slide .hint { margin-top: 64px; font-size: 14px; color: var(--text-dim); opacity: 0.7; }
+  kbd {
+    display: inline-block; padding: 4px 10px; margin: 0 4px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-bottom-width: 2px; border-radius: 6px;
+    font-size: 12px; font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+    color: var(--text);
+  }
+
+  /* Moves */
+  .moves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+  .move {
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px;
+    padding: 24px; text-align: center;
+  }
+  .move .icon { font-size: 48px; margin-bottom: 8px; line-height: 1; }
+  .move .name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .move .cost { font-size: 14px; color: var(--text-dim); font-family: ui-monospace, monospace; }
+  .move.earth .name { color: var(--earth); }
+  .move.fire  .name { color: var(--fire); }
+  .move.water .name { color: var(--water); }
+  .move.enhanced { border-color: rgba(167, 139, 250, 0.35); box-shadow: 0 0 24px rgba(167,139,250,0.08) inset; }
+  .move.enhanced::after {
+    content: "+25⚡"; display: block; margin-top: 8px;
+    color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+  }
+
+  /* Matrix */
+  table.matrix {
+    width: 100%; border-collapse: collapse; font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+    font-size: clamp(11px, 1vw, 14px);
+  }
+  .matrix th, .matrix td {
+    padding: 10px 8px; text-align: center;
+    border: 1px solid var(--border);
+  }
+  .matrix th { background: var(--bg-2); color: var(--text-dim); font-weight: 600; }
+  .matrix td.win { background: rgba(74, 222, 128, 0.12); color: var(--win); font-weight: 700; }
+  .matrix td.lose { background: rgba(248, 113, 113, 0.10); color: var(--lose); font-weight: 700; }
+  .matrix td.draw { background: rgba(148, 163, 184, 0.08); color: var(--draw); }
+  .matrix .row-h { font-weight: 700; color: var(--text); background: var(--bg-2); }
+
+  /* Energy bar */
+  .energy-demo { background: var(--surface); padding: 24px; border-radius: 16px; border: 1px solid var(--border); }
+  .energy-bar { height: 14px; background: var(--bg-2); border-radius: 7px; overflow: hidden; margin-top: 8px; border: 1px solid var(--border); }
+  .energy-fill { height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 7px; }
+  .badge {
+    display: inline-block; padding: 4px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+  }
+  .badge.low { background: rgba(248, 113, 113, 0.15); color: var(--lose); }
+  .badge.med { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+  .badge.high { background: rgba(74, 222, 128, 0.15); color: var(--win); }
+
+  /* Step list */
+  ol.steps { list-style: none; counter-reset: step; }
+  ol.steps li {
+    counter-increment: step;
+    position: relative; padding: 16px 20px 16px 64px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  ol.steps li::before {
+    content: counter(step);
+    position: absolute; left: 18px; top: 50%; transform: translateY(-50%);
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #0a0a14; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.steps strong { color: var(--text); display: block; margin-bottom: 4px; }
+  ol.steps p { font-size: 14px; }
+
+  /* Nav */
+  .nav {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(20, 21, 36, 0.85); backdrop-filter: blur(12px);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 16px; z-index: 100;
+  }
+  .nav button {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text); cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .nav button:hover { background: rgba(167, 139, 250, 0.15); }
+  .nav button:disabled { opacity: 0.3; cursor: not-allowed; }
+  .nav .counter { font-family: ui-monospace, monospace; font-size: 13px; color: var(--text-dim); min-width: 60px; text-align: center; }
+
+  .progress {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    transition: width 0.3s ease;
+    z-index: 100;
+  }
+
+  .slide-num {
+    position: fixed; top: 24px; right: 32px;
+    font-size: 12px; color: var(--text-dim);
+    font-family: ui-monospace, monospace; letter-spacing: 0.1em;
+  }
+
+  ul.bullets { list-style: none; }
+  ul.bullets li {
+    padding: 10px 0 10px 28px; position: relative;
+    color: var(--text-dim); font-size: clamp(15px, 1.2vw, 17px); line-height: 1.5;
+  }
+  ul.bullets li::before {
+    content: "▸"; position: absolute; left: 0; color: var(--accent); font-weight: 800;
+  }
+  ul.bullets li strong { color: var(--text); }
+
+  .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .pill { padding: 6px 12px; border-radius: 999px; background: var(--bg-2); border: 1px solid var(--border); font-size: 13px; color: var(--text-dim); }
+
+  .quote {
+    border-left: 3px solid var(--accent);
+    padding: 8px 0 8px 24px; margin: 24px 0;
+    font-size: clamp(16px, 1.5vw, 20px); color: var(--text); font-style: italic;
+  }
+
+  .skill-curve { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 16px; }
+  .skill-curve .level { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .skill-curve .level .l-name { color: var(--accent); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .skill-curve .level .l-desc { color: var(--text-dim); font-size: 14px; line-height: 1.5; }
+  @media (max-width: 760px) { .skill-curve { grid-template-columns: 1fr 1fr; } }
+
+  /* In-game mockup */
+  .mockup-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center; margin-top: 24px; }
+  @media (max-width: 900px) { .mockup-row { grid-template-columns: 1fr; } .mockup-row .arrow { transform: rotate(90deg); } }
+
+  .phone {
+    background: linear-gradient(180deg, #0d0d2b 0%, #0a0a1a 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 8px rgba(255,255,255,0.02);
+    max-width: 360px;
+    margin: 0 auto;
+  }
+  .phone-label {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    font-weight: 700;
+  }
+  .phone-topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px 8px 0 0;
+  }
+  .phone-topbar .round-label { font-size: 10px; color: var(--text-dim); font-weight: 700; letter-spacing: 0.08em; }
+  .phone-topbar .round-num { font-size: 18px; font-weight: 900; color: var(--text); margin-left: 4px; }
+  .phone-topbar .score { font-size: 22px; font-weight: 900; }
+  .phone-topbar .score .me { color: var(--win); }
+  .phone-topbar .score .colon { color: var(--text-dim); font-size: 16px; margin: 0 6px; }
+  .phone-topbar .score .opp { color: var(--lose); }
+  .phone-topbar .timer {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: var(--accent);
+  }
+
+  .opp-card {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px; margin: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+  }
+  .opp-card.spotlight {
+    border-color: rgba(248, 113, 113, 0.5);
+    box-shadow: 0 0 0 1px rgba(248,113,113,0.3), 0 0 32px rgba(248,113,113,0.15);
+  }
+  .opp-card .left { display: flex; align-items: center; gap: 10px; }
+  .opp-card .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #ef4444, #7c3aed);
+    color: #fff; font-weight: 900; display: flex; align-items: center; justify-content: center;
+  }
+  .opp-card .meta .name { font-weight: 700; font-size: 13px; color: var(--text); }
+  .opp-card .meta .rating { font-size: 11px; color: var(--text-dim); }
+
+  .lvl-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.06em;
+    border: 1px solid;
+  }
+  .lvl-pill.high { color: var(--win); background: rgba(74,222,128,0.15); border-color: rgba(74,222,128,0.4); }
+  .lvl-pill.med  { color: #eab308;     background: rgba(234,179,8,0.15); border-color: rgba(234,179,8,0.4); }
+  .lvl-pill.low  { color: var(--lose); background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.5); }
+  .lvl-pill.pulse { animation: pulseLow 1.4s ease-in-out infinite; }
+  @keyframes pulseLow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(248,113,113,0); }
+  }
+
+  .my-bar-row { padding: 12px; }
+  .my-bar-row .lbl { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .my-bar-row .lbl .name { font-size: 11px; color: var(--text-dim); font-weight: 600; }
+  .my-bar-row .lbl .val { font-size: 13px; font-weight: 900; font-family: ui-monospace, monospace; }
+  .my-bar-row .track {
+    height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .my-bar-row .fill { height: 100%; border-radius: 5px; }
+
+  .moves-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 12px 12px;
+  }
+  .mini-move {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 8px 4px; text-align: center;
+  }
+  .mini-move .ico { font-size: 18px; line-height: 1; }
+  .mini-move .nm { font-size: 9px; font-weight: 700; margin-top: 2px; }
+  .mini-move .cst { font-size: 8px; color: var(--text-dim); font-family: monospace; }
+  .mini-move.dis { opacity: 0.3; filter: grayscale(0.7); }
+  .mini-move.earth .nm { color: var(--earth); }
+  .mini-move.fire  .nm { color: var(--fire); }
+  .mini-move.water .nm { color: var(--water); }
+
+  .move-log {
+    padding: 8px 12px;
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    background: rgba(0,0,0,0.2);
+    border-top: 1px solid rgba(255,255,255,0.04);
+    font-size: 10px;
+  }
+  .move-log .lbl { color: var(--text-dim); font-weight: 700; }
+  .move-log .chip {
+    padding: 3px 7px; border-radius: 6px; font-weight: 800;
+    background: rgba(167,139,250,0.15); color: var(--accent);
+    border: 1px solid rgba(167,139,250,0.3);
+  }
+
+  .arrow {
+    font-size: 32px; color: var(--accent); font-weight: 900;
+    text-align: center;
+  }
+  .arrow .lbl { font-size: 11px; color: var(--text-dim); margin-top: 4px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
+
+  .read-callout {
+    margin-top: 24px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgba(248,113,113,0.08), rgba(167,139,250,0.05));
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 16px;
+  }
+  .read-callout .who { font-size: 12px; color: var(--accent); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .read-callout p { font-size: 15px; color: var(--text); }
+
+  /* Analogy callout — "простыми словами" */
+  .analogy {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 20px 24px; margin: 24px 0;
+    background: linear-gradient(135deg, rgba(34,211,238,0.08), rgba(167,139,250,0.05));
+    border: 1px solid rgba(34,211,238,0.2);
+    border-radius: 16px;
+  }
+  .analogy .icon { font-size: 32px; line-height: 1; flex-shrink: 0; }
+  .analogy .body { flex: 1; }
+  .analogy .lbl { font-size: 11px; color: var(--accent-2); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+  .analogy p { font-size: 15px; color: var(--text); line-height: 1.5; }
+
+  /* Story strip — пошаговые кадры */
+  .story { display: grid; gap: 12px; margin-top: 16px; }
+  .story.row { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .story-frame {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px; position: relative;
+  }
+  .story-frame .frame-num {
+    position: absolute; top: -10px; left: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #0a0a14; font-weight: 900; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .story-frame .frame-visual { text-align: center; font-size: 32px; margin: 8px 0; line-height: 1; }
+  .story-frame .frame-text { font-size: 13px; color: var(--text-dim); line-height: 1.4; }
+  .story-frame .frame-text strong { color: var(--text); }
+  .story-frame .energy-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 6px;
+    font-family: ui-monospace, monospace; font-size: 11px; font-weight: 800;
+    background: rgba(167,139,250,0.15); color: var(--accent); margin-top: 4px;
+  }
+  .story-frame .delta { font-size: 11px; font-weight: 800; }
+  .story-frame .delta.up { color: var(--win); }
+  .story-frame .delta.down { color: var(--lose); }
+
+  /* Flip diagram */
+  .flip-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  @media (max-width: 760px) { .flip-pair { grid-template-columns: 1fr; } }
+  .flip-side {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 24px;
+  }
+  .flip-side .heading { font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+  .flip-side.before .heading { color: var(--lose); }
+  .flip-side.after .heading { color: var(--win); }
+  .flip-row {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    font-size: 32px; padding: 12px 0;
+  }
+  .flip-row .arr { font-size: 24px; color: var(--text-dim); font-weight: 800; }
+  .flip-row.broken .arr { color: var(--lose); position: relative; }
+  .flip-row.broken .arr::after { content: "✗"; position: absolute; top: -8px; right: -4px; color: var(--lose); font-size: 14px; }
+  .flip-row.fixed .arr { color: var(--win); }
+  .flip-row .lbl { font-size: 11px; color: var(--text-dim); font-family: monospace; text-align: center; }
+
+  /* Quiz */
+  .quiz {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    padding: 28px; margin-top: 16px;
+  }
+  .quiz-sit {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;
+    margin-bottom: 20px;
+  }
+  .quiz-fact {
+    padding: 10px 14px; background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 10px; font-size: 13px;
+  }
+  .quiz-fact .k { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .quiz-fact .v { color: var(--text); font-weight: 800; font-size: 15px; margin-top: 2px; }
+  .quiz-question { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 16px; text-align: center; }
+  .quiz-opts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 600px) { .quiz-opts { grid-template-columns: 1fr; } }
+  .quiz-opt {
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; cursor: pointer; transition: all 0.2s; text-align: left;
+    font: inherit; color: inherit; width: 100%;
+  }
+  .quiz-opt:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .quiz-opt .opt-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .quiz-opt .opt-head .ico { font-size: 24px; }
+  .quiz-opt .opt-head .nm { font-weight: 800; font-size: 14px; }
+  .quiz-opt .opt-head .cst { margin-left: auto; font-family: monospace; font-size: 12px; color: var(--text-dim); }
+  .quiz-opt .opt-desc { font-size: 12px; color: var(--text-dim); line-height: 1.4; display: none; }
+  .quiz-opt .opt-verdict { font-size: 12px; font-weight: 800; margin-top: 8px; display: none; }
+  .quiz-opt.revealed .opt-desc, .quiz-opt.revealed .opt-verdict { display: block; }
+  .quiz-opt.revealed.good { border-color: var(--win); background: rgba(74,222,128,0.06); }
+  .quiz-opt.revealed.good .opt-verdict { color: var(--win); }
+  .quiz-opt.revealed.bad { border-color: var(--lose); background: rgba(248,113,113,0.06); }
+  .quiz-opt.revealed.bad .opt-verdict { color: var(--lose); }
+  .quiz-opt.revealed.ok { border-color: #eab308; background: rgba(234,179,8,0.06); }
+  .quiz-opt.revealed.ok .opt-verdict { color: #eab308; }
+  .quiz-hint { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 12px; }
+
+  /* Versus table */
+  .vs-strategy { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  @media (max-width: 760px) { .vs-strategy { grid-template-columns: 1fr; } }
+  .vs-player {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px;
+  }
+  .vs-player .ph { font-size: 14px; font-weight: 800; margin-bottom: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .vs-player.a .ph { color: var(--accent-2); }
+  .vs-player.b .ph { color: var(--accent); }
+  .vs-rounds { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .vs-round {
+    flex: 1; min-width: 50px; padding: 8px 4px; text-align: center;
+    border-radius: 8px; font-size: 11px; font-weight: 800;
+  }
+  .vs-round.w { background: rgba(74,222,128,0.15); color: var(--win); border: 1px solid rgba(74,222,128,0.3); }
+  .vs-round.l { background: rgba(248,113,113,0.15); color: var(--lose); border: 1px solid rgba(248,113,113,0.3); }
+  .vs-round.d { background: rgba(148,163,184,0.15); color: var(--draw); border: 1px solid rgba(148,163,184,0.3); }
+  .vs-round .delta { display: block; margin-top: 2px; font-size: 10px; opacity: 0.9; }
+  .vs-total { display: flex; justify-content: space-between; padding: 10px 14px; background: var(--bg-2); border-radius: 10px; }
+  .vs-total .k { color: var(--text-dim); font-size: 12px; }
+  .vs-total .v { font-weight: 900; font-family: monospace; }
+
+  /* Tokenomics flow */
+  .flow-stage {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px; position: relative;
+  }
+  .flow-stage .stage-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 12px;
+  }
+  .flow-token {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px;
+    background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35);
+    font-family: ui-monospace, monospace; font-weight: 800; font-size: 14px; color: var(--accent);
+  }
+  .flow-token.big { font-size: 18px; padding: 10px 18px; }
+  .flow-token.win { background: rgba(74,222,128,0.15); border-color: rgba(74,222,128,0.4); color: var(--win); }
+  .flow-token.burn { background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.5); color: var(--lose); }
+  .flow-token.rake { background: rgba(234,179,8,0.15); border-color: rgba(234,179,8,0.4); color: #eab308; }
+
+  .flow-grid {
+    display: grid; grid-template-columns: 1fr 60px 1fr; gap: 12px; align-items: center;
+    margin-top: 16px;
+  }
+  @media (max-width: 760px) { .flow-grid { grid-template-columns: 1fr; } .flow-arrow { transform: rotate(90deg); } }
+  .flow-arrow { text-align: center; font-size: 24px; color: var(--accent); font-weight: 900; }
+
+  .flow-tree {
+    display: grid; gap: 10px;
+    padding: 16px;
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px;
+    margin-top: 12px;
+  }
+  .flow-branch { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+  .flow-branch .conn { color: var(--text-dim); font-family: monospace; font-size: 14px; }
+  .flow-branch .desc { color: var(--text-dim); font-size: 13px; }
+  .flow-branch .desc strong { color: var(--text); }
+
+  .utility-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+  @media (max-width: 760px) { .utility-grid { grid-template-columns: 1fr 1fr; } }
+  .util-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; text-align: center;
+  }
+  .util-card .ic { font-size: 28px; line-height: 1; margin-bottom: 8px; }
+  .util-card .nm { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .util-card .ds { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+
+  .deflation-banner {
+    margin-top: 24px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgba(248,113,113,0.12), rgba(167,139,250,0.06));
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: 16px;
+    display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center;
+  }
+  @media (max-width: 600px) { .deflation-banner { grid-template-columns: 1fr; text-align: center; } }
+  .deflation-banner .big-ic { font-size: 56px; line-height: 1; }
+  .deflation-banner .ttl { color: var(--lose); font-size: 14px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .deflation-banner p { color: var(--text); font-size: 15px; }
+
+  .gas-banner {
+    margin-top: 16px;
+    padding: 18px 22px;
+    background: linear-gradient(135deg, rgba(34,211,238,0.08), transparent);
+    border: 1px solid rgba(34,211,238,0.25);
+    border-radius: 16px;
+    display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center;
+  }
+  .gas-banner .big-ic { font-size: 36px; }
+  .gas-banner .ttl { color: var(--accent-2); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .gas-banner p { color: var(--text-dim); font-size: 14px; }
+  .gas-banner p strong { color: var(--text); }
+
+  /* Mechanic → Business chains */
+  .chain {
+    display: grid; grid-template-columns: 1fr 32px 1fr 32px 1fr;
+    gap: 12px; align-items: stretch;
+    padding: 16px; margin-bottom: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    transition: border-color 0.2s;
+  }
+  .chain:hover { border-color: rgba(167,139,250,0.4); }
+  @media (max-width: 900px) {
+    .chain { grid-template-columns: 1fr; gap: 8px; }
+    .chain .ch-arr { transform: rotate(90deg); height: 16px; }
+  }
+  .ch-node {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .ch-node .lbl { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .ch-node .ttl { font-size: 14px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .ch-node .ds  { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+  .ch-node.mech { border-color: rgba(167,139,250,0.3); }
+  .ch-node.mech .lbl { color: var(--accent); }
+  .ch-node.effect { border-color: rgba(34,211,238,0.3); }
+  .ch-node.effect .lbl { color: var(--accent-2); }
+  .ch-node.money { border-color: rgba(74,222,128,0.4); }
+  .ch-node.money .lbl { color: var(--win); }
+
+  .ch-arr {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-dim); font-size: 20px; font-weight: 900;
+  }
+
+  .why-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 24px; }
+  @media (max-width: 760px) { .why-grid { grid-template-columns: 1fr; } }
+  .why-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px;
+    display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: flex-start;
+  }
+  .why-card .big-ic { font-size: 28px; line-height: 1; }
+  .why-card .ttl { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .why-card .ds { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .why-card .ds strong { color: var(--text); }
+
+  .compare-table {
+    margin-top: 24px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden;
+  }
+  .compare-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-row:last-child { border-bottom: none; }
+  .compare-row.head { background: var(--bg-2); }
+  .compare-row.head .cell { font-size: 11px; font-weight: 800; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .compare-row .cell { padding: 14px 16px; border-right: 1px solid var(--border); font-size: 13px; color: var(--text-dim); }
+  .compare-row .cell:last-child { border-right: none; }
+  .compare-row .cell.good { color: var(--win); font-weight: 700; }
+  .compare-row .cell.bad { color: var(--lose); font-weight: 700; }
+  .compare-row .cell.label { color: var(--text); font-weight: 700; }
+  @media (max-width: 760px) {
+    .compare-row { grid-template-columns: 1fr; }
+    .compare-row .cell { border-right: none; border-bottom: 1px solid var(--border); }
+    .compare-row .cell:last-child { border-bottom: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="slide-num" id="slideNum">01 / 21</div>
+
+<div class="deck" id="deck">
+
+  <!-- Slide 1: Title -->
+  <section class="slide active title-slide">
+    <div class="slide-inner">
+      <div class="logo">ELMENTAL</div>
+      <div class="subtitle">Стратегический PvP на блокчейне — не удача, а давление</div>
+      <p style="max-width: 640px; margin: 0 auto;">Камень-Ножницы-Бумага превращаются в покер с элементами: энергия как фишки, скрытая информация как блеф, реальные ставки как фундамент.</p>
+      <div class="hint">
+        Навигация: <kbd>←</kbd> <kbd>→</kbd> или <kbd>Space</kbd> · <kbd>Home</kbd> / <kbd>End</kbd>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 2: Концепция -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Концепция</div>
+      <h2>Покер с элементами</h2>
+      <div class="quote">Камень-Ножницы-Бумага звучит просто. Добавьте энергетическую экономику, скрытую информацию и реальные ставки — и вот вы играете в покер стихиями.</div>
+      <div class="grid grid-3" style="margin-top: 32px;">
+        <div class="card">
+          <h3>30 секунд</h3>
+          <p>чтобы выучить правила. Базовый треугольник РПС знают все.</p>
+        </div>
+        <div class="card">
+          <h3>Месяцы</h3>
+          <p>чтобы освоить мастерство. Глубина из ресурсов, чтения и блефа.</p>
+        </div>
+        <div class="card">
+          <h3>Реальные ставки</h3>
+          <p>100 ELM за матч. Победитель забирает банк. На блокчейне Acki Nacki.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 3: Энергия -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Механика #1</div>
+      <h2>Энергетическая экономика</h2>
+      <p style="margin-bottom: 24px;">Каждый матч стартует с <strong class="accent">100 энергии</strong>. Каждый ход стоит энергию. Вы не просто выбираете элемент — вы управляете бюджетом.</p>
+
+      <div class="grid grid-4">
+        <div class="card"><div class="card-title">Стартовая энергия</div><div class="card-value">100⚡</div><div class="card-sub">120⚡ с Boost</div></div>
+        <div class="card"><div class="card-title">Базовый ход</div><div class="card-value">10⚡</div><div class="card-sub">Earth · Fire · Water</div></div>
+        <div class="card"><div class="card-title">Усиленный ход</div><div class="card-value">25⚡</div><div class="card-sub">Earth+ · Fire+ · Water+</div></div>
+        <div class="card"><div class="card-title">Формат</div><div class="card-value">Bo5</div><div class="card-sub">Первый до 3 побед</div></div>
+      </div>
+
+      <div class="energy-demo" style="margin-top: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>Ваша энергия</strong> <span class="muted" style="font-family: monospace;">73 / 100</span>
+        </div>
+        <div class="energy-bar"><div class="energy-fill" style="width: 73%;"></div></div>
+        <p style="margin-top: 12px;">Видите своё точное значение. Соперник видит только <span class="badge high">HIGH</span> — индикатор уровня.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 4 (NEW): Энергия — как карманные деньги -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Объясняю просто</div>
+      <h2>Энергия — это как карманные деньги</h2>
+
+      <div class="analogy">
+        <div class="icon">💡</div>
+        <div class="body">
+          <div class="lbl">Простыми словами</div>
+          <p>Представь, что у тебя в кармане <strong>100 рублей</strong>. Маленькая шоколадка стоит <strong>10 ₽</strong>, большая — <strong>25 ₽</strong>. Между уроками мама даёт тебе ещё немного на карман: чем хуже у тебя дела на контрольных, тем больше она «доплачивает».</p>
+          <p style="margin-top: 8px;">Вот и вся энергия. <strong class="accent-2">Базовые ходы — маленькие шоколадки. Плюсы — большие. Реген — мамина подачка.</strong></p>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 24px;">Пример матча — раунд за раундом</h3>
+      <div class="story row">
+        <div class="story-frame">
+          <div class="frame-num">1</div>
+          <div class="frame-visual">🔥</div>
+          <div class="frame-text"><strong>Старт.</strong> Играешь Fire — 10⚡.<br>Раунд: <strong style="color: var(--lose);">проигрыш</strong>.</div>
+          <div class="energy-tag">100 → 90 → +15 = 105⚡</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">2</div>
+          <div class="frame-visual">🌳</div>
+          <div class="frame-text"><strong>Жмёшь плюс.</strong> Earth+ — 25⚡.<br>Раунд: <strong style="color: var(--win);">победа!</strong></div>
+          <div class="energy-tag">105 → 80 → +5 = 85⚡</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">3</div>
+          <div class="frame-visual">💧</div>
+          <div class="frame-text"><strong>Экономишь.</strong> Water — 10⚡.<br>Раунд: <strong style="color: var(--draw);">ничья</strong>.</div>
+          <div class="energy-tag">85 → 75 → +10 = 85⚡</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">4</div>
+          <div class="frame-visual">☄️</div>
+          <div class="frame-text"><strong>Ещё плюс.</strong> Fire+ — 25⚡.<br>Раунд: <strong style="color: var(--win);">победа</strong>.</div>
+          <div class="energy-tag">85 → 60 → +5 = 65⚡</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">5</div>
+          <div class="frame-visual">🌿</div>
+          <div class="frame-text"><strong>Решающий.</strong> Earth — 10⚡.<br>Раунд: <strong style="color: var(--win);">победа = матч!</strong></div>
+          <div class="energy-tag">65 → 55⚡ · 3-1 🏆</div>
+        </div>
+      </div>
+
+      <div class="grid grid-3" style="margin-top: 24px;">
+        <div class="card"><h3>Главное правило</h3><p>Каждый ход — это <strong>покупка</strong>. Спросил себя: «есть у меня в кармане?» Если нет — либо базовый, либо рискнуть overclock.</p></div>
+        <div class="card"><h3>Лайфхак</h3><p>Никогда не трать <strong>сразу два плюса подряд</strong>. Получишь -50⚡ и оба раунда соперник увидит твоё падение.</p></div>
+        <div class="card"><h3>Запомни</h3><p>Лучше <strong>проиграть дёшево</strong> (10⚡ + получить +15 регена), чем выиграть дорого (25⚡ за +5 регена).</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 5 (was 4): Базовые ходы -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Ходы — базовые</div>
+      <h2>Классический треугольник</h2>
+      <p>Три базовых элемента, стандартное РПС: <strong style="color: var(--earth);">Земля</strong> бьёт <strong style="color: var(--fire);">Огонь</strong>, Огонь бьёт <strong style="color: var(--water);">Воду</strong>, Вода бьёт Землю.</p>
+
+      <div class="moves">
+        <div class="move earth"><div class="icon">🌿</div><div class="name">Earth</div><div class="cost">10⚡</div></div>
+        <div class="move fire"><div class="icon">🔥</div><div class="name">Fire</div><div class="cost">10⚡</div></div>
+        <div class="move water"><div class="icon">💧</div><div class="name">Water</div><div class="cost">10⚡</div></div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top: 32px;">
+        <div class="card">
+          <h3>Дёшево</h3>
+          <p>10⚡ за ход — можно сделать <strong>до 10 базовых ходов</strong> со старта без регена.</p>
+        </div>
+        <div class="card">
+          <h3>Предсказуемо</h3>
+          <p>Каждый базовый ход: <strong>2 победы из 5</strong> в матрице (без ничьих). Надёжный, но не выигрышный сам по себе.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 5: Усиленные ходы -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Ходы — усиленные</div>
+      <h2>Переверни свою слабость</h2>
+      <p>Усиленные ходы стоят в <strong class="accent">2.5×</strong> дороже, но <strong>переворачивают вашу слабость</strong>: Earth обычно проигрывает Воде → <strong class="accent">Earth+ ПОБЕЖДАЕТ</strong> Воду.</p>
+
+      <div class="moves">
+        <div class="move earth enhanced"><div class="icon">🌳</div><div class="name">Earth+</div><div class="cost">25⚡</div></div>
+        <div class="move fire enhanced"><div class="icon">☄️</div><div class="name">Fire+</div><div class="cost">25⚡</div></div>
+        <div class="move water enhanced"><div class="icon">🌊</div><div class="name">Water+</div><div class="cost">25⚡</div></div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top: 32px;">
+        <div class="card">
+          <h3>Логика плюса</h3>
+          <ul class="bullets">
+            <li><strong>Бьёт свой базовый</strong> (Earth+ &gt; Earth)</li>
+            <li><strong>Бьёт свою слабость</strong> (Earth+ &gt; Water)</li>
+            <li>Проигрывает тому, кого Earth обычно бил (Earth+ &lt; Fire)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Размен</h3>
+          <p>3 победы из 5 в матрице (вместо 2), но цена в 2.5×. <strong>Не доминирует — это компромисс.</strong></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEW: Плюс ломает правило -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Объясняю просто</div>
+      <h2>Что значит «плюс ломает правило»?</h2>
+
+      <div class="analogy">
+        <div class="icon">🛡️</div>
+        <div class="body">
+          <div class="lbl">Простыми словами</div>
+          <p>Помнишь обычное камень-ножницы-бумага? Камень проигрывает бумаге. Но если у тебя <strong>бронебойный камень</strong> — он рвёт бумагу в клочья. Только такой камень <strong>дороже</strong> обычного, и есть <strong>другие враги</strong>, против которых он бесполезен.</p>
+          <p style="margin-top: 8px;">В Elmental: <strong class="accent-2">плюс — это бронебойная версия своей стихии</strong>. Он бьёт того, кому обычно проигрывал. Но проигрывает тому, кого обычно бил.</p>
+        </div>
+      </div>
+
+      <div class="flip-pair">
+        <div class="flip-side before">
+          <div class="heading">Обычное правило</div>
+          <div class="flip-row broken">
+            <span>💧</span><span class="arr">→</span><span>🌿</span>
+          </div>
+          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 4px;">Вода обычно <strong style="color: var(--lose);">бьёт</strong> Землю</div>
+          <div class="flip-row broken" style="margin-top: 16px;">
+            <span>🌿</span><span class="arr">→</span><span>🔥</span>
+          </div>
+          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 4px;">Земля обычно <strong style="color: var(--win);">бьёт</strong> Огонь</div>
+        </div>
+        <div class="flip-side after">
+          <div class="heading">Земля+ переворачивает</div>
+          <div class="flip-row fixed">
+            <span>🌳</span><span class="arr">→</span><span>💧</span>
+          </div>
+          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--win); margin-top: 4px;">Earth+ <strong>БЬЁТ</strong> Воду ✓</div>
+          <div class="flip-row broken" style="margin-top: 16px;">
+            <span>🌳</span><span class="arr">←</span><span>🔥</span>
+          </div>
+          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--lose); margin-top: 4px;">Earth+ <strong>проигрывает</strong> Огню ✗</div>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 32px;">Три «переворота» во всей игре</h3>
+      <div class="grid grid-3" style="margin-top: 12px;">
+        <div class="card" style="text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 8px;">🌳 vs 💧</div>
+          <p><strong style="color: var(--earth);">Earth+ бьёт Water</strong></p>
+          <p class="muted" style="font-size: 12px; margin-top: 4px;">Раньше теряла → теперь побеждает</p>
+        </div>
+        <div class="card" style="text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 8px;">☄️ vs 🌿</div>
+          <p><strong style="color: var(--fire);">Fire+ бьёт Earth</strong></p>
+          <p class="muted" style="font-size: 12px; margin-top: 4px;">Раньше теряла → теперь побеждает</p>
+        </div>
+        <div class="card" style="text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 8px;">🌊 vs 🔥</div>
+          <p><strong style="color: var(--water);">Water+ бьёт Fire</strong></p>
+          <p class="muted" style="font-size: 12px; margin-top: 4px;">Раньше теряла → теперь побеждает</p>
+        </div>
+      </div>
+
+      <div class="quote" style="margin-top: 24px;">
+        За эту суперспособность ты платишь <strong>25⚡ вместо 10⚡</strong>. То есть один плюс «съедает» как 2.5 базовых хода. <strong class="accent-2">Поэтому плюс — это не «нагибатор», а тактическое оружие на 1-2 раунда из 5.</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 6: Матрица -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Полная матрица 6×6</div>
+      <h2>Кто кого бьёт</h2>
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>ATK \ DEF</th><th>Earth</th><th>Fire</th><th>Water</th><th>Earth+</th><th>Fire+</th><th>Water+</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="row-h">Earth</td>  <td class="draw">—</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="lose">LOSE</td><td class="lose">LOSE</td><td class="win">WIN</td></tr>
+          <tr><td class="row-h">Fire</td>   <td class="lose">LOSE</td><td class="draw">—</td><td class="win">WIN</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="lose">LOSE</td></tr>
+          <tr><td class="row-h">Water</td>  <td class="win">WIN</td><td class="lose">LOSE</td><td class="draw">—</td><td class="lose">LOSE</td><td class="win">WIN</td><td class="lose">LOSE</td></tr>
+          <tr><td class="row-h">Earth+</td> <td class="win">WIN</td><td class="lose">LOSE</td><td class="win">WIN</td><td class="draw">—</td><td class="win">WIN</td><td class="lose">LOSE</td></tr>
+          <tr><td class="row-h">Fire+</td>  <td class="win">WIN</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="lose">LOSE</td><td class="draw">—</td><td class="win">WIN</td></tr>
+          <tr><td class="row-h">Water+</td> <td class="lose">LOSE</td><td class="lose">LOSE</td><td class="win">WIN</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="draw">—</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top: 16px;">Матрица <strong>антисимметрична</strong> — если A бьёт B, то B проигрывает A. Ни один ход не доминирует абсолютно.</p>
+    </div>
+  </section>
+
+  <!-- Slide 7: Скрытая энергия -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Механика #2 — что видит соперник</div>
+      <h2>Скрытая информация = ментальная игра</h2>
+      <p>В игре индикатор соперника <strong>уже показан как пилюля в его карточке</strong>. Цвет и текст меняются в реальном времени по порогам <strong class="accent">33 / 66</strong>. Ниже — мокап того, что соперник видит на вашей стороне.</p>
+
+      <div class="mockup-row">
+        <!-- Phone 1: HIGH -->
+        <div>
+          <div class="phone-label">Раунд 1 · старт матча</div>
+          <div class="phone">
+            <div class="phone-topbar">
+              <div><span class="round-label">ROUND</span><span class="round-num">1</span></div>
+              <div class="score"><span class="me">0</span><span class="colon">:</span><span class="opp">0</span></div>
+              <div class="timer">15</div>
+            </div>
+            <div class="opp-card">
+              <div class="left">
+                <div class="avatar">Y</div>
+                <div class="meta"><div class="name">You</div><div class="rating">⭐ 1450</div></div>
+              </div>
+              <span class="lvl-pill high">HIGH ⚡</span>
+            </div>
+            <div class="my-bar-row">
+              <div class="lbl"><span class="name">Opponent's view of you</span><span class="val" style="color: var(--win);">~100⚡</span></div>
+              <div class="track"><div class="fill" style="width: 100%; background: linear-gradient(90deg, #22c55eaa, #22c55e); box-shadow: 0 0 8px rgba(34,197,94,0.6);"></div></div>
+            </div>
+            <div class="moves-grid">
+              <div class="mini-move earth"><div class="ico">🌿</div><div class="nm">Earth</div><div class="cst">10⚡</div></div>
+              <div class="mini-move fire"><div class="ico">🔥</div><div class="nm">Fire</div><div class="cst">10⚡</div></div>
+              <div class="mini-move water"><div class="ico">💧</div><div class="nm">Water</div><div class="cst">10⚡</div></div>
+              <div class="mini-move earth"><div class="ico">🌳</div><div class="nm">Earth+</div><div class="cst">25⚡</div></div>
+              <div class="mini-move fire"><div class="ico">☄️</div><div class="nm">Fire+</div><div class="cst">25⚡</div></div>
+              <div class="mini-move water"><div class="ico">🌊</div><div class="nm">Water+</div><div class="cst">25⚡</div></div>
+            </div>
+            <div class="move-log">
+              <span class="lbl">Your last moves:</span>
+              <span class="muted" style="font-size: 10px;">— нет данных —</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow">
+          ➜
+          <div class="lbl">3 плюса подряд</div>
+        </div>
+
+        <!-- Phone 2: LOW -->
+        <div>
+          <div class="phone-label">Раунд 4 · после 3× усиленных</div>
+          <div class="phone">
+            <div class="phone-topbar">
+              <div><span class="round-label">ROUND</span><span class="round-num">4</span></div>
+              <div class="score"><span class="me">1</span><span class="colon">:</span><span class="opp">2</span></div>
+              <div class="timer" style="border-color: var(--lose); color: var(--lose);">07</div>
+            </div>
+            <div class="opp-card spotlight">
+              <div class="left">
+                <div class="avatar">Y</div>
+                <div class="meta"><div class="name">You</div><div class="rating">⭐ 1450</div></div>
+              </div>
+              <span class="lvl-pill low pulse">LOW ⚡</span>
+            </div>
+            <div class="my-bar-row">
+              <div class="lbl"><span class="name">Opponent's view of you</span><span class="val" style="color: var(--lose);">~25⚡</span></div>
+              <div class="track"><div class="fill" style="width: 25%; background: linear-gradient(90deg, #ef4444aa, #ef4444); box-shadow: 0 0 8px rgba(239,68,68,0.6);"></div></div>
+            </div>
+            <div class="moves-grid">
+              <div class="mini-move earth"><div class="ico">🌿</div><div class="nm">Earth</div><div class="cst">10⚡</div></div>
+              <div class="mini-move fire"><div class="ico">🔥</div><div class="nm">Fire</div><div class="cst">10⚡</div></div>
+              <div class="mini-move water"><div class="ico">💧</div><div class="nm">Water</div><div class="cst">10⚡</div></div>
+              <div class="mini-move earth dis"><div class="ico">🌳</div><div class="nm">Earth+</div><div class="cst">25⚡</div></div>
+              <div class="mini-move fire dis"><div class="ico">☄️</div><div class="nm">Fire+</div><div class="cst">25⚡</div></div>
+              <div class="mini-move water dis"><div class="ico">🌊</div><div class="nm">Water+</div><div class="cst">25⚡</div></div>
+            </div>
+            <div class="move-log">
+              <span class="lbl">Your last 3 moves:</span>
+              <span class="chip">Fire+</span><span class="chip">Water+</span><span class="chip">Earth+</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="read-callout">
+        <div class="who">Что думает соперник прямо сейчас</div>
+        <p>«Он спустил <strong>75⚡ за три раунда</strong>. Пилюля стала <strong style="color: var(--lose);">красной — LOW</strong>. Плюсы для него заблокированы. Сыграю дешёвый <strong style="color: var(--fire);">Fire</strong> — он бьёт большинство базовых, и я не плачу 25⚡ зря.»</p>
+        <p style="margin-top: 8px;"><strong class="accent-2">Если только это не то, что вы хотите, чтобы он думал.</strong> Подождите регена (+15 за проигрыш), сыграйте <strong>Water+ в финале</strong> — и переиграйте читателя его же оружием.</p>
+      </div>
+
+      <div class="grid grid-3" style="margin-top: 24px;">
+        <div class="card"><div style="margin-bottom: 8px;"><span class="lvl-pill low">LOW ⚡</span></div><div class="card-value" style="font-size: 24px;">0 – 33</div><div class="card-sub">Плюсы заблокированы. Вынужден на базовые.</div></div>
+        <div class="card"><div style="margin-bottom: 8px;"><span class="lvl-pill med">MED ⚡</span></div><div class="card-value" style="font-size: 24px;">34 – 66</div><div class="card-sub">Может и так, и эдак. Самая непредсказуемая зона.</div></div>
+        <div class="card"><div style="margin-bottom: 8px;"><span class="lvl-pill high">HIGH ⚡</span></div><div class="card-value" style="font-size: 24px;">67 – 100+</div><div class="card-sub">Готов к большим играм. Жди плюсов или overclock.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 8: Overclock -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Механика #3</div>
+      <h2>Overclock — управляемый хаос</h2>
+      <p>Закончилась энергия, но нужно выиграть раунд? <strong class="accent">Иди в overclock.</strong> Сделай ход, который не можешь себе позволить. Энергия уходит в минус. Но:</p>
+
+      <div class="grid grid-2" style="margin-top: 32px;">
+        <div class="card" style="border-color: rgba(248, 113, 113, 0.3);">
+          <h3 style="color: var(--lose);">Цена хаоса</h3>
+          <ul class="bullets">
+            <li><strong>30%</strong> шанс, что ваш ход <strong>заменится на случайный</strong></li>
+            <li><strong>0 регена</strong> в следующем раунде (штраф восстановления)</li>
+            <li>Энергия уходит в минус, без пола</li>
+          </ul>
+        </div>
+        <div class="card" style="border-color: rgba(74, 222, 128, 0.3);">
+          <h3 style="color: var(--win);">Когда рисковать</h3>
+          <ul class="bullets">
+            <li>Раунд 5, счёт 2-2 — клатч момент</li>
+            <li>Соперник на LOW, не угрожает</li>
+            <li>Вы прочитали, что он играет базовый</li>
+          </ul>
+        </div>
+      </div>
+
+      <p style="margin-top: 24px;"><strong class="accent-2">Игра не навязывает рандом</strong> — вы сами приглашаете его, когда ставки оправданы.</p>
+    </div>
+  </section>
+
+  <!-- NEW: Overclock шаг за шагом -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Объясняю просто</div>
+      <h2>Overclock — как «занять до зарплаты»</h2>
+
+      <div class="analogy">
+        <div class="icon">🎲</div>
+        <div class="body">
+          <div class="lbl">Простыми словами</div>
+          <p>Тебе очень хочется большую шоколадку (25 ₽), а в кармане только 5 ₽. Друг говорит: «Возьми сейчас, но <strong>есть шанс, что в магазине дадут не ту</strong> — какую попало. И мама на следующей неделе не даст карманных вообще».</p>
+          <p style="margin-top: 8px;"><strong class="accent-2">Берёшь?</strong> В обычной ситуации нет. Но если это последний урок перед каникулами — да!</p>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 24px;">Что происходит — по шагам</h3>
+      <div class="story row">
+        <div class="story-frame">
+          <div class="frame-num">1</div>
+          <div class="frame-visual">⚡5</div>
+          <div class="frame-text"><strong>Ситуация:</strong> у тебя 5⚡, последний раунд, счёт 2-2.</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">2</div>
+          <div class="frame-visual">🌊</div>
+          <div class="frame-text"><strong>Жмёшь Water+ (25⚡).</strong> Кнопка обычно серая, но при <span style="color: var(--lose); font-weight: 800;">красном свечении</span> — доступна.</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">3</div>
+          <div class="frame-visual">📉</div>
+          <div class="frame-text"><strong>Энергия в минус:</strong> 5 − 25 = <strong style="color: var(--lose);">−20⚡</strong>.</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">4</div>
+          <div class="frame-visual">🎰</div>
+          <div class="frame-text"><strong>Кубик:</strong> 30% шанс — твой ход заменят на <strong>любой случайный</strong> из шести.</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">5</div>
+          <div class="frame-visual">🌊 / ❓</div>
+          <div class="frame-text"><strong>Итог:</strong> 70% твой Water+, 30% — рандом (может, выпадет Earth или Fire+).</div>
+        </div>
+        <div class="story-frame">
+          <div class="frame-num">6</div>
+          <div class="frame-visual">🚫💰</div>
+          <div class="frame-text"><strong>Штраф:</strong> в следующем раунде <strong>0 регена</strong>. Никаких +5/+10/+15.</div>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top: 32px;">
+        <div class="card" style="border-color: rgba(74,222,128,0.3);">
+          <h3 style="color: var(--win);">✅ Когда стоит</h3>
+          <ul class="bullets">
+            <li>Решающий раунд (5-й, счёт 2-2)</li>
+            <li>Соперник LOW — даже его базовые слабые</li>
+            <li>Ты прочитал, какой ход он сделает</li>
+            <li>Без плюса ты <strong>точно проиграешь</strong></li>
+          </ul>
+        </div>
+        <div class="card" style="border-color: rgba(248,113,113,0.3);">
+          <h3 style="color: var(--lose);">❌ Когда НЕ стоит</h3>
+          <ul class="bullets">
+            <li>Раунд 1–2, впереди ещё много</li>
+            <li>Соперник HIGH — у него полно ресурсов</li>
+            <li>Просто «потому что могу»</li>
+            <li>В режиме <strong>Hardcore</strong> (нет регена в принципе — штраф ничего не значит, но и шансов восстановиться нет)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 9: Реген -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Восстановление энергии</div>
+      <h2>Парадокс проигрыша</h2>
+      <p>После каждого раунда энергия восстанавливается. <strong class="accent">Чем хуже результат — тем больше регена.</strong> Это система-«комбэк»: вас никогда не выбивает окончательно.</p>
+
+      <div class="grid grid-3" style="margin-top: 32px;">
+        <div class="card">
+          <h3 style="color: var(--win);">Победа</h3>
+          <div class="card-value">+5⚡</div>
+          <div class="card-sub">Вы лидируете — и платите за это</div>
+        </div>
+        <div class="card">
+          <h3 style="color: var(--draw);">Ничья</h3>
+          <div class="card-value">+10⚡</div>
+          <div class="card-sub">Нейтрально</div>
+        </div>
+        <div class="card">
+          <h3 style="color: var(--lose);">Поражение</h3>
+          <div class="card-value">+15⚡</div>
+          <div class="card-sub">Утешительный приз: больше ресурсов</div>
+        </div>
+      </div>
+
+      <div class="quote" style="margin-top: 32px;">
+        Проигрыш в раунде — не катастрофа. Это инвестиция в следующий раунд. Думайте о ресурсах долгосрочно: иногда выгодно слить дешёвый базовый, чтобы накопить на решающий Earth+.
+      </div>
+    </div>
+  </section>
+
+  <!-- NEW: Парадокс проигрыша -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Объясняю просто</div>
+      <h2>Парадокс: проигрыш делает тебя сильнее</h2>
+
+      <div class="analogy">
+        <div class="icon">🎁</div>
+        <div class="body">
+          <div class="lbl">Простыми словами</div>
+          <p>Помнишь маму с карманными деньгами? Если ты получил пять с контрольной — она даёт <strong>5 ₽</strong>. Если двойку — даёт <strong>15 ₽</strong> в утешение. И вот ты сидишь на скамейке: пятёрочник весь день с 5 ₽ в кармане, а двоечник — с 15 ₽.</p>
+          <p style="margin-top: 8px;"><strong class="accent-2">В Elmental — то же самое. Проигрываешь раунд — тебе дают больше энергии, чтобы ты «вернулся в игру».</strong></p>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 32px;">Два игрока — 4 раунда</h3>
+      <div class="vs-strategy">
+        <div class="vs-player a">
+          <div class="ph">Игрок А — выигрывает всё</div>
+          <div class="vs-rounds">
+            <div class="vs-round w">WIN<span class="delta">+5⚡</span></div>
+            <div class="vs-round w">WIN<span class="delta">+5⚡</span></div>
+            <div class="vs-round w">WIN<span class="delta">+5⚡</span></div>
+            <div class="vs-round w">WIN<span class="delta">+5⚡</span></div>
+          </div>
+          <div class="vs-total"><span class="k">Всего регена</span><span class="v" style="color: var(--win);">+20⚡</span></div>
+          <div class="vs-total" style="margin-top: 6px;"><span class="k">Счёт</span><span class="v">4 побед</span></div>
+        </div>
+
+        <div class="vs-player b">
+          <div class="ph">Игрок B — проигрывает 3, выигрывает 1</div>
+          <div class="vs-rounds">
+            <div class="vs-round l">LOSE<span class="delta">+15⚡</span></div>
+            <div class="vs-round l">LOSE<span class="delta">+15⚡</span></div>
+            <div class="vs-round l">LOSE<span class="delta">+15⚡</span></div>
+            <div class="vs-round w">WIN<span class="delta">+5⚡</span></div>
+          </div>
+          <div class="vs-total"><span class="k">Всего регена</span><span class="v" style="color: var(--accent);">+50⚡</span></div>
+          <div class="vs-total" style="margin-top: 6px;"><span class="k">Счёт</span><span class="v">1 победа</span></div>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top: 32px;">
+        <div class="card">
+          <h3>Парадокс</h3>
+          <p>Игрок А <strong>лидирует по счёту</strong>, но у него меньше энергии. Если бы матч продолжался дольше, у Игрока B был бы <strong>солидный запас</strong>, чтобы пойти ва-банк на плюсы.</p>
+        </div>
+        <div class="card">
+          <h3>Зачем так сделали</h3>
+          <p>Чтобы матчи были <strong>не предсказуемыми</strong>. Если ты ведёшь 2-0 — расслабляться нельзя. У соперника копится «гнев», который он сольёт в Earth+ или overclock в решающий момент.</p>
+        </div>
+      </div>
+
+      <div class="quote" style="margin-top: 24px;">
+        Не злись, когда проиграл раунд. <strong class="accent-2">Считай это инвестицией</strong> — следующий раунд начинаешь с +10⚡ преимуществом. Главное — выиграть три раунда, а не каждый.
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 10: Режимы -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Режимы игры</div>
+      <h2>Три уровня жёсткости</h2>
+
+      <div class="grid grid-3" style="margin-top: 16px;">
+        <div class="card">
+          <h3>Classic</h3>
+          <div class="pill-row" style="margin-bottom: 12px;">
+            <span class="pill">Win +5</span><span class="pill">Lose +15</span><span class="pill">Draw +10</span>
+          </div>
+          <p>Комбэк-режим. Проигрыш даёт больше регена — вы никогда не выбыли. Дружелюбен к новичкам, баланс выводит лучшего на дистанции.</p>
+        </div>
+        <div class="card" style="border-color: rgba(248, 113, 113, 0.3);">
+          <h3 style="color: var(--lose);">Hardcore</h3>
+          <div class="pill-row" style="margin-bottom: 12px;">
+            <span class="pill">Без регена</span>
+          </div>
+          <p>100⚡ на весь матч. Никакого восстановления. Каждая единица энергии на вес золота — чистый менеджмент ресурсов.</p>
+        </div>
+        <div class="card" style="border-color: rgba(34, 211, 238, 0.3);">
+          <h3 style="color: var(--accent-2);">Chaos</h3>
+          <div class="pill-row" style="margin-bottom: 12px;">
+            <span class="pill">Реген 0–20⚡</span>
+          </div>
+          <p>Реген случайный каждый раунд. Высокая вариативность, нестабильное планирование. Хочешь приключений — добро пожаловать.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 11: Stakes & Boost -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Экономика</div>
+      <h2>Ставки, банк и Boost</h2>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>Анатомия банка</h3>
+          <ul class="bullets">
+            <li>Каждый игрок ставит <strong>100 ELM</strong></li>
+            <li>Банк матча: <strong>200 ELM</strong></li>
+            <li>Рейк казино: <strong>5% (10 ELM)</strong> → Treasury</li>
+            <li>Победитель забирает: <strong class="accent-2">190 ELM</strong> (+90 нетто)</li>
+            <li>Проигравший: <strong>0 ELM</strong> (-100 нетто)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Energy Boost (опционально)</h3>
+          <ul class="bullets">
+            <li>Доп. ставка: <strong>10% от стейка</strong> (10 ELM)</li>
+            <li>Бонус: <strong class="accent">+20⚡ стартовой энергии</strong> (120 вместо 100)</li>
+            <li><strong style="color: var(--win);">Победа:</strong> буст возвращается</li>
+            <li><strong style="color: var(--lose);">Поражение:</strong> буст <strong>СГОРАЕТ</strong> навсегда</li>
+            <li>Дефляционное давление на токен</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="quote" style="margin-top: 24px;">
+        Boost — это не «p2w». Это <strong>кредит уверенности</strong>: ставите дополнительно, что выиграете. Если правы — ничего не теряете. Если нет — платите дважды.
+      </div>
+    </div>
+  </section>
+
+  <!-- NEW: Tokenomics -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Токеномика</div>
+      <h2>ELM — токен игры</h2>
+      <p>ELM — это TIP-3 fungible token на Acki Nacki blockchain. Внутриигровая валюта со встроенным дефляционным давлением.</p>
+
+      <h3 style="margin-top: 24px;">Зачем нужен ELM</h3>
+      <div class="utility-grid">
+        <div class="util-card">
+          <div class="ic">⚔️</div>
+          <div class="nm">Ставки</div>
+          <div class="ds">100 ELM с игрока в матч PvP</div>
+        </div>
+        <div class="util-card">
+          <div class="ic">⚡</div>
+          <div class="nm">Energy Boost</div>
+          <div class="ds">+10% к ставке → +20⚡ стартовой энергии</div>
+        </div>
+        <div class="util-card">
+          <div class="ic">🏆</div>
+          <div class="nm">Турниры</div>
+          <div class="ds">Buy-in для организованных соревнований</div>
+        </div>
+        <div class="util-card">
+          <div class="ic">🔥</div>
+          <div class="nm">Burn</div>
+          <div class="ds">Проигранный буст сгорает навсегда</div>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 32px;">Поток ELM в одном матче</h3>
+
+      <div class="flow-grid">
+        <div class="flow-stage">
+          <div class="stage-title">Шаг 1 — депозит в эскроу</div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div><span class="muted" style="font-size: 12px;">Игрок A →</span> <span class="flow-token">100 ELM</span></div>
+            <div><span class="muted" style="font-size: 12px;">Игрок B →</span> <span class="flow-token">100 ELM</span></div>
+          </div>
+        </div>
+
+        <div class="flow-arrow">➜</div>
+
+        <div class="flow-stage">
+          <div class="stage-title">Шаг 2 — банк матча</div>
+          <div style="text-align: center;">
+            <span class="flow-token big">💰 200 ELM</span>
+            <div class="muted" style="font-size: 12px; margin-top: 8px;">Заморожен в MatchEscrow.sol до финала</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-stage" style="margin-top: 16px;">
+        <div class="stage-title">Шаг 3 — расчёт после победы</div>
+        <div class="flow-tree">
+          <div class="flow-branch">
+            <span class="conn">├─</span>
+            <span class="flow-token rake">10 ELM</span>
+            <span class="desc"><strong>5% рейк</strong> → Treasury.sol (казна, бюджет на разработку)</span>
+          </div>
+          <div class="flow-branch">
+            <span class="conn">└─</span>
+            <span class="flow-token win">190 ELM</span>
+            <span class="desc"><strong>Победитель</strong> забирает банк минус рейк. Чистая прибыль <strong style="color: var(--win);">+90 ELM</strong>.</span>
+          </div>
+        </div>
+        <div class="flow-tree" style="margin-top: 8px;">
+          <div class="flow-branch">
+            <span class="conn">📉</span>
+            <span class="flow-token" style="color: var(--lose); background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.3);">−100 ELM</span>
+            <span class="desc"><strong>Проигравший</strong> — полная потеря ставки. Получает 0.</span>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 32px;">Поток Boost — отдельная коробка</h3>
+      <div class="flow-grid">
+        <div class="flow-stage" style="border-color: rgba(74,222,128,0.3);">
+          <div class="stage-title" style="color: var(--win);">Если выиграл с бустом</div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="flow-token">10 ELM</span>
+            <span class="flow-arrow" style="font-size: 18px;">➜</span>
+            <span class="flow-token win">+10 ELM вернулись</span>
+          </div>
+          <p class="muted" style="font-size: 12px; margin-top: 8px;">Буст работал как страховка. Ты получил +20⚡ старта и ничего не потерял.</p>
+        </div>
+        <div class="flow-stage" style="border-color: rgba(248,113,113,0.4);">
+          <div class="stage-title" style="color: var(--lose);">Если проиграл с бустом</div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="flow-token">10 ELM</span>
+            <span class="flow-arrow" style="font-size: 18px;">➜</span>
+            <span class="flow-token burn">🔥 СГОРЕЛО</span>
+          </div>
+          <p class="muted" style="font-size: 12px; margin-top: 8px;">10 ELM <strong>навсегда уничтожаются</strong> через TokenWallet.burn(). Никто их не получает.</p>
+        </div>
+      </div>
+
+      <div class="deflation-banner">
+        <div class="big-ic">🔥</div>
+        <div>
+          <div class="ttl">Дефляция by design</div>
+          <p>Каждый раз, когда игрок ставит буст и проигрывает, <strong>часть общего предложения ELM навсегда исчезает</strong>. Чем больше людей играют — тем меньше токенов в обороте. Прямой бонус ценности для всех держателей.</p>
+        </div>
+      </div>
+
+      <div class="gas-banner">
+        <div class="big-ic">⛽</div>
+        <div>
+          <div class="ttl">Freemium gas — игроки не платят SHELL</div>
+          <p>На обычных блокчейнах сначала покупаешь газ, потом играешь. <strong>В Elmental — нет.</strong> DApp ID сам спонсирует газ через <code style="font-family: monospace; color: var(--accent-2);">gosh.mintshell()</code>. Игрок открыл Telegram → играет. Никакого Web3-онбординга.</p>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 32px;">Откуда брать ELM</h3>
+      <div class="grid grid-3">
+        <div class="card">
+          <h3>🎁 Airdrop</h3>
+          <p>Бесплатная раздача ранним игрокам через Telegram-бот. Регистрация = стартовый баланс.</p>
+        </div>
+        <div class="card">
+          <h3>🚰 Faucet (testnet)</h3>
+          <p>На Shellnet — бесплатные ELM для тестов. Можно играть без реальных вложений.</p>
+        </div>
+        <div class="card">
+          <h3>💱 DEX (будущее)</h3>
+          <p>После mainnet — листинг на DEX и пул ликвидности. Купить можно будет за любую крипту.</p>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 32px;">Контракты на Acki Nacki</h3>
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>ELMTokenRoot + ELMTokenWallet</h3>
+          <p>TIP-3 token. Root деплоит уникальный кошелёк под каждого игрока. Прямые трансферы wallet→wallet, без посредника.</p>
+        </div>
+        <div class="card">
+          <h3>MatchEscrow + Treasury</h3>
+          <p>Эскроу замораживает ставки и автоматически раздаёт банк после settle. Рейк идёт в Treasury, проигранный буст сжигается через <code style="color: var(--accent-2);">burn()</code>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEW: Mechanics → Business Model bridge -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Связь механики и денег</div>
+      <h2>Как игровой дизайн делает бизнес</h2>
+      <p>Каждая механика Elmental — не просто «фича», а <strong>звено в экономике</strong>. Слева — что игрок видит. В центре — как он на это реагирует. Справа — что получает проект.</p>
+
+      <div style="margin-top: 24px;">
+        <!-- Chain 1: Boost -->
+        <div class="chain">
+          <div class="ch-node mech">
+            <div class="lbl">Механика</div>
+            <div class="ttl">⚡ Energy Boost</div>
+            <div class="ds">+10% к ставке = +20⚡ старта. Проигрыш = сгорание.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node effect">
+            <div class="lbl">Эффект на игрока</div>
+            <div class="ttl">🎯 Скилловые ставят чаще</div>
+            <div class="ds">Уверен в победе — берёшь буст. Сомневаешься — нет. Самоотбор.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node money">
+            <div class="lbl">Бизнес-следствие</div>
+            <div class="ttl">🔥 Дефляция supply</div>
+            <div class="ds">Каждое поражение с бустом = -10 ELM из обращения навсегда. Чем больше игры — тем дороже токен.</div>
+          </div>
+        </div>
+
+        <!-- Chain 2: Rake -->
+        <div class="chain">
+          <div class="ch-node mech">
+            <div class="lbl">Механика</div>
+            <div class="ttl">💰 5% рейк со ставок</div>
+            <div class="ds">Каждый матч (200 ELM банк) даёт казне 10 ELM.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node effect">
+            <div class="lbl">Эффект на игрока</div>
+            <div class="ttl">😌 Невидимая комиссия</div>
+            <div class="ds">«Победитель получает 190 ELM» — звучит нормально. Никаких скрытых платежей, никакой подписки.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node money">
+            <div class="lbl">Бизнес-следствие</div>
+            <div class="ttl">📈 Линейный доход</div>
+            <div class="ds">Treasury растёт с числом матчей. 10 тыс матчей/день = 100 тыс ELM/день в казну. Не зависит от роста цены токена.</div>
+          </div>
+        </div>
+
+        <!-- Chain 3: Skill curve -->
+        <div class="chain">
+          <div class="ch-node mech">
+            <div class="lbl">Механика</div>
+            <div class="ttl">♟️ Поккер-глубина</div>
+            <div class="ds">Скрытая энергия + 6×6 матрица + overclock = решение, а не удача.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node effect">
+            <div class="lbl">Эффект на игрока</div>
+            <div class="ttl">🧠 Инвестиции в скилл</div>
+            <div class="ds">«Я проиграл потому что плохо сыграл, не потому что не повезло» → играешь ещё, чтобы улучшиться.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node money">
+            <div class="lbl">Бизнес-следствие</div>
+            <div class="ttl">⏳ Высокий LTV</div>
+            <div class="ds">Покер живёт десятилетиями. Казино — пока не кончится удача. Скилл-игры = долгое удержание = больше рейка с одного игрока.</div>
+          </div>
+        </div>
+
+        <!-- Chain 4: Bo5 + energy = short sessions -->
+        <div class="chain">
+          <div class="ch-node mech">
+            <div class="lbl">Механика</div>
+            <div class="ttl">⏱️ Bo5 + энергия</div>
+            <div class="ds">Матч = 3–5 минут. 5 раундов с таймером 15с.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node effect">
+            <div class="lbl">Эффект на игрока</div>
+            <div class="ttl">📱 «Ещё один матч»</div>
+            <div class="ds">Между парами в метро, на перемене, перед сном. Низкий порог времени → высокая частота.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node money">
+            <div class="lbl">Бизнес-следствие</div>
+            <div class="ttl">🔁 Частота × объём</div>
+            <div class="ds">10 матчей в день вместо 1. Тот же игрок генерирует в 10× больше рейка. Mobile-first монетизация в чистом виде.</div>
+          </div>
+        </div>
+
+        <!-- Chain 5: TG Mini App + freemium gas -->
+        <div class="chain">
+          <div class="ch-node mech">
+            <div class="lbl">Механика</div>
+            <div class="ttl">⛽ TMA + freemium gas</div>
+            <div class="ds">Telegram Mini App, газ спонсирует DApp через <code style="font-family: monospace; color: var(--accent-2);">gosh.mintshell()</code>.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node effect">
+            <div class="lbl">Эффект на игрока</div>
+            <div class="ttl">🚪 Zero onboarding</div>
+            <div class="ds">Открыл бота → играешь. Никаких кошельков, seed-фраз, покупки газа. Friction = 0.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node money">
+            <div class="lbl">Бизнес-следствие</div>
+            <div class="ttl">🌍 Доступ к 900M</div>
+            <div class="ds">CAC ниже Web3-аналогов в 10×. Виральные ссылки в TG. Аудитория = весь мессенджер, не только криптаны.</div>
+          </div>
+        </div>
+
+        <!-- Chain 6: Game modes -->
+        <div class="chain">
+          <div class="ch-node mech">
+            <div class="lbl">Механика</div>
+            <div class="ttl">🎮 3 режима игры</div>
+            <div class="ds">Classic (комбэк), Hardcore (ноль регена), Chaos (рандом).</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node effect">
+            <div class="lbl">Эффект на игрока</div>
+            <div class="ttl">🎯 Сегмент по риску</div>
+            <div class="ds">Новички → Classic. Хардкорщики → Hardcore. Любители рандома → Chaos. Каждый находит свой уровень.</div>
+          </div>
+          <div class="ch-arr">➜</div>
+          <div class="ch-node money">
+            <div class="lbl">Бизнес-следствие</div>
+            <div class="ttl">💎 Whale capture</div>
+            <div class="ds">Hardcore-режим = ставки 1000+ ELM, премиум-сегмент. Чёткая монетизация разных категорий игроков из одного UI.</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 32px;">Почему модель устойчива</h3>
+      <div class="why-grid">
+        <div class="why-card">
+          <div class="big-ic">🚫</div>
+          <div>
+            <div class="ttl">Не «Play-to-Earn» пирамида</div>
+            <div class="ds">Деньги в систему приходят <strong>от ставок игроков</strong>, а не от продажи токена новым пользователям. PvP-модель: один платит, другой получает. Проект забирает 5%.</div>
+          </div>
+        </div>
+        <div class="why-card">
+          <div class="big-ic">⚖️</div>
+          <div>
+            <div class="ttl">Дефляция &gt; Инфляция</div>
+            <div class="ds">В отличие от P2E с фарм-наградами, в Elmental токены <strong>только сжигаются</strong> через буст-проигрыши. Эмиссия — единоразовая. Цена растёт со временем.</div>
+          </div>
+        </div>
+        <div class="why-card">
+          <div class="big-ic">🎯</div>
+          <div>
+            <div class="ttl">Скилл = долгое удержание</div>
+            <div class="ds">Казино — игроки уходят, когда кончается удача. Покер — играют годами. Elmental копирует покер: <strong>проигрыш ощущается как ошибка, а не как невезение</strong>.</div>
+          </div>
+        </div>
+        <div class="why-card">
+          <div class="big-ic">📊</div>
+          <div>
+            <div class="ttl">Прогнозируемая выручка</div>
+            <div class="ds">Доход = (число матчей) × 10 ELM. Не зависит от спекуляций, hype-циклов или цены ELM на DEX. <strong>Чистая комиссия с объёма</strong>.</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 32px;">Сравнение с конкурентами</h3>
+      <div class="compare-table">
+        <div class="compare-row head">
+          <div class="cell">Модель</div>
+          <div class="cell">Откуда деньги</div>
+          <div class="cell">Что не так / Почему мы</div>
+        </div>
+        <div class="compare-row">
+          <div class="cell label">Casino-style (slots, dice)</div>
+          <div class="cell">House edge 2–10%</div>
+          <div class="cell bad">Игроки уходят с проигрышем. Низкий LTV.</div>
+        </div>
+        <div class="compare-row">
+          <div class="cell label">P2E (Axie, StepN)</div>
+          <div class="cell">Продажа NFT новым</div>
+          <div class="cell bad">Пирамида — рушится при остановке притока.</div>
+        </div>
+        <div class="compare-row">
+          <div class="cell label">Free-to-Play (mobile)</div>
+          <div class="cell">Микротранзакции, реклама</div>
+          <div class="cell bad">3% платят, 97% — нет. Pay-to-Win губит баланс.</div>
+        </div>
+        <div class="compare-row">
+          <div class="cell label">Elmental</div>
+          <div class="cell good">5% рейк с PvP + boost burn</div>
+          <div class="cell good">Все платят рейк играя, никто не «pay-to-win».</div>
+        </div>
+      </div>
+
+      <div class="quote" style="margin-top: 32px;">
+        <strong>Главная мысль:</strong> ни одна механика в Elmental не существует «для красоты». Boost = дефляция. Рейк = доход. Скилл = удержание. Энергия = частота. TG = масштаб. <strong class="accent-2">Геймдизайн и юнит-экономика — это одно и то же.</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 12: Как играть -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Как играть — поток матча</div>
+      <h2>От запуска до победы</h2>
+
+      <ol class="steps">
+        <li><strong>Откройте Mini App</strong><p>Сейчас демо: <code style="color: var(--accent-2);">http://localhost:5173/</code>. Соперник — ИИ с тремя личностями (агрессор, читатель, баланс).</p></li>
+        <li><strong>Выберите режим и Boost</strong><p>Classic / Hardcore / Chaos. Решите, инвестировать ли 10% на +20⚡.</p></li>
+        <li><strong>Раунд: оцените ситуацию</strong><p>Своя энергия (точно), индикатор соперника (LOW/MED/HIGH), счёт раундов. Подумайте, что соперник ждёт от вас.</p></li>
+        <li><strong>Сделайте ход за 15 секунд</strong><p>6 кнопок: 3 базовых (10⚡) и 3 усиленных (25⚡). Недоступные подсвечены серым; overclock — красным свечением.</p></li>
+        <li><strong>Сравнение и результат</strong><p>Карты вскрываются, матрица определяет победителя раунда. Энергия списывается, реген применяется.</p></li>
+        <li><strong>Первый до 3 побед</strong><p>Матч идёт до 3 побед в раундах (Bo5). Победитель забирает банк, статистика обновляется, рейтинг ELO пересчитывается.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- NEW: Мини-квиз -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Проверь себя</div>
+      <h2>Мини-квиз — что бы ты сыграл?</h2>
+      <p>Прочитай ситуацию и кликни ответ, чтобы увидеть разбор.</p>
+
+      <div class="quiz">
+        <div class="quiz-sit">
+          <div class="quiz-fact"><div class="k">Раунд</div><div class="v">5 — финальный</div></div>
+          <div class="quiz-fact"><div class="k">Счёт</div><div class="v">2 : 2</div></div>
+          <div class="quiz-fact"><div class="k">Твоя энергия</div><div class="v" style="color: #eab308;">30⚡</div></div>
+          <div class="quiz-fact"><div class="k">Соперник</div><div class="v" style="color: #eab308;">MED ⚡</div></div>
+          <div class="quiz-fact"><div class="k">Его 2 хода</div><div class="v">🔥 → 🔥</div></div>
+        </div>
+
+        <div class="quiz-question">Решающий раунд. Что играешь?</div>
+
+        <div class="quiz-opts">
+          <button class="quiz-opt" data-verdict="good" data-desc="Огонь у соперника подряд — он залип. Earth бьёт Fire по матрице. Дешёво (10⚡), не палит твою стратегию. Если он повторит Fire — победа в кармане." data-verdict-text="✓ Лучший выбор">
+            <div class="opt-head"><span class="ico">🌿</span><span class="nm">Earth</span><span class="cst">10⚡</span></div>
+            <p class="opt-desc"></p>
+            <div class="opt-verdict"></div>
+          </button>
+
+          <button class="quiz-opt" data-verdict="ok" data-desc="Бьёт и Fire, и Water+ — двойная страховка. Но: соперник видит, что ты MED → может ждать твой плюс и сыграть Fire+ (бьёт Earth+). К тому же 25⚡ — половина бюджета на один ход." data-verdict-text="◐ Можно, но рискованно">
+            <div class="opt-head"><span class="ico">🌳</span><span class="nm">Earth+</span><span class="cst">25⚡</span></div>
+            <p class="opt-desc"></p>
+            <div class="opt-verdict"></div>
+          </button>
+
+          <button class="quiz-opt" data-verdict="bad" data-desc="Water ПРОИГРЫВАЕТ Fire в матрице. Если соперник правда сыграет Fire третий раз — ты сольёшь финал. Это худший вариант против читаемого Fire-спамера." data-verdict-text="✗ Плохой выбор">
+            <div class="opt-head"><span class="ico">💧</span><span class="nm">Water</span><span class="cst">10⚡</span></div>
+            <p class="opt-desc"></p>
+            <div class="opt-verdict"></div>
+          </button>
+
+          <button class="quiz-opt" data-verdict="bad" data-desc="У тебя 30⚡, Water+ стоит 25⚡ — не overclock, ход доступен. НО: Water+ ПРОИГРЫВАЕТ Fire по матрице. Дорого И проигрышно. Никогда не делай так." data-verdict-text="✗ Двойная ошибка">
+            <div class="opt-head"><span class="ico">🌊</span><span class="nm">Water+</span><span class="cst">25⚡</span></div>
+            <p class="opt-desc"></p>
+            <div class="opt-verdict"></div>
+          </button>
+        </div>
+
+        <div class="quiz-hint">Кликни любой вариант — увидишь разбор</div>
+      </div>
+
+      <div class="quote" style="margin-top: 24px;">
+        Главный навык в Elmental — <strong class="accent-2">читать соперника</strong>. Не «какая карта сильнее», а «что он ожидает от меня и что собирается сыграть сам». Как в покере.
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 13: Кривая мастерства -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="tag">Глубина</div>
+      <h2>Кривая мастерства</h2>
+      <p>На одном раунде роль играет удача. <strong>На 100 матчах побеждает сильнейший игрок.</strong> Как в покере.</p>
+
+      <div class="skill-curve">
+        <div class="level">
+          <div class="l-name">Новичок</div>
+          <div class="l-desc">Выбирает ходы случайно, быстро жжёт энергию, не следит за индикатором соперника.</div>
+        </div>
+        <div class="level">
+          <div class="l-name">Средний</div>
+          <div class="l-desc">Читает уровень энергии соперника, экономит ресурсы, делает усиленные на ключевые раунды.</div>
+        </div>
+        <div class="level">
+          <div class="l-name">Продвинутый</div>
+          <div class="l-desc">Расставляет ловушки: фейковый LOW, заманивает соперника в overclock, контролирует темп матча.</div>
+        </div>
+        <div class="level">
+          <div class="l-name">Эксперт</div>
+          <div class="l-desc">Game-theory optimal стратегии со смешанными вероятностями, адаптивное чтение паттернов оппонента.</div>
+        </div>
+      </div>
+
+      <div class="grid grid-3" style="margin-top: 32px;">
+        <div class="card"><h3>3 простых совета новичку</h3>
+          <ul class="bullets">
+            <li>Не трать плюсы в первых раундах</li>
+            <li>Если соперник HIGH — играй базу</li>
+            <li>Overclock — только в раунде 5 при счёте 2-2</li>
+          </ul>
+        </div>
+        <div class="card"><h3>3 ловушки для среднего</h3>
+          <ul class="bullets">
+            <li>Имитируй LOW, чтобы соперник пошёл базой</li>
+            <li>Чередуй паттерны — не давай тебя прочитать</li>
+            <li>Сохрани 25⚡ для финала любой ценой</li>
+          </ul>
+        </div>
+        <div class="card"><h3>Высший пилотаж</h3>
+          <ul class="bullets">
+            <li>Mixed strategy вместо детерминированных циклов</li>
+            <li>Подстройка под стиль соперника по ELO</li>
+            <li>Использование overclock как блефа</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide 14: Запуск -->
+  <section class="slide title-slide">
+    <div class="slide-inner">
+      <div class="tag">Время играть</div>
+      <h1 style="margin-bottom: 24px;">Демо уже запущено</h1>
+      <p style="font-size: 20px; margin-bottom: 32px;">Откройте в браузере:</p>
+      <div style="font-family: ui-monospace, monospace; font-size: clamp(20px, 3vw, 28px); color: var(--accent-2); margin-bottom: 8px;">
+        http://localhost:5173/
+      </div>
+      <p class="muted" style="margin-bottom: 32px;">ИИ-противник · полная логика · симуляция экономики · 3 режима</p>
+
+      <div class="grid grid-3" style="margin-top: 32px;">
+        <div class="card"><div class="card-title">Тесты</div><div class="card-value">78</div><div class="card-sub">passing — game-logic</div></div>
+        <div class="card"><div class="card-title">Экраны TMA</div><div class="card-value">6</div><div class="card-sub">от хоума до результата</div></div>
+        <div class="card"><div class="card-title">Ходов в матрице</div><div class="card-value">6×6</div><div class="card-sub">36 уникальных исходов</div></div>
+      </div>
+
+      <p class="hint" style="margin-top: 64px;">Нажмите <kbd>Home</kbd>, чтобы вернуться к началу</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav">
+  <button id="prev" aria-label="Назад">‹</button>
+  <span class="counter" id="counter">1 / 14</span>
+  <button id="next" aria-label="Вперёд">›</button>
+</div>
+
+<script>
+(() => {
+  const slides = document.querySelectorAll('.slide');
+  const prev = document.getElementById('prev');
+  const next = document.getElementById('next');
+  const counter = document.getElementById('counter');
+  const slideNum = document.getElementById('slideNum');
+  const progress = document.getElementById('progress');
+  const total = slides.length;
+  let idx = 0;
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function show(i) {
+    idx = Math.max(0, Math.min(total - 1, i));
+    slides.forEach((s, n) => s.classList.toggle('active', n === idx));
+    counter.textContent = `${idx + 1} / ${total}`;
+    slideNum.textContent = `${pad(idx + 1)} / ${pad(total)}`;
+    progress.style.width = `${((idx + 1) / total) * 100}%`;
+    prev.disabled = idx === 0;
+    next.disabled = idx === total - 1;
+  }
+
+  prev.addEventListener('click', () => show(idx - 1));
+  next.addEventListener('click', () => show(idx + 1));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(idx + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(idx - 1); }
+    else if (e.key === 'Home') { show(0); }
+    else if (e.key === 'End') { show(total - 1); }
+  });
+
+  // Quiz interactivity
+  document.querySelectorAll('.quiz-opt').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const verdict = btn.dataset.verdict;
+      const desc = btn.dataset.desc;
+      const vtext = btn.dataset.verdictText;
+      btn.querySelector('.opt-desc').textContent = desc;
+      btn.querySelector('.opt-verdict').textContent = vtext;
+      btn.classList.add('revealed', verdict);
+    });
+  });
+
+  let touchX = null;
+  document.addEventListener('touchstart', (e) => touchX = e.touches[0].clientX);
+  document.addEventListener('touchend', (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 50) show(idx + (dx < 0 ? 1 : -1));
+    touchX = null;
+  });
+
+  show(0);
+})();
+</script>
+
+</body>
+</html>

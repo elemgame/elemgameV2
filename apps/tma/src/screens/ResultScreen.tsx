@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
-import { RAKE_PERCENT } from '@elmental/shared';
+import { RAKE_PERCENT, getMoveInfo } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { applyResults } from '../services/gameService';
 import { playSound } from '../services/audio';
@@ -325,9 +325,15 @@ export function ResultScreen() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-text-muted text-xs w-7 flex-shrink-0">R{round.round}</span>
                     <div className="flex items-center justify-center gap-2 min-w-0">
-                      <MoveArt moveId={round.myMove} size="sm" />
+                      <div className="flex flex-col items-center gap-0.5">
+                        <MoveArt moveId={round.myMove} size="sm" />
+                        <span className="text-[10px] font-bold text-text-primary">{getMoveInfo(round.myMove).name}</span>
+                      </div>
                       <span className="text-text-muted">vs</span>
-                      <MoveArt moveId={round.opponentMove} size="sm" />
+                      <div className="flex flex-col items-center gap-0.5">
+                        <MoveArt moveId={round.opponentMove} size="sm" />
+                        <span className="text-[10px] font-bold text-text-primary">{getMoveInfo(round.opponentMove).name}</span>
+                      </div>
                     </div>
                     <span
                       className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"

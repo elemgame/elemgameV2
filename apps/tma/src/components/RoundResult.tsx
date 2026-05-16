@@ -7,17 +7,13 @@ import { HandshakeIcon } from './icons/HandshakeIcon';
 import { BoltIcon } from './icons/BoltIcon';
 import { ArrowRightIcon } from './icons/ArrowRightIcon';
 import { MoveArt } from './MoveArt';
+import { getMoveInfo } from '@elmental/shared';
 
 interface RoundResultProps {
   result: LastRoundResult | null;
   visible: boolean;
   onDismiss: () => void;
 }
-
-const MOVE_NAMES: Record<number, string> = {
-  0: 'Earth', 1: 'Fire', 2: 'Water',
-  3: 'Earth+', 4: 'Fire+', 5: 'Water+',
-};
 
 export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
   if (!result) return null;
@@ -107,7 +103,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
               >
                 <span className="text-xs text-text-secondary font-semibold">YOU</span>
                 <MoveArt moveId={result.myMove} size="lg" />
-                <span className="text-xs font-bold text-text-primary">{MOVE_NAMES[result.myMove]}</span>
+                <span className="text-xs font-bold text-text-primary">{getMoveInfo(result.myMove).name}</span>
               </motion.div>
 
               {/* VS */}
@@ -129,7 +125,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
               >
                 <span className="text-xs text-text-secondary font-semibold">OPP</span>
                 <MoveArt moveId={result.opponentMove} size="lg" />
-                <span className="text-xs font-bold text-text-primary">{MOVE_NAMES[result.opponentMove]}</span>
+                <span className="text-xs font-bold text-text-primary">{getMoveInfo(result.opponentMove).name}</span>
               </motion.div>
             </motion.div>
 
