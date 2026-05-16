@@ -85,7 +85,7 @@ export interface WebUserProfile {
 
 const WEB_USER_STORAGE_KEY = 'elmental.webUser';
 const LEGACY_WEB_USER_STORAGE_KEY = 'elmental.devUser';
-const TELEGRAM_TOP_CHROME_SAFE_AREA = 56;
+const TELEGRAM_TOP_CHROME_SAFE_AREA = 59;
 
 declare global {
   interface Window {
@@ -139,9 +139,10 @@ export function installTelegramViewportSync(): () => void {
 
     const safe = twa.safeAreaInset ?? {};
     const contentSafe = twa.contentSafeAreaInset ?? {};
+    const fullscreenChromeSafeTop = twa.isFullscreen === true ? TELEGRAM_TOP_CHROME_SAFE_AREA : 0;
     root.style.setProperty(
       '--elmental-js-safe-top',
-      `${Math.max(toInset(safe.top), toInset(contentSafe.top), TELEGRAM_TOP_CHROME_SAFE_AREA)}px`,
+      `${Math.max(toInset(safe.top), toInset(contentSafe.top), fullscreenChromeSafeTop)}px`,
     );
     root.style.setProperty('--elmental-js-safe-right', `${Math.max(toInset(safe.right), toInset(contentSafe.right))}px`);
     root.style.setProperty('--elmental-js-safe-bottom', `${Math.max(toInset(safe.bottom), toInset(contentSafe.bottom))}px`);

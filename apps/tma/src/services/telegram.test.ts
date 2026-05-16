@@ -163,6 +163,7 @@ describe('web user profile helpers', () => {
       WebApp: {
         viewportStableHeight: 720,
         viewportHeight: 700,
+        isFullscreen: true,
         safeAreaInset: { top: 12 },
         contentSafeAreaInset: { top: 0 },
         onEvent: vi.fn(),
@@ -172,7 +173,38 @@ describe('web user profile helpers', () => {
 
     const cleanup = installTelegramViewportSync();
 
-    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '56px');
+    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '59px');
+
+    cleanup();
+  });
+
+  it('does not reserve fullscreen chrome space outside Telegram fullscreen', () => {
+    setMockWindow('');
+    const setProperty = vi.fn();
+    Object.defineProperty(globalThis, 'document', {
+      value: {
+        documentElement: {
+          style: { setProperty },
+        },
+      },
+      configurable: true,
+      writable: true,
+    });
+    window.Telegram = {
+      WebApp: {
+        viewportStableHeight: 720,
+        viewportHeight: 700,
+        isFullscreen: false,
+        safeAreaInset: { top: 12 },
+        contentSafeAreaInset: { top: 0 },
+        onEvent: vi.fn(),
+        offEvent: vi.fn(),
+      } as never,
+    };
+
+    const cleanup = installTelegramViewportSync();
+
+    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '12px');
 
     cleanup();
   });
