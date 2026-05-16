@@ -276,6 +276,7 @@ export function applyResults(action: 'home' | 'playAgain'): void {
     return;
   }
 
+  clearPersistedActiveMatchId();
   activeMatch = null;
   pendingReveal = null;
   stopRoundTimer();
@@ -337,6 +338,8 @@ function handleMatch(row: MatchState): void {
   if (!currentIdentity || !isMyMatch(row)) return;
 
   const currentStoreMatchId = useGameStore.getState().matchId;
+  const persistedMatchId = getPersistedActiveMatchId();
+  const rowMatchId = row.id.toString();
   if (
     row.status === 'active' &&
     activeMatch?.status === 'active' &&
@@ -351,18 +354,27 @@ function handleMatch(row: MatchState): void {
     return;
   }
 
-  if (row.status === 'settled' && currentStoreMatchId !== row.id.toString() && activeMatch?.id !== row.id) {
+  const matchesCurrentContext =
+    currentStoreMatchId === rowMatchId ||
+    activeMatch?.id === row.id ||
+    persistedMatchId === rowMatchId;
+
+  if (row.status === 'settled' && !matchesCurrentContext) {
     trace('match.update.ignored_old_settled', {
-      matchId: row.id.toString(),
+      matchId: rowMatchId,
       currentMatchId: currentStoreMatchId,
+      persistedMatchId,
     });
     return;
   }
 
   activeMatch = row;
-  if (row.status === 'active') clearQueueRemovalTimer();
+  if (row.status === 'active') {
+    clearQueueRemovalTimer();
+    persistActiveMatchId(rowMatchId);
+  }
   trace('match.update', {
-    matchId: row.id.toString(),
+    matchId: rowMatchId,
     phase: row.phase,
     status: row.status,
     round: row.currentRound,
@@ -382,7 +394,7 @@ function handleMatch(row: MatchState): void {
   const opponentRating = isP1 ? row.p2Rating : row.p1Rating;
   const mySubmittedMove = isP1 ? row.p1RevealMove : row.p2RevealMove;
 
-  if (row.status === 'active' && useGameStore.getState().matchId !== row.id.toString()) {
+  if (row.status === 'active' && useGameStore.getState().matchId !== rowMatchId) {
     applyMatchFound(row, opponentName, opponentRating, isP1, myEnergy, opponentEnergy);
   }
 
@@ -409,7 +421,11 @@ function handleMatch(row: MatchState): void {
     }
   }
 
-  const matchKey = row.id.toString();
+  if (row.status === 'settled' && useGameStore.getState().matchId !== rowMatchId) {
+    applyMatchFound(row, opponentName, opponentRating, isP1, myEnergy, opponentEnergy);
+  }
+
+  const matchKey = rowMatchId;
   if (row.status === 'settled' && !finalizedMatchIds.has(matchKey) && !finalizingMatchIds.has(matchKey)) {
     finalizingMatchIds.add(matchKey);
     stopRoundTimer();
@@ -434,7 +450,9 @@ function applyMatchFound(
 ): void {
   const store = useGameStore.getState();
   const matchKey = row.id.toString();
-  const boostStake = store.boostEnabled ? Math.ceil((MATCH_STAKE * BOOST_PERCENT) / 100) : 0;
+  persistActiveMatchId(matchKey);
+  const boostEnabledForMatch = isP1 ? row.p1BoostEnabled : row.p2BoostEnabled;
+  const boostStake = boostEnabledForMatch ? Math.ceil((MATCH_STAKE * BOOST_PERCENT) / 100) : 0;
 
   if (!deductedMatchIds.has(matchKey)) {
     deductedMatchIds.add(matchKey);
@@ -751,4 +769,21 @@ function trace(event: string, data: Record<string, unknown>): void {
 function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+function getMatchSessionKey(): string {
+  const suffix = currentUser ? currentUser.id.toString() : 'anonymous';
+  return `elmental.stdb.activeMatch.${getDatabaseName()}.${suffix}`;
+}
+
+function persistActiveMatchId(matchId: string): void {
+  sessionStorage.setItem(getMatchSessionKey(), matchId);
+}
+
+function getPersistedActiveMatchId(): string | null {
+  return sessionStorage.getItem(getMatchSessionKey());
+}
+
+function clearPersistedActiveMatchId(): void {
+  sessionStorage.removeItem(getMatchSessionKey());
 }
