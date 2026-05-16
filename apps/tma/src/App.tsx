@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useGameStore } from './stores/gameStore';
-import { initTelegram, getTelegramUser, getMockUser } from './services/telegram';
+import { initTelegram, getTelegramInitData, getTelegramUser, getMockUser } from './services/telegram';
 import { initializeGameSession } from './services/gameService';
 import { installBugReportCapture } from './services/bugReport';
 import { useSpatialNavigation } from './hooks/useSpatialNavigation';
@@ -35,6 +35,7 @@ export default function App() {
       username: user.username,
       photo_url: user.photo_url,
       source,
+      initData: tgUser ? getTelegramInitData() : undefined,
     };
 
     setTelegramUser(profileUser);

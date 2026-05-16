@@ -10,6 +10,34 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const Account = __t.object("Account", {
+  id: __t.string(),
+  name: __t.string(),
+  rating: __t.i32(),
+  wins: __t.u32(),
+  losses: __t.u32(),
+  balance: __t.i32(),
+});
+export type Account = __Infer<typeof Account>;
+
+export const AutomationGuard = __t.object("AutomationGuard", {
+  identity: __t.identity(),
+  joinWindowStartMicros: __t.u64(),
+  joinCount: __t.u32(),
+  forfeitWindowStartMicros: __t.u64(),
+  forfeitCount: __t.u32(),
+});
+export type AutomationGuard = __Infer<typeof AutomationGuard>;
+
+export const BotMoveCommit = __t.object("BotMoveCommit", {
+  id: __t.string(),
+  matchId: __t.u64(),
+  round: __t.u32(),
+  move: __t.u32(),
+  salt: __t.string(),
+});
+export type BotMoveCommit = __Infer<typeof BotMoveCommit>;
+
 export const GameEvent = __t.object("GameEvent", {
   id: __t.u64(),
   matchId: __t.option(__t.u64()),
@@ -58,6 +86,8 @@ export const MatchState = __t.object("MatchState", {
   replayHash: __t.option(__t.string()),
   createdAtMicros: __t.u64(),
   updatedAtMicros: __t.u64(),
+  roundStartedAtMicros: __t.u64(),
+  nextRoundReadyAtMicros: __t.option(__t.u64()),
 });
 export type MatchState = __Infer<typeof MatchState>;
 
@@ -69,6 +99,7 @@ export const Player = __t.object("Player", {
   wins: __t.u32(),
   losses: __t.u32(),
   balance: __t.i32(),
+  accountId: __t.string(),
 });
 export type Player = __Infer<typeof Player>;
 
@@ -82,6 +113,7 @@ export const QueueEntry = __t.object("QueueEntry", {
   boostEnabled: __t.bool(),
   joinedAtMicros: __t.u64(),
   botFallbackAtMicros: __t.option(__t.u64()),
+  accountId: __t.string(),
 });
 export type QueueEntry = __Infer<typeof QueueEntry>;
 

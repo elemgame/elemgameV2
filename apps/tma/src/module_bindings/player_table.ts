@@ -18,4 +18,5 @@ export default __t.row({
   wins: __t.u32(),
   losses: __t.u32(),
   balance: __t.i32(),
+  accountId: __t.string().name("account_id"),
 });

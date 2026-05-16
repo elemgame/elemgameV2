@@ -7,6 +7,7 @@ export interface PlayerProfileInput {
   username?: string;
   photo_url?: string;
   source?: 'telegram' | 'web';
+  initData?: string;
 }
 
 export type ProviderEnergyLevel = 'low' | 'medium' | 'high';
@@ -14,6 +15,7 @@ export type ProviderRoundPhase = 'select' | 'commit' | 'reveal' | 'result';
 
 export interface MatchmakingRequest {
   name: string;
+  accountId: string;
   stake: number;
   mode: GameMode;
   room: string;

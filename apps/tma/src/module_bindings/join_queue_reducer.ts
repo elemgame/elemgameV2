@@ -16,5 +16,6 @@ export default {
   mode: __t.string(),
   room: __t.string(),
   boostEnabled: __t.bool(),
+  accountId: __t.option(__t.string()),
   botFallbackSeconds: __t.option(__t.u32()),
 };

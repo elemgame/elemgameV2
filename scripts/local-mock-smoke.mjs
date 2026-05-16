@@ -34,6 +34,7 @@ try {
   try {
     const page = await browser.newPage();
     wirePage(page);
+    await blockTelegramScript(page);
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
     await openProfileAndEditName(page);
@@ -74,6 +75,7 @@ async function openProfileAndEditName(page) {
 async function verifyTelegramProfileIsReadOnly(browser) {
   const page = await browser.newPage();
   wirePage(page);
+  await blockTelegramScript(page);
   await page.addInitScript(() => {
     const noop = () => {};
     window.Telegram = {
@@ -147,6 +149,14 @@ async function verifyTelegramProfileIsReadOnly(browser) {
 async function expectNoWebUsernameInput(page) {
   const count = await page.getByRole('textbox', { name: 'Web username' }).count();
   if (count > 0) throw new Error('Telegram profile rendered editable Web username input');
+}
+
+async function blockTelegramScript(page) {
+  await page.route('**/telegram-web-app.js', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: '',
+  }));
 }
 
 async function openSettings(page) {

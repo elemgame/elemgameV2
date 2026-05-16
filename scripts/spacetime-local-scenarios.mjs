@@ -20,6 +20,7 @@ const isolationRoomB = `${room}-b`;
 const errors = [];
 const events = [];
 const snapshots = [];
+let botFallbackBalance = null;
 
 let stdbServer;
 let tmaServer;
@@ -141,28 +142,41 @@ async function verifyBotFallback() {
   await waitReadyForMove(p1, 1, 35_000);
   await p1.waitForFunction(() => /AI Practice Bot/i.test(document.body.innerText), undefined, { timeout: 10_000 });
 
-  for (let round = 1; round <= 3; round += 1) {
-    console.log(`[spacetime-local] bot fallback round ${round}: player Fire`);
-    await clickButton(p1, /FIRE\s*10/i);
+  for (let round = 1; round <= 5; round += 1) {
+    console.log(`[spacetime-local] bot fallback round ${round}: player Earth+`);
+    await clickButton(p1, /EARTH\+\s*25/i);
 
-    if (round === 3) {
-      await waitFinalResult(p1, /VICTORY!/i, 30_000);
+    if (round === 5) {
+      await waitFinalResult(p1, /VICTORY!|DEFEAT|DRAW/i, 30_000);
       snapshots.push({
         scenario: 'bot-fallback-final',
         p1: await compactBody(p1, 450),
       });
       await clickButton(p1, /Back to Home/i);
-      await waitBalance(p1, '1,090');
+      botFallbackBalance = await readElmBalance(p1);
       await p1.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 });
-      await waitBalance(p1, '1,090');
+      await waitBalance(p1, botFallbackBalance);
       snapshots.push({
         scenario: 'balance-persists-after-refresh',
+        balance: botFallbackBalance,
         p1: await compactBody(p1, 300),
       });
+      const secondDevice = await newLabeledPage('bot-fallback-second-device');
+      await secondDevice.goto(playerUrl('solo_bot', botRoom), {
+        waitUntil: 'domcontentloaded',
+        timeout: 30_000,
+      });
+      await waitBalance(secondDevice, botFallbackBalance);
+      snapshots.push({
+        scenario: 'balance-shared-across-devices',
+        balance: botFallbackBalance,
+        p1: await compactBody(secondDevice, 300),
+      });
+      await secondDevice.close();
       break;
     }
 
-    await waitRoundResult(p1, /YOU WIN/i, `${round} : 0`);
+    await waitAnyRoundResult(p1);
     snapshots.push({
       scenario: 'bot-fallback',
       round,
@@ -194,13 +208,12 @@ async function verifyFullMatchAndForfeit() {
     assertNoText(p1, /AI Practice Bot/i, 'player 1 matched with bot despite real opponent'),
     assertNoText(p2, /AI Practice Bot/i, 'player 2 matched with bot despite real opponent'),
   ]);
-  await expectSubmitMoveRejected(p1, 99, /Unknown move/i);
+  await expectLegacySubmitRejected(p1, 0, /submit_move is disabled/i);
 
   for (let round = 1; round <= 3; round += 1) {
     console.log(`[spacetime-local] round ${round}: p1 Fire, p2 Earth`);
     if (round === 1) {
       await clickButton(p1, /FIRE\s*10/i);
-      await expectSubmitMoveRejected(p1, 2, /already submitted/i);
       await clickButton(p2, /EARTH\s*10/i);
     } else {
       await Promise.all([
@@ -354,7 +367,8 @@ async function verifySqlState() {
     ],
     { cwd: repoRoot },
   );
-  if (!playerOutput.includes('solo_bot') || !playerOutput.includes('1090')) {
+  const expectedBalance = botFallbackBalance?.replace(/,/g, '');
+  if (!playerOutput.includes('solo_bot') || (expectedBalance && !playerOutput.includes(expectedBalance))) {
     throw new Error(`Unexpected player balance query output:\n${playerOutput}`);
   }
   snapshots.push({ scenario: 'sql-player-balances', output: playerOutput.replace(/\s+/g, ' ').trim().slice(0, 700) });
@@ -372,8 +386,17 @@ async function newLabeledPage(label) {
   const context = await browser.newContext();
   const page = await context.newPage();
   wirePage(page, label);
+  await blockTelegramScript(page);
   page.on('close', () => context.close().catch(() => undefined));
   return page;
+}
+
+async function blockTelegramScript(page) {
+  await page.route('**/telegram-web-app.js', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: '',
+  }));
 }
 
 function playerUrl(player, matchRoom, extraParams = {}) {
@@ -426,11 +449,19 @@ async function waitRoundResult(page, label, expectedScore, timeout = 30_000) {
   );
 }
 
+async function waitAnyRoundResult(page, timeout = 30_000) {
+  await page.waitForFunction(
+    () => /YOU WIN|YOU LOSE|DRAW/i.test(document.body.innerText),
+    undefined,
+    { timeout },
+  );
+}
+
 async function waitRoundOverlayGone(page, timeout = 30_000) {
   await page.waitForFunction(
     () => {
       const text = document.body.innerText;
-      return !/YOU WIN|YOU LOSE|ROUND DRAW/i.test(text) && /Select Move/i.test(text);
+      return !/YOU WIN|YOU LOSE|DRAW/i.test(text) && /Select Move/i.test(text);
     },
     undefined,
     { timeout },
@@ -456,7 +487,19 @@ async function waitBalance(page, expectedBalance, timeout = 30_000) {
   );
 }
 
-async function expectSubmitMoveRejected(page, move, expectedMessage) {
+async function readElmBalance(page, timeout = 30_000) {
+  await page.waitForFunction(
+    () => /ELM Balance/i.test(document.body.innerText),
+    undefined,
+    { timeout },
+  );
+  const text = (await page.locator('body').innerText({ timeout })).replace(/\s+/g, ' ');
+  const match = text.match(/ELM Balance\s*([\d,]+)/i);
+  if (!match) throw new Error(`Could not read ELM balance from page:\n${text.slice(0, 500)}`);
+  return match[1];
+}
+
+async function expectLegacySubmitRejected(page, move, expectedMessage) {
   const result = await page.evaluate(
     async ({ uri, database, move }) => {
       const storageKeys = Array.from({ length: sessionStorage.length }, (_value, index) => sessionStorage.key(index)).filter(Boolean);
@@ -502,11 +545,11 @@ async function expectSubmitMoveRejected(page, move, expectedMessage) {
     { uri: stdbUrl, database, move },
   );
 
-  if (result.ok) throw new Error(`Expected reducer submitMove(${move}) to fail`);
+  if (result.ok) throw new Error(`Expected legacy reducer submitMove(${move}) to fail`);
   if (!expectedMessage.test(result.message)) {
     throw new Error(`Unexpected reducer rejection for move ${move}: ${result.message}`);
   }
-  snapshots.push({ scenario: 'reducer-rejection', move, message: result.message });
+  snapshots.push({ scenario: 'legacy-submit-rejection', move, message: result.message });
 }
 
 async function assertNoText(page, pattern, message) {

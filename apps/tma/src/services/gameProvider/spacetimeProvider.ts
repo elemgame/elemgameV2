@@ -1,7 +1,7 @@
 import { Identity } from 'spacetimedb';
 import { BOOST_EXTRA_ENERGY, MoveId, STARTING_ENERGY } from '@elmental/shared';
 import { DbConnection } from '../../module_bindings';
-import { playerDisplayName } from '../playerProfile';
+import { playerAccountId, playerDisplayName } from '../playerProfile';
 import type {
   GameEvent,
   MatchState,
@@ -40,6 +40,19 @@ interface MatchPerspective {
   boostEnabled: boolean;
 }
 
+interface PendingReveal {
+  matchId: string;
+  round: number;
+  move: MoveId;
+  salt: string;
+  hash: string;
+  attempts: number;
+}
+
+const MIN_REVEAL_DELAY_MS = 1_550;
+const REVEAL_RETRY_MS = 500;
+const MAX_REVEAL_ATTEMPTS = 20;
+
 export function createSpacetimeProvider(
   context: GameplayProviderContext,
   options: SpacetimeProviderOptions,
@@ -55,24 +68,37 @@ export function createSpacetimeProvider(
   const scheduledSettledMatchIds = new Set<string>();
   const processedRoundIds = new Set<string>();
   const settlementTimers = new Set<ReturnType<typeof setTimeout>>();
+  const revealTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const pendingReveals = new Map<string, PendingReveal>();
 
   const provider: GameplayProvider = {
     async initialize(user) {
       currentUser = user;
-      trace('spacetime.initialize', { user: displayName(user), db: options.database, uri: options.uri });
+      trace('spacetime.initialize', {
+        user: displayName(user),
+        accountId: playerAccountId(user),
+        source: user.source ?? 'web',
+        hasInitData: !!user.initData,
+        db: options.database,
+        uri: options.uri,
+      });
       await ensureConnection(user);
     },
 
     async updateProfile(user) {
       currentUser = user;
       const connection = await ensureConnection(user);
-      await callReducer('setProfile', () => connection.reducers.setProfile({ name: displayName(user) }));
+      await callReducer('setProfile', () => connection.reducers.setProfile({
+        name: displayName(user),
+        accountId: playerAccountId(user),
+      }));
     },
 
     async startMatchmaking(request) {
       const connection = await ensureConnection(currentUser ?? undefined);
       trace('spacetime.queue.join.call', {
         name: request.name,
+        accountId: request.accountId,
         stake: request.stake,
         mode: request.mode,
         room: request.room,
@@ -88,16 +114,27 @@ export function createSpacetimeProvider(
     },
 
     async submitMove(moveId) {
-      if (!activeMatch) return;
-      trace('spacetime.move.submit.call', {
-        matchId: activeMatch.id.toString(),
-        round: activeMatch.currentRound,
+      if (!activeMatch || !conn) return;
+      const match = activeMatch;
+      const matchId = match.id.toString();
+      const round = match.currentRound;
+      const salt = createRevealSalt(matchId, round, moveId);
+      const hash = commitHash(moveId, salt);
+      const pending: PendingReveal = { matchId, round, move: moveId, salt, hash, attempts: 0 };
+      pendingReveals.set(pendingKey(matchId, round), pending);
+      savePendingReveal(pending);
+
+      trace('spacetime.move.commit.call', {
+        matchId,
+        round,
         move: moveId,
+        hash,
       });
-      await callReducer('submitMove', () => conn?.reducers.submitMove({
-        matchId: activeMatch!.id,
-        move: moveId,
+      await callReducer('commitMove', () => conn?.reducers.commitMove({
+        matchId: match.id,
+        hash,
       }) ?? Promise.resolve());
+      attemptRevealForMatch(match);
     },
 
     advanceRound() {
@@ -120,6 +157,7 @@ export function createSpacetimeProvider(
 
     dispose() {
       clearSettlementTimers();
+      clearRevealTimers();
       conn?.disconnect();
       conn = null;
       connectPromise = null;
@@ -135,7 +173,7 @@ export function createSpacetimeProvider(
     if (connectPromise) return connectPromise;
 
     const profile = user ?? currentUser;
-    const tokenKey = profile ? `elmental.stdb.token.${profile.id}` : 'elmental.stdb.token';
+    const tokenKey = profile ? `elmental.stdb.token.${playerAccountId(profile)}` : 'elmental.stdb.token';
     const token = options.tokenStorage?.getItem(tokenKey) ?? undefined;
 
     connectPromise = new Promise((resolve, reject) => {
@@ -156,7 +194,10 @@ export function createSpacetimeProvider(
             .onApplied(() => {
               trace('spacetime.subscription.applied', {});
               if (profile) {
-                connected.reducers.setProfile({ name: displayName(profile) }).catch((err) => reportReducerError('setProfile', err));
+                connected.reducers.setProfile({
+                  name: displayName(profile),
+                  accountId: playerAccountId(profile),
+                }).catch((err) => reportReducerError('setProfile', err));
               }
               syncPlayerStats();
               syncActiveMatchFromCache();
@@ -246,9 +287,12 @@ export function createSpacetimeProvider(
   }
 
   function handleMatch(row: MatchState): void {
-    if (!currentIdentity || !isMyMatch(row)) return;
-    const perspective = mapMatchPerspective(row, currentIdentity, identityEquals);
+    const mySide = matchSideForCurrentAccount(row);
+    if (!currentIdentity || !mySide) return;
+    const perspective = mapMatchPerspective(row, currentIdentity, identityEquals, mySide === 'p1');
     const persistedMatchId = getPersistedActiveMatchId();
+    const pendingMove = pendingMoveFor(row);
+    const selectedMove = perspective.mySubmittedMove ?? pendingMove;
 
     if (
       row.status === 'active' &&
@@ -283,6 +327,8 @@ export function createSpacetimeProvider(
       p2: row.p2Name,
       p1Move: row.p1RevealMove,
       p2Move: row.p2RevealMove,
+      p1Commit: row.p1CommitHash !== undefined,
+      p2Commit: row.p2CommitHash !== undefined,
     });
 
     if (row.status === 'active') {
@@ -305,10 +351,10 @@ export function createSpacetimeProvider(
         context.emit({
           type: 'matchUpdate',
           matchId: perspective.matchId,
-          phase: mapRoundPhase(row.phase, perspective.mySubmittedMove),
+          phase: mapRoundPhase(row.phase, selectedMove),
           status: 'active',
           currentRound: row.currentRound,
-          selectedMove: perspective.mySubmittedMove,
+          selectedMove,
           myEnergy: perspective.myEnergy,
           opponentEnergy: perspective.opponentEnergy,
           myScore: perspective.myScore,
@@ -317,6 +363,8 @@ export function createSpacetimeProvider(
       } else if (row.phase === 'result') {
         syncRoundResultForMatch(row.id);
       }
+
+      attemptRevealForMatch(row);
     }
 
     if (row.status === 'settled') {
@@ -326,16 +374,20 @@ export function createSpacetimeProvider(
 
   function handleRoundResult(row: StdbRoundResult): void {
     if (!activeMatch || row.matchId !== activeMatch.id || !currentIdentity) return;
+    const mySide = matchSideForCurrentAccount(activeMatch);
+    if (!mySide) return;
     const rowKey = row.id.toString();
     if (processedRoundIds.has(rowKey)) return;
     processedRoundIds.add(rowKey);
-    const isPlayer1 = identityEquals(activeMatch.p1, currentIdentity);
+    clearPendingReveal(row.matchId.toString(), row.round);
+    const isPlayer1 = mySide === 'p1';
     const result = mapRoundResultPerspective(
       row,
       activeMatch,
       currentIdentity,
       identityEquals,
       roundEnergyBefore(row, activeMatch, isPlayer1),
+      isPlayer1,
     );
     trace('spacetime.round.result', {
       matchId: row.matchId.toString(),
@@ -387,12 +439,13 @@ export function createSpacetimeProvider(
       if (!currentIdentity || finalizedMatchIds.has(perspective.matchId)) return;
 
       finalizedMatchIds.add(perspective.matchId);
+      clearRevealTimersForMatch(perspective.matchId);
       context.emit({
         type: 'matchSettled',
         matchId: perspective.matchId,
         winner: row.winner === undefined
           ? 'draw'
-          : identityEquals(row.winner, currentIdentity)
+          : isWinnerForPerspective(row, perspective)
             ? 'me'
             : 'opponent',
         myScore: perspective.myScore,
@@ -419,6 +472,157 @@ export function createSpacetimeProvider(
   function clearSettlementTimers(): void {
     for (const timer of settlementTimers) clearTimeout(timer);
     settlementTimers.clear();
+  }
+
+  function attemptRevealForMatch(row: MatchState): void {
+    if (!conn || !currentIdentity || row.status !== 'active') return;
+    const pending = getPendingReveal(row.id.toString(), row.currentRound);
+    if (!pending) return;
+
+    const mySide = matchSideForCurrentAccount(row);
+    if (!mySide) return;
+    const isPlayer1 = mySide === 'p1';
+    const myCommit = isPlayer1 ? row.p1CommitHash : row.p2CommitHash;
+    const opponentCommit = isPlayer1 ? row.p2CommitHash : row.p1CommitHash;
+    const myReveal = isPlayer1 ? row.p1RevealMove : row.p2RevealMove;
+    if (myReveal !== undefined) {
+      clearPendingReveal(pending.matchId, pending.round);
+      return;
+    }
+    if (!myCommit || !opponentCommit) return;
+    if (myCommit !== pending.hash) {
+      trace('spacetime.move.reveal.skipped_hash_mismatch', {
+        matchId: pending.matchId,
+        round: pending.round,
+      });
+      clearPendingReveal(pending.matchId, pending.round);
+      return;
+    }
+
+    scheduleReveal(pending, revealDelayMs(row));
+  }
+
+  function scheduleReveal(pending: PendingReveal, delayMs: number): void {
+    const key = pendingKey(pending.matchId, pending.round);
+    if (revealTimers.has(key)) return;
+    const timer = setTimeout(() => {
+      revealTimers.delete(key);
+      void revealPendingMove(pending);
+    }, Math.max(0, delayMs));
+    revealTimers.set(key, timer);
+  }
+
+  async function revealPendingMove(pending: PendingReveal): Promise<void> {
+    if (!conn) return;
+    if (!isPendingRevealStillCurrent(pending)) {
+      clearPendingReveal(pending.matchId, pending.round);
+      return;
+    }
+
+    trace('spacetime.move.reveal.call', {
+      matchId: pending.matchId,
+      round: pending.round,
+      move: pending.move,
+      attempt: pending.attempts + 1,
+    });
+
+    try {
+      await conn.reducers.revealMove({
+        matchId: BigInt(pending.matchId),
+        move: pending.move,
+        salt: pending.salt,
+      });
+    } catch (err) {
+      const message = errorMessage(err);
+      if (/Match is not active|Player already revealed/i.test(message)) {
+        clearPendingReveal(pending.matchId, pending.round);
+        return;
+      }
+      if (pending.attempts < MAX_REVEAL_ATTEMPTS && shouldRetryReveal(message)) {
+        const retry = { ...pending, attempts: pending.attempts + 1 };
+        pendingReveals.set(pendingKey(retry.matchId, retry.round), retry);
+        savePendingReveal(retry);
+        scheduleReveal(retry, REVEAL_RETRY_MS);
+        return;
+      }
+      reportReducerError('revealMove', err);
+    }
+  }
+
+  function isPendingRevealStillCurrent(pending: PendingReveal): boolean {
+    if (!activeMatch || !currentIdentity) return false;
+    if (activeMatch.id.toString() !== pending.matchId) return false;
+    if (activeMatch.status !== 'active') return false;
+    if (activeMatch.currentRound !== pending.round) return false;
+
+    const isPlayer1 = identityEquals(activeMatch.p1, currentIdentity);
+    const myCommit = isPlayer1 ? activeMatch.p1CommitHash : activeMatch.p2CommitHash;
+    const opponentCommit = isPlayer1 ? activeMatch.p2CommitHash : activeMatch.p1CommitHash;
+    const myReveal = isPlayer1 ? activeMatch.p1RevealMove : activeMatch.p2RevealMove;
+    return myCommit === pending.hash && !!opponentCommit && myReveal === undefined;
+  }
+
+  function shouldRetryReveal(message: string): boolean {
+    return /Reveal too early|Both players must commit|Commit before revealing/i.test(message);
+  }
+
+  function revealDelayMs(row: MatchState): number {
+    const roundStartedAt = Number(row.roundStartedAtMicros / 1000n);
+    if (!Number.isFinite(roundStartedAt) || roundStartedAt <= 0) return MIN_REVEAL_DELAY_MS;
+    return roundStartedAt + MIN_REVEAL_DELAY_MS - Date.now();
+  }
+
+  function pendingMoveFor(row: MatchState): MoveId | null {
+    const pending = getPendingReveal(row.id.toString(), row.currentRound);
+    return pending?.move ?? null;
+  }
+
+  function getPendingReveal(matchId: string, round: number): PendingReveal | null {
+    const key = pendingKey(matchId, round);
+    const existing = pendingReveals.get(key);
+    if (existing) return existing;
+
+    try {
+      const raw = options.matchStorage?.getItem(pendingStorageKey(matchId, round));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as PendingReveal;
+      if (parsed.matchId !== matchId || parsed.round !== round) return null;
+      if (!/^[a-f0-9]{32}$/.test(parsed.hash)) return null;
+      pendingReveals.set(key, parsed);
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function savePendingReveal(pending: PendingReveal): void {
+    options.matchStorage?.setItem(pendingStorageKey(pending.matchId, pending.round), JSON.stringify(pending));
+  }
+
+  function clearPendingReveal(matchId: string, round: number): void {
+    const key = pendingKey(matchId, round);
+    const timer = revealTimers.get(key);
+    if (timer) clearTimeout(timer);
+    revealTimers.delete(key);
+    pendingReveals.delete(key);
+    options.matchStorage?.removeItem(pendingStorageKey(matchId, round));
+  }
+
+  function clearRevealTimers(): void {
+    for (const timer of revealTimers.values()) clearTimeout(timer);
+    revealTimers.clear();
+  }
+
+  function clearRevealTimersForMatch(matchId: string): void {
+    for (const [key, timer] of revealTimers) {
+      if (!key.startsWith(`${matchId}:`)) continue;
+      clearTimeout(timer);
+      revealTimers.delete(key);
+    }
+    for (const key of pendingReveals.keys()) {
+      if (!key.startsWith(`${matchId}:`)) continue;
+      pendingReveals.delete(key);
+    }
   }
 
   function syncPlayerStats(): void {
@@ -476,7 +680,25 @@ export function createSpacetimeProvider(
   }
 
   function isMyMatch(row: MatchState): boolean {
-    return !!currentIdentity && (identityEquals(row.p1, currentIdentity) || identityEquals(row.p2, currentIdentity));
+    return matchSideForCurrentAccount(row) !== null;
+  }
+
+  function matchSideForCurrentAccount(row: MatchState): 'p1' | 'p2' | null {
+    if (!currentIdentity) return null;
+    if (identityEquals(row.p1, currentIdentity)) return 'p1';
+    if (identityEquals(row.p2, currentIdentity)) return 'p2';
+    if (!conn || !currentUser) return null;
+
+    const accountId = playerAccountId(currentUser);
+    const p1Player = conn.db.player.identity.find(row.p1);
+    if (p1Player && accountIdForPlayerRow(p1Player) === accountId) return 'p1';
+    const p2Player = conn.db.player.identity.find(row.p2);
+    if (p2Player && accountIdForPlayerRow(p2Player) === accountId) return 'p2';
+    return null;
+  }
+
+  function accountIdForPlayerRow(row: Player): string {
+    return row.accountId || `identity:${row.identity.toHexString()}`;
   }
 
   function trace(event: string, data: Record<string, unknown>): void {
@@ -488,8 +710,13 @@ export function createSpacetimeProvider(
   }
 
   function getMatchSessionKey(): string {
-    const suffix = currentUser ? currentUser.id.toString() : 'anonymous';
+    const suffix = playerAccountId(currentUser);
     return `elmental.stdb.activeMatch.${options.database}.${suffix}`;
+  }
+
+  function pendingStorageKey(matchId: string, round: number): string {
+    const suffix = playerAccountId(currentUser);
+    return `elmental.stdb.pendingReveal.${options.database}.${suffix}.${matchId}.${round}`;
   }
 
   function persistActiveMatchId(matchId: string): void {
@@ -511,8 +738,9 @@ export function mapMatchPerspective(
   row: MatchState,
   currentIdentity: Identity,
   identityEqualsFn: (a: Identity, b: Identity) => boolean,
+  isPlayer1Override?: boolean,
 ): MatchPerspective {
-  const isPlayer1 = identityEqualsFn(row.p1, currentIdentity);
+  const isPlayer1 = isPlayer1Override ?? identityEqualsFn(row.p1, currentIdentity);
   return {
     matchId: row.id.toString(),
     isPlayer1,
@@ -535,8 +763,9 @@ export function mapRoundResultPerspective(
   currentIdentity: Identity,
   identityEqualsFn: (a: Identity, b: Identity) => boolean,
   myEnergyBefore?: number,
+  isPlayer1Override?: boolean,
 ) {
-  const isPlayer1 = identityEqualsFn(match.p1, currentIdentity);
+  const isPlayer1 = isPlayer1Override ?? identityEqualsFn(match.p1, currentIdentity);
   return {
     type: 'roundResult' as const,
     matchId: row.matchId.toString(),
@@ -555,9 +784,15 @@ export function mapRoundResultPerspective(
 
 function mapRoundPhase(serverPhase: string, submittedMove: MoveId | null): ProviderRoundPhase {
   if (serverPhase === 'result') return 'result';
-  if (serverPhase === 'reveal') return submittedMove === null ? 'select' : 'commit';
+  if (serverPhase === 'reveal') return submittedMove === null ? 'commit' : 'reveal';
   if (serverPhase === 'commit') return submittedMove === null ? 'select' : 'commit';
   return 'select';
+}
+
+function isWinnerForPerspective(row: MatchState, perspective: MatchPerspective): boolean {
+  if (row.winner === undefined) return false;
+  const myIdentity = perspective.isPlayer1 ? row.p1 : row.p2;
+  return identityEquals(row.winner, myIdentity);
 }
 
 function identityEquals(a: Identity, b: Identity): boolean {
@@ -566,6 +801,40 @@ function identityEquals(a: Identity, b: Identity): boolean {
 
 function displayName(user: PlayerProfileInput): string {
   return playerDisplayName(user);
+}
+
+function pendingKey(matchId: string, round: number): string {
+  return `${matchId}:${round}`;
+}
+
+function createRevealSalt(matchId: string, round: number, move: MoveId): string {
+  const bytes = new Uint8Array(16);
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi?.getRandomValues) {
+    cryptoApi.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  const randomHex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `client:${matchId}:${round}:${move}:${randomHex}`.slice(0, 128);
+}
+
+function commitHash(move: MoveId, salt: string): string {
+  const value = `${move}:${salt}`;
+  return `${hashHex(`${value}:0`)}${hashHex(`${value}:1`)}${hashHex(`${value}:2`)}${hashHex(`${value}:3`)}`;
+}
+
+function hashHex(value: string): string {
+  return hash32(value).toString(16).padStart(8, '0');
+}
+
+function hash32(value: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
 }
 
 function errorMessage(err: unknown): string {

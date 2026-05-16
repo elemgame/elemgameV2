@@ -8,7 +8,7 @@ import {
 import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stores/gameStore';
 import { showAlert } from './telegram';
 import { playSound } from './audio';
-import { playerDisplayName } from './playerProfile';
+import { playerAccountId, playerDisplayName } from './playerProfile';
 import { createMockProvider } from './gameProvider/mockProvider';
 import { recordGameLog } from './bugReport';
 import {
@@ -42,6 +42,9 @@ export async function initializeGameSession(user: PlayerProfileInput): Promise<v
   currentUser = user;
   trace('session.initialize', {
     user: displayName(user),
+    accountId: playerAccountId(user),
+    source: user.source ?? 'web',
+    hasInitData: !!user.initData,
     transport: TRANSPORT,
     db: getDatabaseName(),
     uri: getSpacetimeUri(),
@@ -66,9 +69,12 @@ export async function startMatchmaking(): Promise<void> {
   try {
     clearQueueRemovalTimer();
     store.startMatchmaking();
-    const name = displayName(store.telegramUser ?? currentUser);
+    const profile = store.telegramUser ?? currentUser;
+    const name = displayName(profile);
+    const accountId = playerAccountId(profile);
     await getProvider().startMatchmaking({
       name,
+      accountId,
       stake: MATCH_STAKE,
       mode: store.gameMode,
       room: getMatchRoom(),

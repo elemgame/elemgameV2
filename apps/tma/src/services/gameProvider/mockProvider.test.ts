@@ -31,6 +31,7 @@ describe('mock gameplay provider contract', () => {
     await provider.initialize({ id: 1, first_name: 'Alice' });
     await provider.startMatchmaking({
       name: 'Alice',
+      accountId: 'web:1',
       stake: 100,
       mode: GameMode.Classic,
       room: 'contract',
@@ -77,6 +78,7 @@ describe('mock gameplay provider contract', () => {
     await provider.initialize({ id: 1, first_name: 'Alice' });
     await provider.startMatchmaking({
       name: 'Alice',
+      accountId: 'web:1',
       stake: 100,
       mode: GameMode.Classic,
       room: 'cancel',
@@ -99,6 +101,7 @@ describe('mock gameplay provider contract', () => {
     await provider.initialize({ id: 1, first_name: 'Alice' });
     await provider.startMatchmaking({
       name: 'Alice',
+      accountId: 'web:1',
       stake: 100,
       mode: GameMode.Classic,
       room: 'forfeit',
@@ -178,6 +181,7 @@ describe('mock gameplay provider contract', () => {
   async function playWinningMatch(provider: ReturnType<typeof createMockProvider>, room: string) {
     await provider.startMatchmaking({
       name: 'Alice',
+      accountId: 'web:1',
       stake: 100,
       mode: GameMode.Classic,
       room,

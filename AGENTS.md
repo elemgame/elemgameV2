@@ -28,10 +28,12 @@ Use SpacetimeDB as the server-authoritative backend:
 - Reducers mutate state. They do not return gameplay data to the client.
 - Clients subscribe to tables and derive UI state from replicated table rows.
 - Player balance is server-authoritative in the `player.balance` column. The frontend must render subscribed balance updates and must not locally reset, debit, or credit ELM outside explicit mock transport.
+- Cross-device player identity is account-based: Telegram users must use `telegram:<WebApp user.id>` from TMA APIs, web users use `web:<id>`. Do not use SpacetimeDB connection identity as the durable user account.
 - Matchmaking happens through `join_queue` with a room key. Players only match inside the same room.
 - If no real opponent appears, `join_queue` can create an `AI Practice Bot` match after `VITE_BOT_FALLBACK_SECONDS` seconds. `0` disables the fallback, and real players always have priority over the bot.
-- Moves are submitted through `submit_move`. The current test flow does not require commit/reveal UX.
-- The scheduler expires stale rounds/matches and may submit the bot opponent's move after the real player moves. It must not auto-pick moves for real users or auto-advance active gameplay.
+- Moves use mandatory `commit_move` then `reveal_move`. The legacy `submit_move` reducer is disabled on the SpacetimeDB path.
+- `reveal_move` is rejected until both players have committed and the server-side minimum reveal delay has elapsed.
+- The scheduler expires stale rounds/matches and may reveal the bot opponent's precommitted move after the real player reveals. It must not auto-pick moves for real users or auto-advance active gameplay.
 - Use `game_event` rows plus console logs for traceability.
 
 When editing SpacetimeDB code, also follow `apps/spacetime/AGENTS.md`.
@@ -40,7 +42,7 @@ When editing SpacetimeDB code, also follow `apps/spacetime/AGENTS.md`.
 
 - Default transport is SpacetimeDB. Mock mode is only for local demos via `VITE_GAME_TRANSPORT=mock`.
 - The frontend must not decide round winners locally for real matches. It sends reducer calls and waits for subscribed table updates.
-- Do not auto-submit moves from timers. A real player must choose their own move.
+- Do not auto-choose moves from timers. A real player must choose their own move; the provider may reveal a previously committed local choice.
 - Match screens should tolerate subscription delay and reconnects without black screens.
 - Ignore stale active/settled match updates that do not belong to the current/latest active match.
 - Keep `VITE_GAME_TRACE=true` enabled for public testing until the multiplayer flow is stable.

@@ -16,6 +16,7 @@ try {
   const context = await browser.newContext();
   const p1 = await context.newPage();
   const p2 = await context.newPage();
+  await Promise.all([blockTelegramScript(p1), blockTelegramScript(p2)]);
 
   for (const [label, page] of [
     ['p1', p1],
@@ -127,6 +128,14 @@ async function clickButton(page, name, timeout = 15_000) {
   const button = page.getByRole('button', { name }).first();
   await button.waitFor({ state: 'visible', timeout });
   await button.click({ timeout, force: true });
+}
+
+async function blockTelegramScript(page) {
+  await page.route('**/telegram-web-app.js', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: '',
+  }));
 }
 
 async function waitReadyForMove(page, round, timeout = 30_000) {

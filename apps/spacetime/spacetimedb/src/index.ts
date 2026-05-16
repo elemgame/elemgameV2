@@ -4,6 +4,7 @@ import { SenderError, schema, table, t } from 'spacetimedb/server';
 const STARTING_ENERGY = 100;
 const BOOST_EXTRA_ENERGY = 20;
 const ROUNDS_TO_WIN = 3;
+const MAX_ROUNDS = 5;
 const BASIC_MOVE_COST = 10;
 const ENHANCED_MOVE_COST = 25;
 const REGEN_ON_WIN = 5;
@@ -16,6 +17,12 @@ const ROUND_TIMEOUT_MICROS = 60_000_000n;
 const RESULT_TIMEOUT_MICROS = 60_000_000n;
 const QUEUE_TIMEOUT_MICROS = 180_000_000n;
 const GAME_TICK_MICROS = 2_000_000n;
+const MIN_REVEAL_DELAY_MICROS = 1_500_000n;
+const JOIN_RATE_LIMIT_WINDOW_MICROS = 30_000_000n;
+const JOIN_RATE_LIMIT_MAX = 3;
+const FORFEIT_PENALTY_WINDOW_MICROS = 3_600_000_000n;
+const REPEAT_FORFEIT_RATING_MULTIPLIER = 2;
+const NEXT_ROUND_JITTER_MAX_MICROS = 500_000;
 const BOT_FALLBACK_DEFAULT_SECONDS = 30;
 const BOT_FALLBACK_MAX_SECONDS = 120;
 const BOT_NAME = 'AI Practice Bot';
@@ -24,6 +31,20 @@ const INITIAL_BALANCE = 1000;
 const BOT_BALANCE = 1_000_000;
 const RAKE_PERCENT = 5;
 const BOOST_STAKE_PERCENT = 10;
+const BOT_ACCOUNT_ID = 'bot:practice';
+const ALL_MOVES = [0, 1, 2, 3, 4, 5] as const;
+
+const account = table(
+  { name: 'account', public: true },
+  {
+    id: t.string().primaryKey(),
+    name: t.string(),
+    rating: t.i32(),
+    wins: t.u32(),
+    losses: t.u32(),
+    balance: t.i32().default(INITIAL_BALANCE),
+  }
+);
 
 const player = table(
   { name: 'player', public: true },
@@ -35,6 +56,7 @@ const player = table(
     wins: t.u32(),
     losses: t.u32(),
     balance: t.i32().default(INITIAL_BALANCE),
+    accountId: t.string().default(''),
   }
 );
 
@@ -50,6 +72,29 @@ const queueEntry = table(
     boostEnabled: t.bool(),
     joinedAtMicros: t.u64(),
     botFallbackAtMicros: t.u64().optional().default(undefined),
+    accountId: t.string().default(''),
+  }
+);
+
+const automationGuard = table(
+  { name: 'automation_guard' },
+  {
+    identity: t.identity().primaryKey(),
+    joinWindowStartMicros: t.u64(),
+    joinCount: t.u32(),
+    forfeitWindowStartMicros: t.u64(),
+    forfeitCount: t.u32(),
+  }
+);
+
+const botMoveCommit = table(
+  { name: 'bot_move_commit' },
+  {
+    id: t.string().primaryKey(),
+    matchId: t.u64(),
+    round: t.u32(),
+    move: t.u32(),
+    salt: t.string(),
   }
 );
 
@@ -85,6 +130,8 @@ const matchState = table(
     replayHash: t.string().optional(),
     createdAtMicros: t.u64(),
     updatedAtMicros: t.u64(),
+    roundStartedAtMicros: t.u64().default(0n),
+    nextRoundReadyAtMicros: t.u64().optional().default(undefined),
   }
 );
 
@@ -138,13 +185,24 @@ const gameTick: any = table(
   gameTickColumns
 );
 
-const spacetimedb = schema({ player, queueEntry, matchState, roundResult, gameEvent, gameTick });
+const spacetimedb = schema({
+  account,
+  player,
+  queueEntry,
+  automationGuard,
+  botMoveCommit,
+  matchState,
+  roundResult,
+  gameEvent,
+  gameTick,
+});
 export default spacetimedb;
 
 type IdentityLike = { isEqual(other: IdentityLike): boolean };
 type ReducerContext = any;
 type MatchRow = any;
 type QueueEntryRow = any;
+type AccountRow = any;
 
 export const init = spacetimedb.init(ctx => {
   logEvent(ctx, 'system.init', undefined, 'SpacetimeDB module initialized');
@@ -154,19 +212,23 @@ export const init = spacetimedb.init(ctx => {
 export const onConnect = spacetimedb.clientConnected(ctx => {
   const existing = ctx.db.player.identity.find(ctx.sender);
   if (existing) {
-    ctx.db.player.identity.update({ ...existing, online: true, balance: existing.balance ?? INITIAL_BALANCE });
+    const accountRow = ensureAccount(ctx, playerAccountId(existing), existing.name, existing);
+    ctx.db.player.identity.update(playerFromAccount(existing, accountRow, existing.name, true));
     logEvent(ctx, 'player.connected', undefined, `Player reconnected ${existing.name}`, identityHex(ctx.sender));
     return;
   }
 
+  const accountId = defaultAccountId(ctx.sender);
+  const accountRow = ensureAccount(ctx, accountId, shortIdentity(ctx.sender));
   ctx.db.player.insert({
     identity: ctx.sender,
-    name: shortIdentity(ctx.sender),
+    accountId: accountRow.id,
+    name: accountRow.name,
     online: true,
-    rating: INITIAL_RATING,
-    wins: 0,
-    losses: 0,
-    balance: INITIAL_BALANCE,
+    rating: accountRow.rating,
+    wins: accountRow.wins,
+    losses: accountRow.losses,
+    balance: accountRow.balance,
   });
   logEvent(ctx, 'player.connected', undefined, `Player connected ${shortIdentity(ctx.sender)}`, identityHex(ctx.sender));
 });
@@ -185,11 +247,12 @@ export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
 });
 
 export const set_profile = spacetimedb.reducer(
-  { name: t.string() },
-  (ctx, { name }) => {
+  { name: t.string(), accountId: t.string().optional() },
+  (ctx, { name, accountId }) => {
     const validated = validateName(name);
     const existing = requirePlayer(ctx);
-    ctx.db.player.identity.update({ ...existing, name: validated, online: true });
+    const accountRow = linkPlayerAccount(ctx, existing, accountId, validated);
+    syncAccountToPlayers(ctx, accountRow);
   }
 );
 
@@ -200,9 +263,10 @@ export const join_queue = spacetimedb.reducer(
     mode: t.string(),
     room: t.string(),
     boostEnabled: t.bool(),
+    accountId: t.string().optional(),
     botFallbackSeconds: t.u32().optional(),
   },
-  (ctx, { name, stake, mode, room, boostEnabled, botFallbackSeconds }) => {
+  (ctx, { name, stake, mode, room, boostEnabled, accountId, botFallbackSeconds }) => {
     const validatedName = validateName(name);
     const validatedMode = validateMode(mode);
     const validatedRoom = validateRoom(room);
@@ -212,28 +276,30 @@ export const join_queue = spacetimedb.reducer(
 
     const now = nowMicros(ctx);
     cleanupQueue(ctx, now, false);
+    enforceJoinQueueRateLimit(ctx, now);
 
     const playerRow = requirePlayer(ctx);
-    assertCanStake(playerRow, totalStake(stake, boostEnabled));
-    ctx.db.player.identity.update({ ...playerRow, name: validatedName, online: true });
+    const accountRow = linkPlayerAccount(ctx, playerRow, accountId, validatedName);
+    assertCanStakeAccount(accountRow, totalStake(stake, boostEnabled));
     ctx.db.queueEntry.identity.delete(ctx.sender);
 
-    const existingMatch = findLatestActiveMatchForPlayer(ctx, ctx.sender);
+    const existingMatch = findLatestActiveMatchForAccount(ctx, accountRow.id);
     if (existingMatch) {
       logEvent(
         ctx,
         'queue.active_match',
         existingMatch,
-        `${validatedName} already has an active match`,
-        `room=${existingMatch.room} status=${existingMatch.status} phase=${existingMatch.phase}`
+        `${validatedName} already has an active match for account ${accountRow.id}`,
+        `room=${existingMatch.room} status=${existingMatch.status} phase=${existingMatch.phase} account=${accountRow.id}`
       );
       return;
     }
 
     const currentEntry = {
       identity: ctx.sender,
+      accountId: accountRow.id,
       name: validatedName,
-      rating: playerRow.rating,
+      rating: accountRow.rating,
       stake,
       mode: validatedMode,
       room: validatedRoom,
@@ -242,7 +308,7 @@ export const join_queue = spacetimedb.reducer(
       botFallbackAtMicros: botFallbackDeadline(now, botFallbackSeconds),
     };
 
-    const opponent = findOpponent(ctx, stake, validatedMode, validatedRoom, now);
+    const opponent = findOpponentForEntry(ctx, currentEntry, now);
     if (!opponent) {
       ctx.db.queueEntry.insert(currentEntry);
       logEvent(
@@ -271,59 +337,43 @@ export const leave_queue = spacetimedb.reducer(ctx => {
 export const commit_move = spacetimedb.reducer(
   { matchId: t.u64(), hash: t.string() },
   (ctx, { matchId, hash }) => {
-    if (!hash) throw new SenderError('Commit hash is required');
+    const validatedHash = validateCommitHash(hash);
     const match = requireActiveMatch(ctx, matchId);
-    const side = playerSide(match, ctx.sender);
+    if (match.phase !== 'select' && match.phase !== 'commit' && match.phase !== 'reveal') {
+      throw new SenderError(`Cannot commit move while match is in ${match.phase} phase`);
+    }
+
+    const side = playerSide(ctx, match);
+    const now = nowMicros(ctx);
 
     if (side === 'p1') {
       if (match.p1CommitHash) throw new SenderError('Player already committed this round');
       const updated = {
         ...match,
         phase: match.p2CommitHash ? 'reveal' : 'commit',
-        p1CommitHash: hash,
-        updatedAtMicros: nowMicros(ctx),
+        p1CommitHash: validatedHash,
+        updatedAtMicros: now,
       };
       ctx.db.matchState.id.update(updated);
-      logEvent(ctx, 'round.commit', updated, 'p1 legacy commit accepted', `hash=${hash}`);
+      logEvent(ctx, 'round.commit', updated, 'p1 commit accepted', `hash=${validatedHash}`);
     } else {
       if (match.p2CommitHash) throw new SenderError('Player already committed this round');
       const updated = {
         ...match,
         phase: match.p1CommitHash ? 'reveal' : 'commit',
-        p2CommitHash: hash,
-        updatedAtMicros: nowMicros(ctx),
+        p2CommitHash: validatedHash,
+        updatedAtMicros: now,
       };
       ctx.db.matchState.id.update(updated);
-      logEvent(ctx, 'round.commit', updated, 'p2 legacy commit accepted', `hash=${hash}`);
+      logEvent(ctx, 'round.commit', updated, 'p2 commit accepted', `hash=${validatedHash}`);
     }
   }
 );
 
 export const submit_move = spacetimedb.reducer(
   { matchId: t.u64(), move: t.u32() },
-  (ctx, { matchId, move }) => {
-    validateMove(move);
-    const match = requireActiveMatch(ctx, matchId);
-    if (match.phase !== 'select' && match.phase !== 'commit') {
-      throw new SenderError(`Cannot submit move while match is in ${match.phase} phase`);
-    }
-
-    const side = playerSide(match, ctx.sender);
-    if (side === 'p1' && match.p1RevealMove !== undefined) {
-      throw new SenderError('Player already submitted this round');
-    }
-    if (side === 'p2' && match.p2RevealMove !== undefined) {
-      throw new SenderError('Player already submitted this round');
-    }
-
-    const updated = setServerMove(ctx, match, side, move, 'player');
-    logEvent(ctx, 'round.move_submitted', updated, `${side} submitted move`, `move=${move}`);
-    if (submitBotMoveIfReady(ctx, updated, nowMicros(ctx))) return;
-    if (hasBothMoves(updated)) {
-      resolveRound(ctx, updated);
-    } else {
-      ctx.db.matchState.id.update(updated);
-    }
+  (_ctx, { matchId: _matchId, move: _move }) => {
+    throw new SenderError('submit_move is disabled; use commit_move and reveal_move');
   }
 );
 
@@ -331,47 +381,52 @@ export const reveal_move = spacetimedb.reducer(
   { matchId: t.u64(), move: t.u32(), salt: t.string() },
   (ctx, { matchId, move, salt }) => {
     validateMove(move);
-    if (!salt) throw new SenderError('Reveal salt is required');
+    const validatedSalt = validateRevealSalt(salt);
 
     const match = requireActiveMatch(ctx, matchId);
-    const side = playerSide(match, ctx.sender);
-    const expectedHash = commitHash(move, salt);
+    const side = playerSide(ctx, match);
+    const now = nowMicros(ctx);
+    const expectedHash = commitHash(move, validatedSalt);
 
     if (side === 'p1') {
       if (!match.p1CommitHash) throw new SenderError('Commit before revealing');
+      if (!match.p2CommitHash) throw new SenderError('Both players must commit before revealing');
+      assertRevealDelayElapsed(match, now);
       if (match.p1CommitHash !== expectedHash) throw new SenderError('Invalid reveal');
       if (match.p1RevealMove !== undefined) throw new SenderError('Player already revealed this round');
       const updated = {
         ...match,
         phase: match.p2RevealMove !== undefined ? 'result' : 'reveal',
         p1RevealMove: move,
-        p1RevealSalt: salt,
-        updatedAtMicros: nowMicros(ctx),
+        p1RevealSalt: validatedSalt,
+        updatedAtMicros: now,
       };
       if (updated.p2RevealMove !== undefined && updated.p2RevealSalt !== undefined) {
-        logEvent(ctx, 'round.reveal', updated, 'p1 legacy reveal accepted; resolving round', `move=${move}`);
+        logEvent(ctx, 'round.reveal', updated, 'p1 reveal accepted; resolving round', `move=${move}`);
         resolveRound(ctx, updated);
       } else {
         ctx.db.matchState.id.update(updated);
-        logEvent(ctx, 'round.reveal', updated, 'p1 legacy reveal accepted', `move=${move}`);
+        logEvent(ctx, 'round.reveal', updated, 'p1 reveal accepted', `move=${move}`);
       }
     } else {
       if (!match.p2CommitHash) throw new SenderError('Commit before revealing');
+      if (!match.p1CommitHash) throw new SenderError('Both players must commit before revealing');
+      assertRevealDelayElapsed(match, now);
       if (match.p2CommitHash !== expectedHash) throw new SenderError('Invalid reveal');
       if (match.p2RevealMove !== undefined) throw new SenderError('Player already revealed this round');
       const updated = {
         ...match,
         phase: match.p1RevealMove !== undefined ? 'result' : 'reveal',
         p2RevealMove: move,
-        p2RevealSalt: salt,
-        updatedAtMicros: nowMicros(ctx),
+        p2RevealSalt: validatedSalt,
+        updatedAtMicros: now,
       };
       if (updated.p1RevealMove !== undefined && updated.p1RevealSalt !== undefined) {
-        logEvent(ctx, 'round.reveal', updated, 'p2 legacy reveal accepted; resolving round', `move=${move}`);
+        logEvent(ctx, 'round.reveal', updated, 'p2 reveal accepted; resolving round', `move=${move}`);
         resolveRound(ctx, updated);
       } else {
         ctx.db.matchState.id.update(updated);
-        logEvent(ctx, 'round.reveal', updated, 'p2 legacy reveal accepted', `move=${move}`);
+        logEvent(ctx, 'round.reveal', updated, 'p2 reveal accepted', `move=${move}`);
       }
     }
   }
@@ -381,11 +436,25 @@ export const next_round = spacetimedb.reducer(
   { matchId: t.u64() },
   (ctx, { matchId }) => {
     const match = requireActiveMatch(ctx, matchId);
-    playerSide(match, ctx.sender);
+    playerSide(ctx, match);
     if (match.phase !== 'result') return;
-    const updated = { ...match, phase: 'select', updatedAtMicros: nowMicros(ctx) };
+    const now = nowMicros(ctx);
+    const jitterMicros = nextRoundJitterMicros(match);
+    const readyAt = now + BigInt(jitterMicros);
+    if (jitterMicros <= 0) {
+      startNextRound(ctx, match, now);
+      return;
+    }
+
+    const updated = {
+      ...match,
+      phase: 'next',
+      nextRoundReadyAtMicros: readyAt,
+      updatedAtMicros: now,
+    };
     ctx.db.matchState.id.update(updated);
-    logEvent(ctx, 'round.next', updated, `Round ${updated.currentRound} started`);
+    scheduleTickAt(ctx, readyAt);
+    logEvent(ctx, 'round.next_scheduled', updated, `Round ${updated.currentRound} starts after jitter`, `jitterMicros=${jitterMicros}`);
   }
 );
 
@@ -393,12 +462,13 @@ export const forfeit_match = spacetimedb.reducer(
   { matchId: t.u64() },
   (ctx, { matchId }) => {
     const match = requireActiveMatch(ctx, matchId);
-    const side = playerSide(match, ctx.sender);
+    const side = playerSide(ctx, match);
+    const penaltyMultiplier = recordForfeit(ctx, match, nowMicros(ctx));
     const winner = side === 'p1' ? match.p2 : match.p1;
     const p1Score = side === 'p1' ? match.p1Score : Math.max(match.p1Score, ROUNDS_TO_WIN);
     const p2Score = side === 'p2' ? match.p2Score : Math.max(match.p2Score, ROUNDS_TO_WIN);
 
-    finishMatch(ctx, { ...match, p1Score, p2Score }, winner);
+    finishMatch(ctx, { ...match, p1Score, p2Score }, winner, { loserRatingPenaltyMultiplier: penaltyMultiplier });
   }
 );
 
@@ -407,6 +477,20 @@ export const run_game_tick = spacetimedb.reducer({ arg: gameTick.rowType }, (ctx
   cleanupQueue(ctx, now);
   for (const match of ctx.db.matchState.iter()) {
     if (match.status !== 'active') continue;
+    if (match.phase === 'next') {
+      const readyAt = match.nextRoundReadyAtMicros ?? match.updatedAtMicros;
+      if (now >= readyAt) {
+        startNextRound(ctx, match, now);
+      } else {
+        scheduleTickAt(ctx, readyAt);
+      }
+      continue;
+    }
+    const botCommitMatch = ensureBotCommitIfNeeded(ctx, match, now);
+    if (botCommitMatch) {
+      submitBotMoveIfReady(ctx, botCommitMatch, now);
+      continue;
+    }
     if (submitBotMoveIfReady(ctx, match, now)) continue;
     if (match.phase === 'result') {
       if (now - match.updatedAtMicros >= RESULT_TIMEOUT_MICROS) {
@@ -415,7 +499,7 @@ export const run_game_tick = spacetimedb.reducer({ arg: gameTick.rowType }, (ctx
       continue;
     }
     if (match.phase !== 'select' && match.phase !== 'commit' && match.phase !== 'reveal') continue;
-    if (now - match.updatedAtMicros >= ROUND_TIMEOUT_MICROS) {
+    if (now - roundStartedAtMicros(match) >= ROUND_TIMEOUT_MICROS) {
       logTimedOutRound(ctx, match);
     }
   }
@@ -427,15 +511,15 @@ function cleanupQueue(ctx: ReducerContext, now: bigint, allowBotFallback = true)
     const liveEntry = ctx.db.queueEntry.identity.find(entry.identity);
     if (!liveEntry) continue;
 
-    const activeMatch = findLatestActiveMatchForPlayer(ctx, entry.identity);
+    const activeMatch = findLatestActiveMatchForAccount(ctx, entryAccountId(entry));
     if (activeMatch) {
       ctx.db.queueEntry.identity.delete(entry.identity);
       logEvent(
         ctx,
         'queue.removed_active_match',
         activeMatch,
-        `${entry.name} removed from queue because an active match exists`,
-        `room=${entry.room} identity=${identityHex(entry.identity)}`
+        `${entry.name} removed from queue because an active match exists for the account`,
+        `room=${entry.room} identity=${identityHex(entry.identity)} account=${entryAccountId(entry)}`
       );
       continue;
     }
@@ -471,8 +555,10 @@ function cleanupQueue(ctx: ReducerContext, now: bigint, allowBotFallback = true)
 
 function logTimedOutRound(ctx: ReducerContext, match: MatchRow) {
   const missingSides: string[] = [];
-  if (match.p1RevealMove === undefined) missingSides.push('p1');
-  if (match.p2RevealMove === undefined) missingSides.push('p2');
+  if (!match.p1CommitHash) missingSides.push('p1_commit');
+  if (!match.p2CommitHash) missingSides.push('p2_commit');
+  if (match.p1CommitHash && match.p1RevealMove === undefined) missingSides.push('p1_reveal');
+  if (match.p2CommitHash && match.p2RevealMove === undefined) missingSides.push('p2_reveal');
 
   if (match.p1RevealMove !== undefined && match.p2RevealMove === undefined) {
     logEvent(
@@ -492,6 +578,30 @@ function logTimedOutRound(ctx: ReducerContext, match: MatchRow) {
       'round.timeout_forfeit',
       match,
       `p1 timed out in match ${match.id}; p2 wins by timeout`,
+      `missing=${missingSides.join(',')}`
+    );
+    finishMatch(ctx, { ...match, p2Score: Math.max(match.p2Score, ROUNDS_TO_WIN) }, match.p2);
+    return;
+  }
+
+  if (match.p1CommitHash && !match.p2CommitHash) {
+    logEvent(
+      ctx,
+      'round.timeout_forfeit',
+      match,
+      `p2 timed out before commit in match ${match.id}; p1 wins by timeout`,
+      `missing=${missingSides.join(',')}`
+    );
+    finishMatch(ctx, { ...match, p1Score: Math.max(match.p1Score, ROUNDS_TO_WIN) }, match.p1);
+    return;
+  }
+
+  if (match.p2CommitHash && !match.p1CommitHash) {
+    logEvent(
+      ctx,
+      'round.timeout_forfeit',
+      match,
+      `p1 timed out before commit in match ${match.id}; p2 wins by timeout`,
       `missing=${missingSides.join(',')}`
     );
     finishMatch(ctx, { ...match, p2Score: Math.max(match.p2Score, ROUNDS_TO_WIN) }, match.p2);
@@ -584,6 +694,7 @@ function resolveRound(ctx: ReducerContext, match: MatchRow) {
     p2RevealMove: undefined,
     p1RevealSalt: undefined,
     p2RevealSalt: undefined,
+    nextRoundReadyAtMicros: undefined,
     updatedAtMicros: nowMicros(ctx),
   };
 
@@ -591,9 +702,35 @@ function resolveRound(ctx: ReducerContext, match: MatchRow) {
     finishMatch(ctx, resolved, match.p1);
   } else if (p2Score >= ROUNDS_TO_WIN) {
     finishMatch(ctx, resolved, match.p2);
+  } else if (match.currentRound >= MAX_ROUNDS) {
+    finishByCurrentScoreOrDraw(ctx, resolved, `Maximum rounds reached (${MAX_ROUNDS})`);
   } else {
     ctx.db.matchState.id.update(resolved);
   }
+}
+
+function startNextRound(ctx: ReducerContext, match: MatchRow, now: bigint) {
+  let updated = {
+    ...match,
+    phase: 'select',
+    p1CommitHash: undefined,
+    p2CommitHash: undefined,
+    p1RevealMove: undefined,
+    p2RevealMove: undefined,
+    p1RevealSalt: undefined,
+    p2RevealSalt: undefined,
+    roundStartedAtMicros: now,
+    nextRoundReadyAtMicros: undefined,
+    updatedAtMicros: now,
+  };
+  updated = withBotCommit(ctx, updated, now);
+  ctx.db.matchState.id.update(updated);
+  logEvent(ctx, 'round.next', updated, `Round ${updated.currentRound} started`);
+  return updated;
+}
+
+function nextRoundJitterMicros(match: MatchRow) {
+  return hash32(`${match.id}:${match.currentRound}:${match.updatedAtMicros}:next_round`) % (NEXT_ROUND_JITTER_MAX_MICROS + 1);
 }
 
 function expireMatchAsDraw(ctx: ReducerContext, match: MatchRow, reason: string) {
@@ -629,7 +766,12 @@ function finishByCurrentScoreOrDraw(ctx: ReducerContext, match: MatchRow, reason
   expireMatchAsDraw(ctx, match, `${reason}; tied score`);
 }
 
-function finishMatch(ctx: ReducerContext, match: MatchRow, winner: MatchRow['p1']) {
+function finishMatch(
+  ctx: ReducerContext,
+  match: MatchRow,
+  winner: MatchRow['p1'],
+  options: { loserRatingPenaltyMultiplier?: number } = {}
+) {
   if (match.status === 'settled') return;
   const replayHash = hashHex(`${match.id}:${match.p1Score}:${match.p2Score}:${match.currentRound}`);
   logEvent(
@@ -652,20 +794,25 @@ function finishMatch(ctx: ReducerContext, match: MatchRow, winner: MatchRow['p1'
   const winnerPlayer = ctx.db.player.identity.find(winner);
   const loserPlayer = ctx.db.player.identity.find(loser);
   if (winnerPlayer && loserPlayer) {
-    const [newWinner, newLoser] = calculateElo(winnerPlayer.rating, loserPlayer.rating);
+    const winnerAccount = accountForPlayer(ctx, winnerPlayer);
+    const loserAccount = accountForPlayer(ctx, loserPlayer);
+    const [newWinner, baseNewLoser] = calculateElo(winnerAccount.rating, loserAccount.rating);
+    const loserPenaltyMultiplier = options.loserRatingPenaltyMultiplier ?? 1;
+    const loserRatingLoss = Math.max(0, loserAccount.rating - baseNewLoser);
+    const newLoser = loserAccount.rating - Math.round(loserRatingLoss * loserPenaltyMultiplier);
     const winnerSide = identityEquals(winner, match.p1) ? 'p1' : 'p2';
     const winnerBoostRefund = playerBoostStake(match, winnerSide);
     const winnerPayout = calculateWinnerPayout(match.stake);
-    ctx.db.player.identity.update({
-      ...winnerPlayer,
+    updateAccount(ctx, {
+      ...winnerAccount,
       rating: newWinner,
-      wins: winnerPlayer.wins + 1,
-      balance: playerBalance(winnerPlayer) + winnerPayout + winnerBoostRefund,
+      wins: winnerAccount.wins + 1,
+      balance: accountBalance(winnerAccount) + winnerPayout + winnerBoostRefund,
     });
-    ctx.db.player.identity.update({
-      ...loserPlayer,
+    updateAccount(ctx, {
+      ...loserAccount,
       rating: newLoser,
-      losses: loserPlayer.losses + 1,
+      losses: loserAccount.losses + 1,
     });
   }
 }
@@ -674,16 +821,16 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
   const p1Player = ctx.db.player.identity.find(p1Entry.identity);
   const p2Player = ctx.db.player.identity.find(p2Entry.identity);
   if (!p1Player || !p2Player) throw new SenderError('Player not found');
-  reserveStake(ctx, p1Player, totalStake(p1Entry.stake, p1Entry.boostEnabled));
-  reserveStake(ctx, p2Player, totalStake(p2Entry.stake, p2Entry.boostEnabled));
+  const p1Account = reserveStake(ctx, p1Player, totalStake(p1Entry.stake, p1Entry.boostEnabled));
+  const p2Account = reserveStake(ctx, p2Player, totalStake(p2Entry.stake, p2Entry.boostEnabled));
   const inserted = ctx.db.matchState.insert({
     id: 0n,
     p1: p1Entry.identity,
     p2: p2Entry.identity,
     p1Name: p1Entry.name,
     p2Name: p2Entry.name,
-    p1Rating: p1Player?.rating ?? p1Entry.rating,
-    p2Rating: p2Player?.rating ?? p2Entry.rating,
+    p1Rating: p1Account.rating,
+    p2Rating: p2Account.rating,
     stake: p1Entry.stake,
     mode: p1Entry.mode,
     room: p1Entry.room,
@@ -704,6 +851,8 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     p2RevealSalt: undefined,
     winner: undefined,
     replayHash: undefined,
+    roundStartedAtMicros: now,
+    nextRoundReadyAtMicros: undefined,
     createdAtMicros: now,
     updatedAtMicros: now,
   });
@@ -721,16 +870,16 @@ function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) 
   const botPlayer = ensureBotPlayer(ctx);
   const humanPlayer = ctx.db.player.identity.find(entry.identity);
   if (!humanPlayer) throw new SenderError('Player not found');
-  reserveStake(ctx, humanPlayer, totalStake(entry.stake, entry.boostEnabled));
-  reserveStake(ctx, botPlayer, entry.stake);
+  const humanAccount = reserveStake(ctx, humanPlayer, totalStake(entry.stake, entry.boostEnabled));
+  const botAccount = reserveStake(ctx, botPlayer, entry.stake);
   const inserted = ctx.db.matchState.insert({
     id: 0n,
     p1: entry.identity,
     p2: BOT_IDENTITY,
     p1Name: entry.name,
     p2Name: botPlayer.name,
-    p1Rating: humanPlayer?.rating ?? entry.rating,
-    p2Rating: botPlayer.rating,
+    p1Rating: humanAccount.rating,
+    p2Rating: botAccount.rating,
     stake: entry.stake,
     mode: entry.mode,
     room: entry.room,
@@ -751,35 +900,49 @@ function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) 
     p2RevealSalt: undefined,
     winner: undefined,
     replayHash: undefined,
+    roundStartedAtMicros: now,
+    nextRoundReadyAtMicros: undefined,
     createdAtMicros: now,
     updatedAtMicros: now,
   });
+  const committed = withBotCommit(ctx, inserted, now);
+  ctx.db.matchState.id.update(committed);
   logEvent(
     ctx,
     'bot.match_created',
-    inserted,
-    `Bot fallback match ${inserted.id} created for ${entry.name}`,
+    committed,
+    `Bot fallback match ${committed.id} created for ${entry.name}`,
     `room=${entry.room} mode=${entry.mode} stake=${entry.stake}`
   );
-  return inserted;
+  return committed;
 }
 
 function ensureBotPlayer(ctx: ReducerContext) {
+  const botAccount = ensureAccount(ctx, BOT_ACCOUNT_ID, BOT_NAME, {
+    rating: INITIAL_RATING,
+    wins: 0,
+    losses: 0,
+    balance: BOT_BALANCE,
+  });
+  const fundedBotAccount = accountBalance(botAccount) < BOT_BALANCE
+    ? updateAccount(ctx, { ...botAccount, balance: BOT_BALANCE })
+    : botAccount;
   const existing = ctx.db.player.identity.find(BOT_IDENTITY);
   if (existing) {
-    const updated = { ...existing, name: BOT_NAME, online: true, balance: Math.max(existing.balance ?? 0, BOT_BALANCE) };
+    const updated = playerFromAccount(existing, fundedBotAccount, BOT_NAME, true);
     ctx.db.player.identity.update(updated);
     return updated;
   }
 
   return ctx.db.player.insert({
     identity: BOT_IDENTITY,
-    name: BOT_NAME,
+    accountId: fundedBotAccount.id,
+    name: fundedBotAccount.name,
     online: true,
-    rating: INITIAL_RATING,
-    wins: 0,
-    losses: 0,
-    balance: BOT_BALANCE,
+    rating: fundedBotAccount.rating,
+    wins: fundedBotAccount.wins,
+    losses: fundedBotAccount.losses,
+    balance: fundedBotAccount.balance,
   });
 }
 
@@ -787,16 +950,27 @@ function submitBotMoveIfReady(ctx: ReducerContext, match: MatchRow, now: bigint)
   if (!isBotMatch(match)) return false;
   if (match.status !== 'active') return false;
   if (match.phase !== 'select' && match.phase !== 'commit' && match.phase !== 'reveal') return false;
+  if (!match.p2CommitHash) return false;
   if (match.p1RevealMove === undefined || match.p2RevealMove !== undefined) return false;
 
-  const move = pickBotMove(match.p1RevealMove);
-  const updated = setServerMove(ctx, match, 'p2', move, 'bot');
+  const revealReadyAt = roundStartedAtMicros(match) + MIN_REVEAL_DELAY_MICROS;
+  if (now < revealReadyAt) {
+    scheduleTickAt(ctx, revealReadyAt);
+    return false;
+  }
+
+  const botCommit = ensureBotMoveCommit(ctx, match, now);
+  if (commitHash(botCommit.move, botCommit.salt) !== match.p2CommitHash) {
+    throw new SenderError('Bot commitment mismatch');
+  }
+
+  const updated = revealServerMove(match, 'p2', botCommit.move, botCommit.salt, now);
   logEvent(
     ctx,
-    'bot.move_submitted',
+    'bot.move_revealed',
     updated,
-    `Bot submitted move for match ${updated.id}`,
-    `humanMove=${match.p1RevealMove} botMove=${move}`
+    `Bot revealed move for match ${updated.id}`,
+    `humanMove=${match.p1RevealMove} botMove=${botCommit.move}`
   );
 
   if (hasBothMoves(updated)) {
@@ -815,31 +989,68 @@ function isBotIdentity(identity: IdentityLike) {
   return identityEquals(identity, BOT_IDENTITY);
 }
 
-function pickBotMove(humanMove: number) {
-  const losingMoveByHumanMove = [2, 0, 1, 0, 1, 2];
-  return losingMoveByHumanMove[humanMove] ?? 0;
+function ensureBotCommitIfNeeded(ctx: ReducerContext, match: MatchRow, now: bigint) {
+  if (!isBotMatch(match)) return undefined;
+  if (match.status !== 'active') return undefined;
+  if (match.p2CommitHash || match.p2RevealMove !== undefined) return undefined;
+  if (match.phase !== 'select' && match.phase !== 'commit') return undefined;
+  const updated = withBotCommit(ctx, match, now);
+  ctx.db.matchState.id.update(updated);
+  logEvent(ctx, 'bot.commit', updated, `Bot committed for round ${updated.currentRound}`);
+  return updated;
 }
 
-function setServerMove(ctx: ReducerContext, match: MatchRow, side: 'p1' | 'p2', move: number, source: string) {
-  const salt = `${source}:${hashHex(`${match.id}:${match.currentRound}:${side}:${move}:${nowMicros(ctx)}`)}`;
-  const update = {
+function withBotCommit(ctx: ReducerContext, match: MatchRow, now: bigint) {
+  if (!isBotMatch(match) || match.p2CommitHash) return match;
+  const botCommit = ensureBotMoveCommit(ctx, match, now);
+  return {
     ...match,
-    phase: 'commit',
-    updatedAtMicros: nowMicros(ctx),
+    phase: match.p1CommitHash ? 'reveal' : 'commit',
+    p2CommitHash: commitHash(botCommit.move, botCommit.salt),
+    updatedAtMicros: now,
   };
+}
+
+function ensureBotMoveCommit(ctx: ReducerContext, match: MatchRow, now: bigint) {
+  const id = botCommitKey(match);
+  const existing = ctx.db.botMoveCommit.id.find(id);
+  if (existing) return existing;
+  return ctx.db.botMoveCommit.insert({
+    id,
+    matchId: match.id,
+    round: match.currentRound,
+    move: pickBotMove(match),
+    salt: botSalt(match, now),
+  });
+}
+
+function botCommitKey(match: MatchRow) {
+  return `${match.id}:${match.currentRound}:p2`;
+}
+
+function botSalt(match: MatchRow, now: bigint) {
+  const seed = `${match.id}:${match.currentRound}:${identityHex(match.p1)}:${now}:${match.createdAtMicros}`;
+  return `bot:${hashHex(`${seed}:a`)}${hashHex(`${seed}:b`)}`;
+}
+
+function pickBotMove(match: MatchRow) {
+  return ALL_MOVES[hash32(`${match.id}:${match.currentRound}:${match.createdAtMicros}:bot_move`) % ALL_MOVES.length];
+}
+
+function revealServerMove(match: MatchRow, side: 'p1' | 'p2', move: number, salt: string, now: bigint) {
   if (side === 'p1') {
     return {
-      ...update,
-      phase: match.p2RevealMove !== undefined ? 'result' : 'commit',
-      p1CommitHash: commitHash(move, salt),
+      ...match,
+      phase: match.p2RevealMove !== undefined ? 'result' : 'reveal',
+      updatedAtMicros: now,
       p1RevealMove: move,
       p1RevealSalt: salt,
     };
   }
   return {
-    ...update,
-    phase: match.p1RevealMove !== undefined ? 'result' : 'commit',
-    p2CommitHash: commitHash(move, salt),
+    ...match,
+    phase: match.p1RevealMove !== undefined ? 'result' : 'reveal',
+    updatedAtMicros: now,
     p2RevealMove: move,
     p2RevealSalt: salt,
   };
@@ -865,15 +1076,15 @@ function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: st
   let candidate: MatchRow | undefined = undefined;
   for (const entry of ctx.db.queueEntry.iter()) {
     if (identityEquals(entry.identity, ctx.sender)) continue;
-    const activeMatch = findLatestActiveMatchForPlayer(ctx, entry.identity);
+    const activeMatch = findLatestActiveMatchForAccount(ctx, entryAccountId(entry));
     if (activeMatch) {
       ctx.db.queueEntry.identity.delete(entry.identity);
       logEvent(
         ctx,
         'queue.removed_active_match',
         activeMatch,
-        `${entry.name} removed from queue because an active match exists`,
-        `room=${entry.room} identity=${identityHex(entry.identity)}`
+        `${entry.name} removed from queue because an active match exists for the account`,
+        `room=${entry.room} identity=${identityHex(entry.identity)} account=${entryAccountId(entry)}`
       );
       continue;
     }
@@ -899,15 +1110,16 @@ function findOpponentForEntry(ctx: ReducerContext, target: QueueEntryRow, now: b
   let candidate: QueueEntryRow | undefined = undefined;
   for (const entry of ctx.db.queueEntry.iter()) {
     if (identityEquals(entry.identity, target.identity)) continue;
-    const activeMatch = findLatestActiveMatchForPlayer(ctx, entry.identity);
+    if (entryAccountId(entry) === entryAccountId(target)) continue;
+    const activeMatch = findLatestActiveMatchForAccount(ctx, entryAccountId(entry));
     if (activeMatch) {
       ctx.db.queueEntry.identity.delete(entry.identity);
       logEvent(
         ctx,
         'queue.removed_active_match',
         activeMatch,
-        `${entry.name} removed from queue because an active match exists`,
-        `room=${entry.room} identity=${identityHex(entry.identity)}`
+        `${entry.name} removed from queue because an active match exists for the account`,
+        `room=${entry.room} identity=${identityHex(entry.identity)} account=${entryAccountId(entry)}`
       );
       continue;
     }
@@ -929,14 +1141,27 @@ function findOpponentForEntry(ctx: ReducerContext, target: QueueEntryRow, now: b
   return candidate;
 }
 
-function findLatestActiveMatchForPlayer(ctx: ReducerContext, identity: IdentityLike) {
+function entryAccountId(entry: QueueEntryRow) {
+  return normalizeAccountId(entry.accountId, defaultAccountId(entry.identity));
+}
+
+function findLatestActiveMatchForAccount(ctx: ReducerContext, accountId: string) {
   let latest: MatchRow | undefined = undefined;
   for (const match of ctx.db.matchState.iter()) {
     if (match.status !== 'active') continue;
-    if (!identityEquals(match.p1, identity) && !identityEquals(match.p2, identity)) continue;
+    if (!isMatchAccount(ctx, match, accountId)) continue;
     if (!latest || match.id > latest.id) latest = match;
   }
   return latest;
+}
+
+function isMatchAccount(ctx: ReducerContext, match: MatchRow, accountId: string) {
+  const normalized = normalizeAccountId(accountId, undefined);
+  const p1Player = ctx.db.player.identity.find(match.p1);
+  if (p1Player && playerAccountId(p1Player) === normalized) return true;
+  const p2Player = ctx.db.player.identity.find(match.p2);
+  if (p2Player && playerAccountId(p2Player) === normalized) return true;
+  return false;
 }
 
 function requirePlayer(ctx: ReducerContext) {
@@ -947,17 +1172,100 @@ function requirePlayer(ctx: ReducerContext) {
   return existing;
 }
 
-function reserveStake(ctx: ReducerContext, playerRow: MatchRow, amount: number) {
-  assertCanStake(playerRow, amount);
-  ctx.db.player.identity.update({
-    ...playerRow,
-    balance: playerBalance(playerRow) - amount,
+function linkPlayerAccount(ctx: ReducerContext, playerRow: MatchRow, requestedAccountId: string | undefined, name: string) {
+  const previousAccountId = playerAccountId(playerRow);
+  const accountId = normalizeAccountId(requestedAccountId, previousAccountId);
+  const existingAccount = ctx.db.account.id.find(accountId);
+  const accountRow = existingAccount ?? ensureAccount(ctx, accountId, name, playerRow);
+  const namedAccount = previousAccountId !== accountId && existingAccount
+    ? mergeLegacyPlayerIntoAccount(ctx, accountRow, playerRow, name)
+    : accountRow.name === name ? accountRow : updateAccount(ctx, { ...accountRow, name });
+  ctx.db.player.identity.update(playerFromAccount(playerRow, namedAccount, name, true));
+  return namedAccount;
+}
+
+function ensureAccount(ctx: ReducerContext, accountId: string, name: string, seed?: Partial<AccountRow>) {
+  const normalizedId = normalizeAccountId(accountId, undefined);
+  const existing = ctx.db.account.id.find(normalizedId);
+  if (existing) return existing;
+
+  return ctx.db.account.insert({
+    id: normalizedId,
+    name,
+    rating: seed?.rating ?? INITIAL_RATING,
+    wins: seed?.wins ?? 0,
+    losses: seed?.losses ?? 0,
+    balance: seed?.balance ?? INITIAL_BALANCE,
   });
 }
 
-function assertCanStake(playerRow: MatchRow, amount: number) {
-  if (playerBalance(playerRow) < amount) {
-    throw new SenderError(`Insufficient ELM balance: need ${amount}, have ${playerBalance(playerRow)}`);
+function updateAccount(ctx: ReducerContext, accountRow: AccountRow) {
+  ctx.db.account.id.update(accountRow);
+  syncAccountToPlayers(ctx, accountRow);
+  return accountRow;
+}
+
+function mergeLegacyPlayerIntoAccount(ctx: ReducerContext, accountRow: AccountRow, playerRow: MatchRow, name: string) {
+  return updateAccount(ctx, {
+    ...accountRow,
+    name,
+    rating: Math.max(accountRow.rating, playerRow.rating ?? INITIAL_RATING),
+    wins: accountRow.wins + (playerRow.wins ?? 0),
+    losses: accountRow.losses + (playerRow.losses ?? 0),
+    balance: Math.max(accountBalance(accountRow), playerRow.balance ?? INITIAL_BALANCE),
+  });
+}
+
+function syncAccountToPlayers(ctx: ReducerContext, accountRow: AccountRow) {
+  for (const playerRow of ctx.db.player.iter()) {
+    if (playerAccountId(playerRow) !== accountRow.id) continue;
+    ctx.db.player.identity.update(playerFromAccount(playerRow, accountRow, accountRow.name, playerRow.online));
+  }
+}
+
+function playerFromAccount(playerRow: MatchRow, accountRow: AccountRow, name = accountRow.name, online = playerRow.online) {
+  return {
+    ...playerRow,
+    accountId: accountRow.id,
+    name,
+    online,
+    rating: accountRow.rating,
+    wins: accountRow.wins,
+    losses: accountRow.losses,
+    balance: accountBalance(accountRow),
+  };
+}
+
+function accountForPlayer(ctx: ReducerContext, playerRow: MatchRow) {
+  return ensureAccount(ctx, playerAccountId(playerRow), playerRow.name, playerRow);
+}
+
+function playerAccountId(playerRow: MatchRow) {
+  return normalizeAccountId(playerRow.accountId, defaultAccountId(playerRow.identity));
+}
+
+function defaultAccountId(identity: { toHexString(): string }) {
+  return `identity:${identityHex(identity)}`;
+}
+
+function normalizeAccountId(accountId: string | undefined, fallback: string | undefined) {
+  const raw = accountId?.trim() || fallback?.trim() || '';
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9:_-]+/g, '_').slice(0, 128);
+  return normalized || 'anonymous';
+}
+
+function reserveStake(ctx: ReducerContext, playerRow: MatchRow, amount: number) {
+  const accountRow = accountForPlayer(ctx, playerRow);
+  assertCanStakeAccount(accountRow, amount);
+  return updateAccount(ctx, {
+    ...accountRow,
+    balance: accountBalance(accountRow) - amount,
+  });
+}
+
+function assertCanStakeAccount(accountRow: AccountRow, amount: number) {
+  if (accountBalance(accountRow) < amount) {
+    throw new SenderError(`Insufficient ELM balance: need ${amount}, have ${accountBalance(accountRow)}`);
   }
 }
 
@@ -965,15 +1273,17 @@ function refundDrawBalances(ctx: ReducerContext, match: MatchRow) {
   const p1Player = ctx.db.player.identity.find(match.p1);
   const p2Player = ctx.db.player.identity.find(match.p2);
   if (p1Player) {
-    ctx.db.player.identity.update({
-      ...p1Player,
-      balance: playerBalance(p1Player) + match.stake + playerBoostStake(match, 'p1'),
+    const p1Account = accountForPlayer(ctx, p1Player);
+    updateAccount(ctx, {
+      ...p1Account,
+      balance: accountBalance(p1Account) + match.stake + playerBoostStake(match, 'p1'),
     });
   }
   if (p2Player) {
-    ctx.db.player.identity.update({
-      ...p2Player,
-      balance: playerBalance(p2Player) + match.stake + playerBoostStake(match, 'p2'),
+    const p2Account = accountForPlayer(ctx, p2Player);
+    updateAccount(ctx, {
+      ...p2Account,
+      balance: accountBalance(p2Account) + match.stake + playerBoostStake(match, 'p2'),
     });
   }
 }
@@ -998,8 +1308,60 @@ function calculateWinnerPayout(stake: number) {
   return pool - rake;
 }
 
-function playerBalance(playerRow: MatchRow) {
-  return playerRow.balance ?? INITIAL_BALANCE;
+function accountBalance(accountRow: AccountRow) {
+  return accountRow.balance ?? INITIAL_BALANCE;
+}
+
+function enforceJoinQueueRateLimit(ctx: ReducerContext, now: bigint) {
+  const existing = ctx.db.automationGuard.identity.find(ctx.sender);
+  if (!existing) {
+    ctx.db.automationGuard.insert({
+      identity: ctx.sender,
+      joinWindowStartMicros: now,
+      joinCount: 1,
+      forfeitWindowStartMicros: 0n,
+      forfeitCount: 0,
+    });
+    return;
+  }
+
+  if (now - existing.joinWindowStartMicros >= JOIN_RATE_LIMIT_WINDOW_MICROS) {
+    ctx.db.automationGuard.identity.update({
+      ...existing,
+      joinWindowStartMicros: now,
+      joinCount: 1,
+    });
+    return;
+  }
+
+  const joinCount = existing.joinCount + 1;
+  if (joinCount > JOIN_RATE_LIMIT_MAX) {
+    throw new SenderError('Queue rate limit exceeded; wait before joining again');
+  }
+  ctx.db.automationGuard.identity.update({ ...existing, joinCount });
+}
+
+function recordForfeit(ctx: ReducerContext, match: MatchRow, now: bigint) {
+  const existing = ctx.db.automationGuard.identity.find(ctx.sender);
+  const isRepeat = !!existing && now - existing.forfeitWindowStartMicros < FORFEIT_PENALTY_WINDOW_MICROS && existing.forfeitCount > 0;
+  const nextForfeitCount = isRepeat ? existing.forfeitCount + 1 : 1;
+  const updated = {
+    identity: ctx.sender,
+    joinWindowStartMicros: existing?.joinWindowStartMicros ?? 0n,
+    joinCount: existing?.joinCount ?? 0,
+    forfeitWindowStartMicros: isRepeat ? existing.forfeitWindowStartMicros : now,
+    forfeitCount: nextForfeitCount,
+  };
+
+  if (existing) {
+    ctx.db.automationGuard.identity.update(updated);
+  } else {
+    ctx.db.automationGuard.insert(updated);
+  }
+
+  const multiplier = isRepeat ? REPEAT_FORFEIT_RATING_MULTIPLIER : 1;
+  logEvent(ctx, 'match.forfeit', match, `${playerSide(ctx, match)} forfeited`, `repeat=${isRepeat} ratingPenaltyMultiplier=${multiplier}`);
+  return multiplier;
 }
 
 function requireActiveMatch(ctx: ReducerContext, matchId: bigint) {
@@ -1009,9 +1371,18 @@ function requireActiveMatch(ctx: ReducerContext, matchId: bigint) {
   return match;
 }
 
-function playerSide(match: MatchRow, identity: MatchRow['p1']) {
-  if (identityEquals(match.p1, identity)) return 'p1';
-  if (identityEquals(match.p2, identity)) return 'p2';
+function playerSide(ctx: ReducerContext, match: MatchRow) {
+  if (identityEquals(match.p1, ctx.sender)) return 'p1';
+  if (identityEquals(match.p2, ctx.sender)) return 'p2';
+
+  const senderPlayer = ctx.db.player.identity.find(ctx.sender);
+  if (!senderPlayer) throw new SenderError('Player is not connected');
+  const accountId = playerAccountId(senderPlayer);
+  const p1Player = ctx.db.player.identity.find(match.p1);
+  if (p1Player && playerAccountId(p1Player) === accountId) return 'p1';
+  const p2Player = ctx.db.player.identity.find(match.p2);
+  if (p2Player && playerAccountId(p2Player) === accountId) return 'p2';
+
   throw new SenderError('You are not a player in this match');
 }
 
@@ -1037,6 +1408,36 @@ function validateMove(move: number) {
   if (!Number.isInteger(move) || move < 0 || move > 5) {
     throw new SenderError('Unknown move');
   }
+}
+
+function validateCommitHash(hash: string) {
+  const normalized = hash.trim().toLowerCase();
+  if (!/^[a-f0-9]{32}$/.test(normalized)) {
+    throw new SenderError('Commit hash must be 32 lowercase hex characters');
+  }
+  return normalized;
+}
+
+function validateRevealSalt(salt: string) {
+  const trimmed = salt.trim();
+  if (trimmed.length < 8 || trimmed.length > 128 || !/^[\x20-\x7e]+$/.test(trimmed)) {
+    throw new SenderError('Reveal salt must be 8-128 printable ASCII characters');
+  }
+  return trimmed;
+}
+
+function assertRevealDelayElapsed(match: MatchRow, now: bigint) {
+  const readyAt = roundStartedAtMicros(match) + MIN_REVEAL_DELAY_MICROS;
+  if (now < readyAt) {
+    const remainingMs = Number((readyAt - now + 999n) / 1000n);
+    throw new SenderError(`Reveal too early; wait ${remainingMs}ms`);
+  }
+}
+
+function roundStartedAtMicros(match: MatchRow) {
+  return match.roundStartedAtMicros && match.roundStartedAtMicros > 0n
+    ? match.roundStartedAtMicros
+    : match.createdAtMicros;
 }
 
 function moveCost(move: number) {
@@ -1092,7 +1493,8 @@ function calculateElo(winnerRating: number, loserRating: number) {
 }
 
 function commitHash(move: number, salt: string) {
-  return hashHex(`${move}:${salt}`);
+  const value = `${move}:${salt}`;
+  return `${hashHex(`${value}:0`)}${hashHex(`${value}:1`)}${hashHex(`${value}:2`)}${hashHex(`${value}:3`)}`;
 }
 
 function hashHex(value: string) {
@@ -1113,9 +1515,13 @@ function nowMicros(ctx: ReducerContext) {
 }
 
 function scheduleNextTick(ctx: ReducerContext) {
+  scheduleTickAt(ctx, nowMicros(ctx) + GAME_TICK_MICROS);
+}
+
+function scheduleTickAt(ctx: ReducerContext, scheduledAtMicros: bigint) {
   ctx.db.gameTick.insert({
     scheduledId: 0n,
-    scheduledAt: ScheduleAt.time(nowMicros(ctx) + GAME_TICK_MICROS),
+    scheduledAt: ScheduleAt.time(scheduledAtMicros),
   });
 }
 

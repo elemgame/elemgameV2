@@ -10,7 +10,11 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default {
+export default __t.row({
+  id: __t.string().primaryKey(),
   name: __t.string(),
-  accountId: __t.option(__t.string()),
-};
+  rating: __t.i32(),
+  wins: __t.u32(),
+  losses: __t.u32(),
+  balance: __t.i32(),
+});

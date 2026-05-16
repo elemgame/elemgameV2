@@ -20,4 +20,5 @@ export default __t.row({
   boostEnabled: __t.bool().name("boost_enabled"),
   joinedAtMicros: __t.u64().name("joined_at_micros"),
   botFallbackAtMicros: __t.option(__t.u64()).name("bot_fallback_at_micros"),
+  accountId: __t.string().name("account_id"),
 });

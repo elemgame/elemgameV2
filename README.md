@@ -177,7 +177,7 @@ VITE_GAME_TRANSPORT=mock pnpm --filter @elmental/tma dev
 | **Game Logic** | **Production-ready** | 6x6 matrix, energy calc, overclock, ELO — 78 tests passing |
 | **Frontend (TMA)** | **Demo-ready** | 6 screens, full game flow, animations, keyboard nav |
 | **Mock Provider** | **Test-only** | Deterministic AI flow for local smoke tests and demos |
-| **SpacetimeDB Backend** | **Cloud test instance** | TypeScript module with players, queue, matches, round resolution, ELO |
+| **SpacetimeDB Backend** | **Cloud test instance** | TypeScript module with players, queue, mandatory commit-reveal matches, round resolution, ELO |
 | **Legacy Node Server** | Optional fallback | Express + Socket.io memory server kept for experiments |
 | **Smart Contracts** | Written | 6 Solidity contracts — need compilation + deployment |
 | **Blockchain Client** | Stubs | @eversdk integration points marked, need real implementation |
@@ -290,6 +290,8 @@ http://localhost:5173/?player=bob
 Both clients connect to SpacetimeDB at `VITE_SPACETIME_URI`, enter the reducer-driven queue, and play a real PvP match through the local database module. For LAN/mobile testing, set `VITE_SPACETIME_URI` to the reachable SpacetimeDB URL.
 
 If a player is alone in a queue, the backend creates an `AI Practice Bot` match after `VITE_BOT_FALLBACK_SECONDS` seconds. Set it to `0`, or add `?botFallbackSeconds=0` to the URL, to disable the fallback while testing pure two-player matchmaking.
+
+SpacetimeDB matches use mandatory commit-reveal. The frontend commits a salted move hash, waits for both commits and the server minimum reveal delay, then reveals the stored local move and salt. The legacy `submit_move` reducer is intentionally disabled so clients cannot write open moves directly.
 
 ### Gameplay Provider Boundary
 

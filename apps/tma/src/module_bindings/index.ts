@@ -46,6 +46,7 @@ import SubmitMoveReducer from "./submit_move_reducer";
 // Import all procedure arg schemas
 
 // Import all table schema definitions
+import AccountRow from "./account_table";
 import GameEventRow from "./game_event_table";
 import MatchStateRow from "./match_state_table";
 import PlayerRow from "./player_table";
@@ -56,6 +57,17 @@ import RoundResultRow from "./round_result_table";
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  account: __table({
+    name: 'account',
+    indexes: [
+      { accessor: 'id', name: 'account_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'account_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, AccountRow),
   gameEvent: __table({
     name: 'game_event',
     indexes: [

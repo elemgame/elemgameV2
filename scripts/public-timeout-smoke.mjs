@@ -36,6 +36,7 @@ async function runOnePlayerTimeout() {
   const p2Context = await browser.newContext();
   const p1 = await p1Context.newPage();
   const p2 = await p2Context.newPage();
+  await Promise.all([blockTelegramScript(p1), blockTelegramScript(p2)]);
   wirePage('one:p1', p1);
   wirePage('one:p2', p2);
 
@@ -65,6 +66,7 @@ async function runBothPlayersTimeout() {
   const p2Context = await browser.newContext();
   const p1 = await p1Context.newPage();
   const p2 = await p2Context.newPage();
+  await Promise.all([blockTelegramScript(p1), blockTelegramScript(p2)]);
   wirePage('both:p1', p1);
   wirePage('both:p2', p2);
 
@@ -116,6 +118,14 @@ async function clickButton(page, name, timeout = 15_000) {
   const button = page.getByRole('button', { name }).first();
   await button.waitFor({ state: 'visible', timeout });
   await button.click({ timeout, force: true });
+}
+
+async function blockTelegramScript(page) {
+  await page.route('**/telegram-web-app.js', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: '',
+  }));
 }
 
 async function waitReadyForMove(page, round, timeout = 30_000) {

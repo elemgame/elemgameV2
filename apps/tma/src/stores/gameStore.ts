@@ -27,6 +27,7 @@ export interface TelegramUser {
   last_name?: string;
   username?: string;
   photo_url?: string;
+  initData?: string;
   source: 'telegram' | 'web';
 }
 

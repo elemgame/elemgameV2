@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getMockUser,
+  getTelegramUser,
   sanitizeWebUserName,
   saveWebUser,
   userNameFromDisplayName,
@@ -74,6 +75,38 @@ describe('web user profile helpers', () => {
       id: 987654321,
       first_name: 'Saved Player',
       username: 'saved_player',
+    });
+  });
+
+  it('reads Telegram users from signed initData when initDataUnsafe has no parsed user', () => {
+    setMockWindow('');
+    const initData = new URLSearchParams({
+      user: JSON.stringify({
+        id: 424242,
+        first_name: 'Telegram',
+        last_name: 'User',
+        username: 'tg_user',
+        photo_url: 'https://example.test/avatar.png',
+        language_code: 'en',
+      }),
+      auth_date: '1710000000',
+      hash: 'signed',
+    }).toString();
+
+    window.Telegram = {
+      WebApp: {
+        initData,
+        initDataUnsafe: {},
+      } as never,
+    };
+
+    expect(getTelegramUser()).toEqual({
+      id: 424242,
+      first_name: 'Telegram',
+      last_name: 'User',
+      username: 'tg_user',
+      photo_url: 'https://example.test/avatar.png',
+      language_code: 'en',
     });
   });
 

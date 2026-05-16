@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { playerDisplayName, playerFullName } from './playerProfile';
+import { playerAccountId, playerDisplayName, playerFullName } from './playerProfile';
 
 describe('player profile display names', () => {
   it('uses the Telegram username as the primary display name', () => {
@@ -47,5 +47,19 @@ describe('player profile display names', () => {
       username: 'coded_user',
       source: 'telegram',
     })).toBe('Code User');
+  });
+
+  it('builds stable account ids from the profile source', () => {
+    expect(playerAccountId({
+      id: 777,
+      first_name: 'Code',
+      source: 'telegram',
+    })).toBe('telegram:777');
+    expect(playerAccountId({
+      id: 888,
+      first_name: 'Browser Player',
+      source: 'web',
+    })).toBe('web:888');
+    expect(playerAccountId(null)).toBe('web:anonymous');
   });
 });

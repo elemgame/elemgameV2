@@ -16,6 +16,12 @@ export function playerFullName(user?: PlayerProfileInput | null): string {
   return `${user.first_name}${user.last_name ? ` ${user.last_name}` : ''}`.trim();
 }
 
+export function playerAccountId(user?: PlayerProfileInput | null): string {
+  if (!user) return 'web:anonymous';
+  const source = user.source === 'telegram' ? 'telegram' : 'web';
+  return `${source}:${user.id}`;
+}
+
 function normalizedUsername(username?: string): string {
   return username?.trim().replace(/^@+/, '').slice(0, 32) ?? '';
 }

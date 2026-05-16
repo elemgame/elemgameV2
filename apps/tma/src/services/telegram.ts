@@ -67,6 +67,7 @@ export interface WebUserProfile {
   last_name?: string;
   username?: string;
   photo_url?: string;
+  language_code?: string;
 }
 
 const WEB_USER_STORAGE_KEY = 'elmental.webUser';
@@ -84,7 +85,10 @@ declare global {
  * Returns the Telegram WebApp object, or null when running outside Telegram.
  */
 export function getTelegramWebApp(): TelegramWebApp | null {
-  return window.Telegram?.WebApp ?? null;
+  const app = window.Telegram?.WebApp;
+  if (!app) return null;
+  if (!app.initData && !app.initDataUnsafe?.user) return null;
+  return app;
 }
 
 /**
@@ -108,7 +112,7 @@ export function initTelegram(): void {
 export function getTelegramUser() {
   const twa = getTelegramWebApp();
   if (!twa) return null;
-  return twa.initDataUnsafe?.user ?? null;
+  return twa.initDataUnsafe?.user ?? parseTelegramUserFromInitData(twa.initData);
 }
 
 /**
@@ -116,6 +120,26 @@ export function getTelegramUser() {
  */
 export function getTelegramInitData(): string {
   return getTelegramWebApp()?.initData ?? '';
+}
+
+function parseTelegramUserFromInitData(initData: string): WebUserProfile | null {
+  if (!initData) return null;
+  try {
+    const rawUser = new URLSearchParams(initData).get('user');
+    if (!rawUser) return null;
+    const user = JSON.parse(rawUser) as Partial<WebUserProfile>;
+    if (typeof user.id !== 'number' || typeof user.first_name !== 'string') return null;
+    return {
+      id: user.id,
+      first_name: user.first_name,
+      last_name: typeof user.last_name === 'string' ? user.last_name : undefined,
+      username: typeof user.username === 'string' ? user.username : undefined,
+      photo_url: typeof user.photo_url === 'string' ? user.photo_url : undefined,
+      language_code: typeof user.language_code === 'string' ? user.language_code : undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**

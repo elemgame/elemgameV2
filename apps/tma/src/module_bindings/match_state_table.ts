@@ -40,4 +40,6 @@ export default __t.row({
   replayHash: __t.option(__t.string()).name("replay_hash"),
   createdAtMicros: __t.u64().name("created_at_micros"),
   updatedAtMicros: __t.u64().name("updated_at_micros"),
+  roundStartedAtMicros: __t.u64().name("round_started_at_micros"),
+  nextRoundReadyAtMicros: __t.option(__t.u64()).name("next_round_ready_at_micros"),
 });

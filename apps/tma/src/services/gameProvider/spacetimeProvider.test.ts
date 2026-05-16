@@ -42,9 +42,31 @@ describe('SpacetimeDB provider mappers', () => {
     });
   });
 
+  it('can map a match from an account-linked identity perspective', () => {
+    const linkedIdentity = { id: 'p1-linked-device' };
+    const mapped = mapMatchPerspective(matchRow(), linkedIdentity as never, identityEquals as never, true);
+
+    expect(mapped).toMatchObject({
+      matchId: '42',
+      isPlayer1: true,
+      opponentName: 'Bob',
+      myScore: 2,
+      opponentScore: 1,
+      mySubmittedMove: MoveId.Fire,
+    });
+  });
+
   it('maps round results from both perspectives', () => {
     const p1Result = mapRoundResultPerspective(roundRow(), matchRow(), p1 as never, identityEquals as never, 95);
     const p2Result = mapRoundResultPerspective(roundRow(), matchRow(), p2 as never, identityEquals as never, 85);
+    const linkedP1Result = mapRoundResultPerspective(
+      roundRow(),
+      matchRow(),
+      { id: 'p1-linked-device' } as never,
+      identityEquals as never,
+      95,
+      true,
+    );
 
     expect(p1Result).toMatchObject({
       type: 'roundResult',
@@ -65,6 +87,12 @@ describe('SpacetimeDB provider mappers', () => {
       myEnergyAfter: 60,
       myScore: 1,
       opponentScore: 2,
+    });
+    expect(linkedP1Result).toMatchObject({
+      type: 'roundResult',
+      myMove: MoveId.Fire,
+      opponentMove: MoveId.Earth,
+      result: 'win',
     });
   });
 
@@ -97,6 +125,8 @@ describe('SpacetimeDB provider mappers', () => {
       p2RevealSalt: 'salt2',
       winner: undefined,
       replayHash: undefined,
+      roundStartedAtMicros: 1n,
+      nextRoundReadyAtMicros: undefined,
       createdAtMicros: 1n,
       updatedAtMicros: 2n,
     };
