@@ -55,6 +55,19 @@ try {
       clickButton(p2, /EARTH\s*10/i),
     ]);
 
+    if (round === 3) {
+      await Promise.all([
+        waitFinalResult(p1, /VICTORY!/i),
+        waitFinalResult(p2, /DEFEAT/i),
+      ]);
+      snapshots.push({
+        round,
+        p1: await compactBody(p1, 600),
+        p2: await compactBody(p2, 600),
+      });
+      break;
+    }
+
     await Promise.all([
       waitRoundResult(p1, /YOU WIN/i, `${round} : 0`),
       waitRoundResult(p2, /YOU LOSE/i, `0 : ${round}`),
@@ -75,11 +88,6 @@ try {
       await Promise.all([waitReadyForMove(p1, round + 1), waitReadyForMove(p2, round + 1)]);
     }
   }
-
-  await Promise.all([
-    p1.waitForFunction(() => /VICTORY!/i.test(document.body.innerText), undefined, { timeout: 30_000 }),
-    p2.waitForFunction(() => /DEFEAT/i.test(document.body.innerText), undefined, { timeout: 30_000 }),
-  ]);
 
   const final = {
     p1: await compactBody(p1, 900),
@@ -151,6 +159,14 @@ async function waitRoundOverlayGone(page, timeout = 30_000) {
       return !/YOU WIN|YOU LOSE|ROUND DRAW/i.test(text) && /Select Move/i.test(text);
     },
     undefined,
+    { timeout },
+  );
+}
+
+async function waitFinalResult(page, label, timeout = 30_000) {
+  await page.waitForFunction(
+    ({ labelSource, labelFlags }) => new RegExp(labelSource, labelFlags).test(document.body.innerText),
+    { labelSource: label.source, labelFlags: label.flags },
     { timeout },
   );
 }
