@@ -20,21 +20,32 @@ const SIZE_MAP: Record<string, number> = {
 };
 
 function getIcon(moveId: MoveId, px: number, enhanced: boolean) {
-  const cls = enhanced ? 'drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]' : '';
+  let icon: React.ReactNode;
   switch (moveId) {
     case MoveId.Earth:
-      return <EarthIcon size={px} className={`text-earth-light ${cls}`} />;
-    case MoveId.Fire:
-      return <FireIcon size={px} className={`text-fire ${cls}`} />;
-    case MoveId.Water:
-      return <WaterIcon size={px} className={`text-water-light ${cls}`} />;
     case MoveId.EarthPlus:
-      return <EarthIcon size={px} className="text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]" />;
+      icon = <EarthIcon size={px} className="text-earth-light" />;
+      break;
+    case MoveId.Fire:
     case MoveId.FirePlus:
-      return <FireIcon size={px} className="text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]" />;
+      icon = <FireIcon size={px} className="text-fire" />;
+      break;
+    case MoveId.Water:
     case MoveId.WaterPlus:
-      return <WaterIcon size={px} className="text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]" />;
+      icon = <WaterIcon size={px} className="text-water-light" />;
+      break;
   }
+
+  if (enhanced) {
+    return (
+      <span className="relative inline-flex items-center justify-center">
+        {icon}
+        <span className="absolute -top-1 -right-1 text-[10px] font-bold text-gold drop-shadow-[0_0_2px_rgba(0,0,0,0.5)] leading-none">+</span>
+      </span>
+    );
+  }
+
+  return icon;
 }
 
 export function ElementIcon({
