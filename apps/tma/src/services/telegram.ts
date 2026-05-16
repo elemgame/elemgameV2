@@ -85,7 +85,7 @@ export interface WebUserProfile {
 
 const WEB_USER_STORAGE_KEY = 'elmental.webUser';
 const LEGACY_WEB_USER_STORAGE_KEY = 'elmental.devUser';
-const TELEGRAM_TOP_CHROME_SAFE_AREA = 59;
+const TELEGRAM_TOP_CHROME_SAFE_AREA = 69;
 
 declare global {
   interface Window {

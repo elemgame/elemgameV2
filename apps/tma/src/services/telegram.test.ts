@@ -173,7 +173,7 @@ describe('web user profile helpers', () => {
 
     const cleanup = installTelegramViewportSync();
 
-    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '59px');
+    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '69px');
 
     cleanup();
   });
