@@ -1,6 +1,14 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LastRoundResult } from '../stores/gameStore';
+import { EarthIcon } from './icons/EarthIcon';
+import { FireIcon } from './icons/FireIcon';
+import { WaterIcon } from './icons/WaterIcon';
+import { TrophyIcon } from './icons/TrophyIcon';
+import { SkullIcon } from './icons/SkullIcon';
+import { HandshakeIcon } from './icons/HandshakeIcon';
+import { BoltIcon } from './icons/BoltIcon';
+import { ArrowRightIcon } from './icons/ArrowRightIcon';
 
 interface RoundResultProps {
   result: LastRoundResult | null;
@@ -8,15 +16,22 @@ interface RoundResultProps {
   onDismiss: () => void;
 }
 
-const MOVE_ICONS: Record<number, string> = {
-  0: '🪨', 1: '🔥', 2: '💧',
-  3: '⛰️', 4: '🌋', 5: '🌊',
-};
-
 const MOVE_NAMES: Record<number, string> = {
   0: 'Earth', 1: 'Fire', 2: 'Water',
   3: 'Earth+', 4: 'Fire+', 5: 'Water+',
 };
+
+function MoveIconDisplay({ id, size }: { id: number; size: number }) {
+  const enhanced = id >= 3;
+  const cls = enhanced
+    ? 'text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]'
+    : id === 0 ? 'text-earth-light' : id === 1 ? 'text-fire' : 'text-water-light';
+  switch (id % 3) {
+    case 0: return <EarthIcon size={size} className={cls} />;
+    case 1: return <FireIcon size={size} className={cls} />;
+    case 2: return <WaterIcon size={size} className={cls} />;
+  }
+}
 
 export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
   if (!result) return null;
@@ -31,7 +46,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
       bg: 'rgba(34,197,94,0.12)',
       border: 'rgba(34,197,94,0.3)',
       glow: '0 0 30px rgba(34,197,94,0.4)',
-      emoji: '⚡',
+      icon: <TrophyIcon size={28} className="text-energy-high" />,
     },
     lose: {
       text: 'YOU LOSE',
@@ -39,7 +54,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
       bg: 'rgba(239,68,68,0.12)',
       border: 'rgba(239,68,68,0.3)',
       glow: '0 0 30px rgba(239,68,68,0.4)',
-      emoji: '💀',
+      icon: <SkullIcon size={28} className="text-energy-low" />,
     },
     draw: {
       text: 'DRAW',
@@ -47,7 +62,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
       bg: 'rgba(234,179,8,0.12)',
       border: 'rgba(234,179,8,0.3)',
       glow: '0 0 30px rgba(234,179,8,0.4)',
-      emoji: '🤝',
+      icon: <HandshakeIcon size={28} className="text-energy-mid" />,
     },
   }[result.result];
 
@@ -83,7 +98,10 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1 }}
             >
-              {resultConfig.emoji} {resultConfig.text}
+              <span className="flex items-center gap-2 justify-center">
+                {resultConfig.icon}
+                <span>{resultConfig.text}</span>
+              </span>
             </motion.div>
 
             {/* Card clash visualization */}
@@ -102,7 +120,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
                 transition={{ delay: 0.3, type: 'spring' }}
               >
                 <span className="text-xs text-text-secondary font-semibold">YOU</span>
-                <span className="text-4xl">{MOVE_ICONS[result.myMove]}</span>
+                <MoveIconDisplay id={result.myMove} size={36} />
                 <span className="text-xs font-bold text-text-primary">{MOVE_NAMES[result.myMove]}</span>
               </motion.div>
 
@@ -124,7 +142,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
                 transition={{ delay: 0.3, type: 'spring' }}
               >
                 <span className="text-xs text-text-secondary font-semibold">OPP</span>
-                <span className="text-4xl">{MOVE_ICONS[result.opponentMove]}</span>
+                <MoveIconDisplay id={result.opponentMove} size={36} />
                 <span className="text-xs font-bold text-text-primary">{MOVE_NAMES[result.opponentMove]}</span>
               </motion.div>
             </motion.div>
@@ -138,7 +156,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.5 }}
               >
-                ⚠️ OVERCLOCK — move was randomized!
+                OVERCLOCK — move was randomized!
               </motion.div>
             )}
 
@@ -149,17 +167,40 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
-              Your energy: <span className="font-bold text-text-primary">{result.myEnergyAfter}⚡</span>
+              Your energy: <span className="font-bold text-text-primary inline-flex items-center gap-0.5">{result.myEnergyAfter}<BoltIcon size={12} /></span>
             </motion.div>
 
             {/* Tap to continue */}
             <motion.button
-              className="text-xs text-text-muted"
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
+              className="w-full mt-1 px-6 py-3 rounded-2xl font-black tracking-wider text-base flex items-center justify-center gap-2"
+              style={{
+                background: `linear-gradient(135deg, ${resultConfig.color}, ${resultConfig.color}cc)`,
+                color: '#0a0a14',
+                boxShadow: `0 8px 24px ${resultConfig.color}66, 0 0 0 1px ${resultConfig.color}`,
+                textShadow: '0 1px 0 rgba(255,255,255,0.2)',
+              }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: [1, 1.04, 1],
+              }}
+              transition={{
+                opacity: { delay: 0.6 },
+                y: { delay: 0.6 },
+                scale: { duration: 1.6, repeat: Infinity, delay: 0.8, ease: 'easeInOut' },
+              }}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.97 }}
               onClick={onDismiss}
             >
-              Tap anywhere to continue
+              CONTINUE
+              <motion.span
+                animate={{ x: [0, 4, 0] }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <ArrowRightIcon size={14} />
+              </motion.span>
             </motion.button>
           </motion.div>
         </motion.div>

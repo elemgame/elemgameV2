@@ -4,6 +4,19 @@ import { useGameStore } from '../stores/gameStore';
 import { RAKE_PERCENT } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { applyMockResults } from '../services/mockGame';
+import { EarthIcon } from '../components/icons/EarthIcon';
+import { FireIcon } from '../components/icons/FireIcon';
+import { WaterIcon } from '../components/icons/WaterIcon';
+import { TrophyIcon } from '../components/icons/TrophyIcon';
+import { SkullIcon } from '../components/icons/SkullIcon';
+import { HandshakeIcon } from '../components/icons/HandshakeIcon';
+import { CoinsIcon } from '../components/icons/CoinsIcon';
+import { StarIcon } from '../components/icons/StarIcon';
+import { SwordsIcon } from '../components/icons/SwordsIcon';
+import { HomeIcon } from '../components/icons/HomeIcon';
+import { FlameIcon } from '../components/icons/FlameIcon';
+import { CheckIcon } from '../components/icons/CheckIcon';
+import { BoltIcon } from '../components/icons/BoltIcon';
 
 interface ConfettiPiece {
   id: number;
@@ -28,10 +41,17 @@ function generateConfetti(count: number): ConfettiPiece[] {
 
 const CONFETTI = generateConfetti(30);
 
-const MOVE_ICONS: Record<number, string> = {
-  0: '🪨', 1: '🔥', 2: '💧',
-  3: '⛰️', 4: '🌋', 5: '🌊',
-};
+function MoveIconDisplay({ id, size }: { id: number; size: number }) {
+  const enhanced = id >= 3;
+  const cls = enhanced
+    ? 'text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]'
+    : id === 0 ? 'text-earth-light' : id === 1 ? 'text-fire' : 'text-water-light';
+  switch (id % 3) {
+    case 0: return <EarthIcon size={size} className={cls} />;
+    case 1: return <FireIcon size={size} className={cls} />;
+    case 2: return <WaterIcon size={size} className={cls} />;
+  }
+}
 
 export function ResultScreen() {
   const {
@@ -75,7 +95,7 @@ export function ResultScreen() {
   const resultConfig = isWin
     ? {
         label: 'VICTORY!',
-        emoji: '🏆',
+        icon: <TrophyIcon size={56} className="text-energy-high" />,
         color: '#22c55e',
         bg: 'linear-gradient(180deg, rgba(34,197,94,0.15) 0%, #0a0a1a 60%)',
         subtext: 'Excellent battle!',
@@ -83,14 +103,14 @@ export function ResultScreen() {
     : isDraw
     ? {
         label: 'DRAW',
-        emoji: '🤝',
+        icon: <HandshakeIcon size={56} className="text-energy-mid" />,
         color: '#eab308',
         bg: 'linear-gradient(180deg, rgba(234,179,8,0.12) 0%, #0a0a1a 60%)',
         subtext: 'A balanced match',
       }
     : {
         label: 'DEFEAT',
-        emoji: '💀',
+        icon: <SkullIcon size={56} className="text-energy-low" />,
         color: '#ef4444',
         bg: 'linear-gradient(180deg, rgba(239,68,68,0.12) 0%, #0a0a1a 60%)',
         subtext: 'Better luck next time',
@@ -149,11 +169,11 @@ export function ResultScreen() {
           transition={{ type: 'spring', damping: 12, stiffness: 180 }}
         >
           <motion.span
-            className="text-7xl"
+            className="flex items-center justify-center"
             animate={isWin ? { rotate: [0, -10, 10, -5, 5, 0] } : {}}
             transition={{ duration: 0.8, delay: 0.3 }}
           >
-            {resultConfig.emoji}
+            {resultConfig.icon}
           </motion.span>
           <motion.div
             className="text-4xl font-black tracking-wider text-center"
@@ -199,7 +219,7 @@ export function ResultScreen() {
         >
           <div className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-2">
-              <span className="text-lg">💰</span>
+              <CoinsIcon size={18} className="text-gold" />
               <span className="text-sm text-text-secondary">ELM Change</span>
             </div>
             <span
@@ -217,7 +237,7 @@ export function ResultScreen() {
           />
           <div className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-2">
-              <span className="text-lg">⭐</span>
+              <StarIcon size={18} className="text-gold" />
               <span className="text-sm text-text-secondary">Rating Change</span>
             </div>
             <span
@@ -271,9 +291,11 @@ export function ResultScreen() {
                   <div className="flex justify-between">
                     <span className="text-text-secondary">Boost Status</span>
                     {matchResult.boostBurned ? (
-                      <span className="text-energy-low font-bold">🔥 BURNED</span>
+                      <span className="text-energy-low font-bold"><FlameIcon size={14} className="inline" /> BURNED</span>
+                    ) : matchResult.boostBurned ? (
+                      <span className="text-energy-low font-bold"><FlameIcon size={14} className="inline" /> BURNED</span>
                     ) : matchResult.boostReturned ? (
-                      <span className="text-energy-high font-bold">✅ Returned</span>
+                      <span className="text-energy-high font-bold"><CheckIcon size={14} className="inline" /> Returned</span>
                     ) : (
                       <span className="text-text-muted">—</span>
                     )}
@@ -310,9 +332,9 @@ export function ResultScreen() {
                 >
                   <span className="text-text-muted text-xs">R{round.round}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{MOVE_ICONS[round.myMove]}</span>
+                    <MoveIconDisplay id={round.myMove} size={20} />
                     <span className="text-text-muted">vs</span>
-                    <span className="text-base">{MOVE_ICONS[round.opponentMove]}</span>
+                    <MoveIconDisplay id={round.opponentMove} size={20} />
                   </div>
                   <span
                     className="text-xs font-bold px-2 py-0.5 rounded-full"
@@ -323,7 +345,7 @@ export function ResultScreen() {
                   >
                     {round.result.toUpperCase()}
                   </span>
-                  <span className="text-xs text-text-muted">{round.myEnergyAfter}⚡</span>
+                  <span className="text-xs text-text-muted inline-flex items-center gap-0.5">{round.myEnergyAfter}<BoltIcon size={10} /></span>
                 </div>
               ))}
             </div>
@@ -342,14 +364,20 @@ export function ResultScreen() {
             className="btn-play w-full"
             onClick={handlePlayAgain}
           >
-            ⚔️ Play Again
+            <span className="flex items-center gap-2 justify-center">
+              <SwordsIcon size={20} />
+              Play Again
+            </span>
           </button>
           <button
             data-nav
             className="btn-ghost w-full py-3 text-sm"
             onClick={handleHome}
           >
-            🏠 Back to Home
+            <span className="flex items-center gap-2 justify-center">
+              <HomeIcon size={16} />
+              Back to Home
+            </span>
           </button>
         </motion.div>
       </div>

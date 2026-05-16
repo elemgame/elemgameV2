@@ -10,6 +10,10 @@ import { RoundResult } from '../components/RoundResult';
 import { submitMockMove, advanceMockRound, forfeitMockMatch } from '../services/mockGame';
 import { haptic } from '../services/telegram';
 import { STARTING_ENERGY, BOOST_EXTRA_ENERGY } from '@elmental/shared';
+import { SwordsIcon } from '../components/icons/SwordsIcon';
+import { HourglassIcon } from '../components/icons/HourglassIcon';
+import { EyeIcon } from '../components/icons/EyeIcon';
+import { ChartIcon } from '../components/icons/ChartIcon';
 
 const MOVE_IDS: MoveId[] = [
   MoveId.Earth, MoveId.Fire, MoveId.Water,
@@ -129,12 +133,14 @@ export function MatchScreen() {
           animate={{ scale: 1, opacity: 1 }}
         >
           <motion.span
+            className="flex items-center justify-center"
+            style={{ width: 18, height: 18 }}
             animate={roundPhase === 'commit' ? { rotate: 360 } : { rotate: 0 }}
             transition={roundPhase === 'commit' ? { duration: 2, repeat: Infinity, ease: 'linear' } : {}}
           >
-            {roundPhase === 'select' ? '⚔️' :
-             roundPhase === 'commit' ? '⏳' :
-             roundPhase === 'reveal' ? '👁️' : '📊'}
+            {roundPhase === 'select' ? <SwordsIcon size={18} /> :
+             roundPhase === 'commit' ? <HourglassIcon size={18} /> :
+             roundPhase === 'reveal' ? <EyeIcon size={18} /> : <ChartIcon size={18} />}
           </motion.span>
           {phaseInfo.text}
         </motion.div>

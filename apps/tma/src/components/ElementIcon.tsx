@@ -1,6 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { MoveId } from '@elmental/shared';
+import { EarthIcon } from './icons/EarthIcon';
+import { FireIcon } from './icons/FireIcon';
+import { WaterIcon } from './icons/WaterIcon';
 
 interface ElementIconProps {
   moveId: MoveId;
@@ -9,21 +12,30 @@ interface ElementIconProps {
   className?: string;
 }
 
-const MOVE_ICONS: Record<MoveId, string> = {
-  [MoveId.Earth]: '🪨',
-  [MoveId.Fire]: '🔥',
-  [MoveId.Water]: '💧',
-  [MoveId.EarthPlus]: '⛰️',
-  [MoveId.FirePlus]: '🌋',
-  [MoveId.WaterPlus]: '🌊',
+const SIZE_MAP: Record<string, number> = {
+  sm: 18,
+  md: 28,
+  lg: 40,
+  xl: 56,
 };
 
-const SIZE_MAP = {
-  sm: 'text-lg',
-  md: 'text-2xl',
-  lg: 'text-4xl',
-  xl: 'text-6xl',
-};
+function getIcon(moveId: MoveId, px: number, enhanced: boolean) {
+  const cls = enhanced ? 'drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]' : '';
+  switch (moveId) {
+    case MoveId.Earth:
+      return <EarthIcon size={px} className={`text-earth-light ${cls}`} />;
+    case MoveId.Fire:
+      return <FireIcon size={px} className={`text-fire ${cls}`} />;
+    case MoveId.Water:
+      return <WaterIcon size={px} className={`text-water-light ${cls}`} />;
+    case MoveId.EarthPlus:
+      return <EarthIcon size={px} className="text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]" />;
+    case MoveId.FirePlus:
+      return <FireIcon size={px} className="text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]" />;
+    case MoveId.WaterPlus:
+      return <WaterIcon size={px} className="text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]" />;
+  }
+}
 
 export function ElementIcon({
   moveId,
@@ -31,12 +43,13 @@ export function ElementIcon({
   animated = false,
   className = '',
 }: ElementIconProps) {
-  const icon = MOVE_ICONS[moveId];
+  const px = SIZE_MAP[size];
+  const icon = getIcon(moveId, px, moveId >= MoveId.EarthPlus);
 
   if (animated) {
     return (
       <motion.span
-        className={`${SIZE_MAP[size]} ${className}`}
+        className={`inline-flex items-center justify-center ${className}`}
         animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
       >
@@ -46,7 +59,9 @@ export function ElementIcon({
   }
 
   return (
-    <span className={`${SIZE_MAP[size]} ${className}`}>{icon}</span>
+    <span className={`inline-flex items-center justify-center ${className}`}>
+      {icon}
+    </span>
   );
 }
 
@@ -58,10 +73,9 @@ export function ElementBadge({
   moveId: MoveId;
   className?: string;
 }) {
-  const icon = MOVE_ICONS[moveId];
   return (
-    <span className={`inline-flex items-center justify-center text-2xl ${className}`}>
-      {icon}
+    <span className={`inline-flex items-center justify-center ${className}`}>
+      {getIcon(moveId, 24, moveId >= MoveId.EarthPlus)}
     </span>
   );
 }

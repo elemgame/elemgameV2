@@ -2,6 +2,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { MoveId } from '@elmental/shared';
 import { BASIC_MOVE_COST, ENHANCED_MOVE_COST } from '@elmental/shared';
+import { EarthIcon } from './icons/EarthIcon';
+import { FireIcon } from './icons/FireIcon';
+import { WaterIcon } from './icons/WaterIcon';
+import { BoltIcon } from './icons/BoltIcon';
 
 interface MoveCardProps {
   moveId: MoveId;
@@ -13,7 +17,6 @@ interface MoveCardProps {
 }
 
 interface MoveConfig {
-  icon: string;
   name: string;
   shortName: string;
   isEnhanced: boolean;
@@ -28,7 +31,6 @@ interface MoveConfig {
 
 const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
   [MoveId.Earth]: {
-    icon: '🪨',
     name: 'Earth',
     shortName: 'EARTH',
     isEnhanced: false,
@@ -41,7 +43,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     element: 'earth',
   },
   [MoveId.Fire]: {
-    icon: '🔥',
     name: 'Fire',
     shortName: 'FIRE',
     isEnhanced: false,
@@ -54,7 +55,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     element: 'fire',
   },
   [MoveId.Water]: {
-    icon: '💧',
     name: 'Water',
     shortName: 'WATER',
     isEnhanced: false,
@@ -67,7 +67,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     element: 'water',
   },
   [MoveId.EarthPlus]: {
-    icon: '⛰️',
     name: 'Earth+',
     shortName: 'EARTH+',
     isEnhanced: true,
@@ -80,7 +79,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     element: 'earth',
   },
   [MoveId.FirePlus]: {
-    icon: '🌋',
     name: 'Fire+',
     shortName: 'FIRE+',
     isEnhanced: true,
@@ -93,7 +91,6 @@ const MOVE_CONFIG: Record<MoveId, MoveConfig> = {
     element: 'fire',
   },
   [MoveId.WaterPlus]: {
-    icon: '🌊',
     name: 'Water+',
     shortName: 'WATER+',
     isEnhanced: true,
@@ -137,6 +134,22 @@ export function MoveCard({
   const background = selected
     ? `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`
     : `linear-gradient(135deg, ${cfg.gradientFrom}80, ${cfg.gradientTo}40)`;
+
+  const renderIcon = (px: number) => {
+    if (cfg.isEnhanced) {
+      const cls = 'text-gold drop-shadow-[0_0_4px_rgba(255,215,0,0.8)]';
+      switch (cfg.element) {
+        case 'earth': return <EarthIcon size={px} className={cls} />;
+        case 'fire': return <FireIcon size={px} className={cls} />;
+        case 'water': return <WaterIcon size={px} className={cls} />;
+      }
+    }
+    switch (cfg.element) {
+      case 'earth': return <EarthIcon size={px} className="text-earth-light" />;
+      case 'fire': return <FireIcon size={px} className="text-fire" />;
+      case 'water': return <WaterIcon size={px} className="text-water-light" />;
+    }
+  };
 
   return (
     <motion.button
@@ -191,7 +204,9 @@ export function MoveCard({
       )}
 
       {/* Icon */}
-      <span className="text-2xl leading-none">{cfg.icon}</span>
+      <span className="flex items-center justify-center" style={{ height: 28, width: 28 }}>
+        {renderIcon(28)}
+      </span>
 
       {/* Name */}
       <span
@@ -206,7 +221,8 @@ export function MoveCard({
         className="text-xs font-semibold leading-none"
         style={{ color: canAfford ? 'rgba(255,255,255,0.6)' : '#ef4444' }}
       >
-        {cfg.cost}⚡
+        <BoltIcon size={11} className="mr-0.5" />
+        {cfg.cost}
       </span>
     </motion.button>
   );

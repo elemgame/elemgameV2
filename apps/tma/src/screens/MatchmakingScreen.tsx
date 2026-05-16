@@ -3,6 +3,12 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { haptic } from '../services/telegram';
 import { cancelMockMatchmaking } from '../services/mockGame';
+import { EarthIcon } from '../components/icons/EarthIcon';
+import { FireIcon } from '../components/icons/FireIcon';
+import { WaterIcon } from '../components/icons/WaterIcon';
+import { SwordsIcon } from '../components/icons/SwordsIcon';
+import { StarIcon } from '../components/icons/StarIcon';
+import { BoltIcon } from '../components/icons/BoltIcon';
 
 const SEARCHING_MESSAGES = [
   'Finding opponent...',
@@ -11,7 +17,11 @@ const SEARCHING_MESSAGES = [
   'Preparing arena...',
 ];
 
-const ORBIT_ELEMENTS = ['🔥', '💧', '🪨'];
+const ORBIT_ELEMENTS = [
+  (size: number) => <FireIcon size={size} className="text-fire" />,
+  (size: number) => <WaterIcon size={size} className="text-water-light" />,
+  (size: number) => <EarthIcon size={size} className="text-earth-light" />,
+];
 
 export function MatchmakingScreen() {
   const { rating, gameMode, cancelMatchmaking } = useGameStore();
@@ -63,11 +73,13 @@ export function MatchmakingScreen() {
         />
 
         {/* Orbiting element icons */}
-        {ORBIT_ELEMENTS.map((icon, i) => (
+        {ORBIT_ELEMENTS.map((renderIcon, i) => (
           <motion.div
             key={i}
-            className="absolute text-2xl"
+            className="absolute flex items-center justify-center"
             style={{
+              width: 24,
+              height: 24,
               transformOrigin: '64px 64px',
             }}
             animate={{ rotate: 360 }}
@@ -84,18 +96,18 @@ export function MatchmakingScreen() {
                 transform: `translateX(56px)`,
               }}
             >
-              {icon}
+              {renderIcon(24)}
             </span>
           </motion.div>
         ))}
 
         {/* Center icon */}
         <motion.span
-          className="text-3xl absolute"
+          className="absolute flex items-center justify-center"
           animate={{ scale: [1, 1.15, 1] }}
           transition={{ duration: 1.5, repeat: Infinity }}
         >
-          ⚔️
+          <SwordsIcon size={32} className="text-water-light" />
         </motion.span>
       </div>
 
@@ -133,7 +145,9 @@ export function MatchmakingScreen() {
         />
         <div className="flex justify-between items-center text-sm">
           <span className="text-text-secondary">Your rating</span>
-          <span className="font-bold text-text-primary">⭐ {rating}</span>
+          <span className="font-bold text-text-primary inline-flex items-center gap-0.5">
+            <StarIcon size={14} className="text-gold" /> {rating}
+          </span>
         </div>
         <div
           className="my-3 h-px"
@@ -181,18 +195,20 @@ export function MatchmakingScreen() {
       </motion.button>
 
       {/* Background particles */}
-      {['⚡', '💫', '✨', '🔥', '💧'].map((p, i) => (
-        <div
-          key={i}
-          className={`absolute text-2xl opacity-5 pointer-events-none particle-float-${(i % 5) + 1}`}
-          style={{
-            left: `${10 + i * 20}%`,
-            top: `${15 + (i % 3) * 25}%`,
-          }}
-        >
-          {p}
-        </div>
-      ))}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className={`absolute opacity-5 pointer-events-none particle-float-${(i % 5) + 1}`}
+            style={{
+              left: `${10 + i * 20}%`,
+              top: `${15 + (i % 3) * 25}%`,
+            }}
+          >
+            <BoltIcon size={24} className="text-water-light" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

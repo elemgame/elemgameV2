@@ -4,26 +4,35 @@ import { useGameStore } from '../stores/gameStore';
 import { GameMode } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { startMockMatchmaking } from '../services/mockGame';
+import { SwordsIcon } from '../components/icons/SwordsIcon';
+import { SkullIcon } from '../components/icons/SkullIcon';
+import { VortexIcon } from '../components/icons/VortexIcon';
+import { UserIcon } from '../components/icons/UserIcon';
+import { GearIcon } from '../components/icons/GearIcon';
+import { StarIcon } from '../components/icons/StarIcon';
+import { BoltIcon } from '../components/icons/BoltIcon';
+import { EarthIcon } from '../components/icons/EarthIcon';
+import { WaterIcon } from '../components/icons/WaterIcon';
 
 const GAME_MODES = [
   {
     id: GameMode.Classic,
     label: 'Classic',
-    icon: '⚔️',
+    renderIcon: (size: number) => <SwordsIcon size={size} className="text-water-light" />,
     desc: 'Energy regen on result',
     color: '#3b82f6',
   },
   {
     id: GameMode.Hardcore,
     label: 'Hardcore',
-    icon: '💀',
+    renderIcon: (size: number) => <SkullIcon size={size} className="text-fire" />,
     desc: 'No energy regen',
     color: '#ef4444',
   },
   {
     id: GameMode.Chaos,
     label: 'Chaos',
-    icon: '🌀',
+    renderIcon: (size: number) => <VortexIcon size={size} className="text-purple-400" />,
     desc: 'Random regen',
     color: '#a855f7',
   },
@@ -96,8 +105,8 @@ export function HomeScreen() {
               <div className="font-bold text-sm text-text-primary leading-tight">
                 {displayName}
               </div>
-              <div className="text-xs text-text-secondary">
-                ⭐ {rating} Rating
+              <div className="text-xs text-text-secondary flex items-center gap-0.5">
+                <StarIcon size={12} className="text-gold" /> {rating} Rating
               </div>
             </div>
           </div>
@@ -106,19 +115,19 @@ export function HomeScreen() {
           <div className="flex gap-2">
             <button
               data-nav
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               onClick={() => setScreen('profile')}
             >
-              👤
+              <UserIcon size={18} className="text-text-secondary" />
             </button>
             <button
               data-nav
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
               onClick={() => setScreen('settings')}
             >
-              ⚙️
+              <GearIcon size={18} className="text-text-secondary" />
             </button>
           </div>
         </motion.div>
@@ -198,7 +207,9 @@ export function HomeScreen() {
                     setGameMode(mode.id);
                   }}
                 >
-                  <span className="text-xl">{mode.icon}</span>
+                  <span className="flex items-center justify-center" style={{ width: 20, height: 20 }}>
+                    {mode.renderIcon(20)}
+                  </span>
                   <span
                     className="text-xs font-bold"
                     style={{ color: isSelected ? mode.color : '#8b949e' }}
@@ -222,7 +233,7 @@ export function HomeScreen() {
           transition={{ delay: 0.2 }}
         >
           <div className="flex items-center gap-3">
-            <span className="text-2xl">⚡</span>
+            <BoltIcon size={24} className="text-gold" />
             <div>
               <div className="font-bold text-sm text-text-primary">Energy Boost</div>
               <div className="text-xs text-text-secondary">
@@ -273,7 +284,14 @@ export function HomeScreen() {
             whileTap={canAffordMatch ? { scale: 0.96 } : {}}
             onClick={handlePlay}
           >
-            {canAffordMatch ? '⚔️ PLAY NOW' : '💸 NOT ENOUGH ELM'}
+            {canAffordMatch ? (
+              <span className="flex items-center gap-2 justify-center">
+                <SwordsIcon size={22} />
+                PLAY NOW
+              </span>
+            ) : (
+              'NOT ENOUGH ELM'
+            )}
           </motion.button>
           <div className="text-xs text-text-muted">
             {canAffordMatch
@@ -282,12 +300,12 @@ export function HomeScreen() {
           </div>
         </motion.div>
 
-        {/* Floating element decorations */}
-        <div className="absolute top-20 right-4 text-3xl opacity-10 particle-float-1 pointer-events-none">
-          🔥
+        {/* Floating element decorations as CSS particles */}
+        <div className="absolute top-20 right-4 opacity-5 pointer-events-none">
+          <EarthIcon size={32} className="text-earth-light" />
         </div>
-        <div className="absolute top-40 left-2 text-2xl opacity-10 particle-float-3 pointer-events-none">
-          💧
+        <div className="absolute top-40 left-2 opacity-5 pointer-events-none">
+          <WaterIcon size={28} className="text-water-light" />
         </div>
       </div>
     </div>

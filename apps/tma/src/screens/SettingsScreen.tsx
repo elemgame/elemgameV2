@@ -3,33 +3,44 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { GameMode } from '@elmental/shared';
 import { haptic } from '../services/telegram';
+import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
+import { SwordsIcon } from '../components/icons/SwordsIcon';
+import { SkullIcon } from '../components/icons/SkullIcon';
+import { VortexIcon } from '../components/icons/VortexIcon';
+import { CheckIcon } from '../components/icons/CheckIcon';
+import { BoltIcon } from '../components/icons/BoltIcon';
+import { SoundIcon } from '../components/icons/SoundIcon';
+import { EarthIcon } from '../components/icons/EarthIcon';
+import { FireIcon } from '../components/icons/FireIcon';
+import { WaterIcon } from '../components/icons/WaterIcon';
+import { FlameIcon } from '../components/icons/FlameIcon';
 
 const GAME_MODES = [
   {
     id: GameMode.Classic,
     label: 'Classic',
-    icon: '⚔️',
+    renderIcon: (size: number) => <SwordsIcon size={size} className="text-water-light" />,
     desc: 'Win regen: +5, Lose regen: +15, Draw: +10',
     color: '#3b82f6',
   },
   {
     id: GameMode.Hardcore,
     label: 'Hardcore',
-    icon: '💀',
+    renderIcon: (size: number) => <SkullIcon size={size} className="text-fire" />,
     desc: 'No energy regen — manage wisely',
     color: '#ef4444',
   },
   {
     id: GameMode.Chaos,
     label: 'Chaos',
-    icon: '🌀',
+    renderIcon: (size: number) => <VortexIcon size={size} className="text-purple-400" />,
     desc: 'Random regen 0-20 each round',
     color: '#a855f7',
   },
 ] as const;
 
 interface ToggleRowProps {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   desc: string;
   value: boolean;
@@ -40,7 +51,9 @@ function ToggleRow({ icon, label, desc, value, onChange }: ToggleRowProps) {
   return (
     <div className="flex items-center justify-between py-3">
       <div className="flex items-center gap-3">
-        <span className="text-xl">{icon}</span>
+        <span className="flex items-center justify-center" style={{ width: 20, height: 20 }}>
+          {icon}
+        </span>
         <div>
           <div className="font-semibold text-sm text-text-primary">{label}</div>
           <div className="text-xs text-text-secondary">{desc}</div>
@@ -95,11 +108,11 @@ export function SettingsScreen() {
         <div className="flex items-center gap-3">
           <button
             data-nav
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
             onClick={() => setScreen('home')}
           >
-            ←
+            <ArrowLeftIcon size={18} className="text-text-secondary" />
           </button>
           <h1 className="text-xl font-black text-text-primary">Settings</h1>
         </div>
@@ -132,7 +145,9 @@ export function SettingsScreen() {
                     setGameMode(mode.id);
                   }}
                 >
-                  <span className="text-2xl">{mode.icon}</span>
+                  <span className="flex items-center justify-center" style={{ width: 24, height: 24 }}>
+                    {mode.renderIcon(24)}
+                  </span>
                   <div className="flex-1">
                     <div
                       className="font-bold text-sm"
@@ -144,11 +159,11 @@ export function SettingsScreen() {
                   </div>
                   {isSelected && (
                     <motion.span
-                      className="text-base"
+                      className="flex items-center justify-center"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                     >
-                      ✅
+                      <CheckIcon size={16} className="text-energy-high" />
                     </motion.span>
                   )}
                 </motion.button>
@@ -169,14 +184,14 @@ export function SettingsScreen() {
           </div>
           <div className="divide-y divide-bg-border">
             <ToggleRow
-              icon="⚡"
+              icon={<BoltIcon size={20} className="text-gold" />}
               label="Energy Boost"
               desc="Start with +20 energy for +10% stake"
               value={boostEnabled}
               onChange={setBoostEnabled}
             />
             <ToggleRow
-              icon="🔊"
+              icon={<SoundIcon size={20} className="text-water-light" />}
               label="Sound Effects"
               desc="Game sounds and haptic feedback"
               value={soundEnabled}
@@ -230,15 +245,15 @@ export function SettingsScreen() {
           </div>
           <div className="flex flex-col gap-3 text-xs text-text-secondary">
             {[
-              { icon: '🪨', title: 'Earth beats Fire & Water+', desc: 'Loses to Water & Fire+' },
-              { icon: '🔥', title: 'Fire beats Water & Earth+', desc: 'Loses to Earth & Water+' },
-              { icon: '💧', title: 'Water beats Earth & Fire+', desc: 'Loses to Fire & Earth+' },
-              { icon: '⚡', title: 'Energy Management', desc: 'Basic: 10⚡ | Enhanced: 25⚡' },
-              { icon: '🌋', title: 'Enhanced Moves', desc: 'Stronger but more energy — use wisely' },
-              { icon: '⚠️', title: 'Overclock', desc: '30% chance your move randomizes at low energy!' },
+              { icon: <EarthIcon size={16} className="text-earth-light" />, title: 'Earth beats Fire & Water+', desc: 'Loses to Water & Fire+' },
+              { icon: <FireIcon size={16} className="text-fire" />, title: 'Fire beats Water & Earth+', desc: 'Loses to Earth & Water+' },
+              { icon: <WaterIcon size={16} className="text-water-light" />, title: 'Water beats Earth & Fire+', desc: 'Loses to Fire & Earth+' },
+              { icon: <BoltIcon size={16} className="text-gold" />, title: 'Energy Management', desc: 'Basic: 10 | Enhanced: 25' },
+              { icon: <FlameIcon size={16} className="text-fire" />, title: 'Enhanced Moves', desc: 'Stronger but more energy — use wisely' },
+              { icon: <SkullIcon size={16} className="text-energy-low" />, title: 'Overclock', desc: '30% chance your move randomizes at low energy!' },
             ].map((item) => (
               <div key={item.title} className="flex items-start gap-2">
-                <span className="text-base flex-shrink-0">{item.icon}</span>
+                <span className="flex-shrink-0 mt-0.5">{item.icon}</span>
                 <div>
                   <div className="font-semibold text-text-primary">{item.title}</div>
                   <div>{item.desc}</div>

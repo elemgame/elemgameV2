@@ -11,16 +11,17 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@elmental/shared": "workspace:*",
     "@eversdk/core": "^1.45.0",
     "@eversdk/lib-web": "^1.45.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@telegram-apps/sdk": "^2.0.0",
     "@telegram-apps/sdk-react": "^2.0.0",
     "framer-motion": "^11.0.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "socket.io-client": "^4.7.0",
-    "zustand": "^4.5.0",
-    "@elmental/shared": "workspace:*"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

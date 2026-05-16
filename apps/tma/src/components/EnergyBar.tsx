@@ -69,7 +69,6 @@ export function EnergyBar({
                 {Math.max(0, energy)}
                 <span className="text-text-muted font-normal text-xs">/{maxEnergy}</span>
               </span>
-              <span className={`${cfg.text}`} style={{ color }}>⚡</span>
             </div>
           )}
         </div>
@@ -106,19 +105,19 @@ interface EnergyLevelBadgeProps {
 export function EnergyLevelBadge({ level, className = '' }: EnergyLevelBadgeProps) {
   const config = {
     low: {
-      label: 'LOW ⚡',
+      label: 'LOW',
       color: '#ef4444',
       bg: 'rgba(239,68,68,0.15)',
       border: 'rgba(239,68,68,0.4)',
     },
     medium: {
-      label: 'MED ⚡',
+      label: 'MED',
       color: '#eab308',
       bg: 'rgba(234,179,8,0.15)',
       border: 'rgba(234,179,8,0.4)',
     },
     high: {
-      label: 'HIGH ⚡',
+      label: 'HIGH',
       color: '#22c55e',
       bg: 'rgba(34,197,94,0.15)',
       border: 'rgba(34,197,94,0.4)',
@@ -127,7 +126,7 @@ export function EnergyLevelBadge({ level, className = '' }: EnergyLevelBadgeProp
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${className}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${className}`}
       style={{
         color: config.color,
         background: config.bg,

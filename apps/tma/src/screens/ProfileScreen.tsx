@@ -1,6 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
+import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
+import { StarIcon } from '../components/icons/StarIcon';
+import { CheckIcon } from '../components/icons/CheckIcon';
+import { CrossIcon } from '../components/icons/CrossIcon';
+import { ControllerIcon } from '../components/icons/ControllerIcon';
+import { CoinsIcon } from '../components/icons/CoinsIcon';
+import { FlameIcon } from '../components/icons/FlameIcon';
+import { SwordsIcon } from '../components/icons/SwordsIcon';
 
 export function ProfileScreen() {
   const { telegramUser, rating, stats, elmBalance, setScreen, transactions } = useGameStore();
@@ -23,11 +31,11 @@ export function ProfileScreen() {
         <div className="flex items-center gap-3">
           <button
             data-nav
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
             onClick={() => setScreen('home')}
           >
-            ←
+            <ArrowLeftIcon size={18} className="text-text-secondary" />
           </button>
           <h1 className="text-xl font-black text-text-primary">Profile</h1>
         </div>
@@ -72,7 +80,7 @@ export function ProfileScreen() {
               border: '1px solid rgba(255,215,0,0.3)',
             }}
           >
-            <span>⭐</span>
+            <StarIcon size={16} className="text-gold" />
             <span className="font-black text-gold">{rating}</span>
             <span className="text-text-secondary text-sm">Rating</span>
           </div>
@@ -102,16 +110,16 @@ export function ProfileScreen() {
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Wins', value: stats.wins, color: '#22c55e', icon: '✅' },
-              { label: 'Losses', value: stats.losses, color: '#ef4444', icon: '❌' },
-              { label: 'Games', value: totalGames, color: '#3b82f6', icon: '🎮' },
+              { label: 'Wins', value: stats.wins, color: '#22c55e', icon: <CheckIcon size={20} className="text-energy-high" /> },
+              { label: 'Losses', value: stats.losses, color: '#ef4444', icon: <CrossIcon size={20} className="text-energy-low" /> },
+              { label: 'Games', value: totalGames, color: '#3b82f6', icon: <ControllerIcon size={20} className="text-water-light" /> },
             ].map((stat) => (
               <div
                 key={stat.label}
                 className="flex flex-col items-center gap-1 p-3 rounded-xl"
                 style={{ background: 'rgba(255,255,255,0.04)' }}
               >
-                <span className="text-xl">{stat.icon}</span>
+                {stat.icon}
                 <span
                   className="text-2xl font-black tabular-nums"
                   style={{ color: stat.color }}
@@ -162,16 +170,22 @@ export function ProfileScreen() {
           </div>
           {transactions.length === 0 ? (
             <div className="text-center py-6">
-              <div className="text-3xl mb-2">🎮</div>
+              <div className="flex justify-center mb-2">
+                <ControllerIcon size={32} className="text-text-muted" />
+              </div>
               <div className="text-sm text-text-muted">No transactions yet</div>
               <div className="text-xs text-text-muted mt-1">Play your first match!</div>
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">
               {transactions.slice(0, 20).map((tx) => {
-                const icon = tx.type === 'win' ? '💰' : tx.type === 'loss' ? '💸' :
-                             tx.type === 'stake' ? '🎯' : tx.type === 'boost_burn' ? '🔥' :
-                             tx.type === 'boost_return' ? '✅' : tx.type === 'rake' ? '🏦' : '📋';
+                const icon = tx.type === 'win' ? <CoinsIcon size={16} className="text-energy-high" /> :
+                             tx.type === 'loss' ? <CoinsIcon size={16} className="text-energy-low" /> :
+                             tx.type === 'stake' ? <CrossIcon size={16} className="text-text-secondary" /> :
+                             tx.type === 'boost_burn' ? <FlameIcon size={16} className="text-energy-low" /> :
+                             tx.type === 'boost_return' ? <CheckIcon size={16} className="text-energy-high" /> :
+                             tx.type === 'rake' ? <CoinsIcon size={16} className="text-gold" /> :
+                             <CoinsIcon size={16} className="text-text-muted" />;
                 const color = tx.amount > 0 ? '#22c55e' : tx.amount < 0 ? '#ef4444' : '#8b949e';
                 return (
                   <div
@@ -180,7 +194,7 @@ export function ProfileScreen() {
                     style={{ background: 'rgba(255,255,255,0.03)' }}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span>{icon}</span>
+                      <span className="flex-shrink-0">{icon}</span>
                       <span className="text-text-secondary text-xs truncate">{tx.description}</span>
                     </div>
                     <span className="font-bold text-xs ml-2 flex-shrink-0" style={{ color }}>
@@ -200,7 +214,9 @@ export function ProfileScreen() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="text-2xl mb-2">⚔️</div>
+            <div className="flex justify-center mb-2">
+              <SwordsIcon size={24} className="text-text-muted" />
+            </div>
             <div className="text-sm text-text-primary font-bold">Ready for battle?</div>
             <div className="text-xs text-text-muted mt-1">Play your first match to see stats here</div>
           </motion.div>
