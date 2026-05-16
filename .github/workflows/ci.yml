@@ -33,7 +33,7 @@ jobs:
 
       - name: Install SpacetimeDB CLI
         run: |
-          curl -sSf https://install.spacetimedb.com | sh
+          curl -sSf https://install.spacetimedb.com | sh -s -- -y
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/spacetime" version install 2.2.0 --use -y
           "$HOME/.local/bin/spacetime" --version
