@@ -20,7 +20,6 @@ export interface MatchmakingRequest {
   mode: GameMode;
   room: string;
   boostEnabled: boolean;
-  botFallbackSeconds: number;
 }
 
 export interface MatchFoundEvent {

@@ -103,9 +103,11 @@ export function createSpacetimeProvider(
         mode: request.mode,
         room: request.room,
         boostEnabled: request.boostEnabled,
-        botFallbackSeconds: request.botFallbackSeconds,
       });
-      await callReducer('joinQueue', () => connection.reducers.joinQueue(request));
+      await callReducer('joinQueue', () => connection.reducers.joinQueue({
+        ...request,
+        botFallbackSeconds: undefined,
+      }));
     },
 
     cancelMatchmaking() {
@@ -854,17 +856,6 @@ export function getMatchRoom(): string {
   const params = new URLSearchParams(window.location.search);
   const raw = params.get('room') ?? params.get('lobby') ?? 'public';
   return raw.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'public';
-}
-
-export function getBotFallbackSeconds(): number {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('botFallbackSeconds')
-    ?? params.get('bot_fallback_seconds')
-    ?? import.meta.env.VITE_BOT_FALLBACK_SECONDS
-    ?? '30';
-  const seconds = Number(raw);
-  if (!Number.isFinite(seconds)) return 30;
-  return Math.max(0, Math.min(120, Math.floor(seconds)));
 }
 
 export function createDefaultSpacetimeProvider(context: GameplayProviderContext): GameplayProvider {

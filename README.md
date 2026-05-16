@@ -176,7 +176,7 @@ VITE_GAME_TRANSPORT=mock pnpm --filter @elmental/tma dev
 |-----------|--------|---------|
 | **Game Logic** | **Production-ready** | 6x6 matrix, energy calc, overclock, ELO — 78 tests passing |
 | **Frontend (TMA)** | **Demo-ready** | 6 screens, full game flow, animations, keyboard nav |
-| **Mock Provider** | **Test-only** | Deterministic AI flow for local smoke tests and demos |
+| **Mock Provider** | **Test-only** | Deterministic opponent flow for local smoke tests and demos |
 | **SpacetimeDB Backend** | **Cloud test instance** | TypeScript module with players, queue, mandatory commit-reveal matches, round resolution, ELO |
 | **Legacy Node Server** | Optional fallback | Express + Socket.io memory server kept for experiments |
 | **Smart Contracts** | Written | 6 Solidity contracts — need compilation + deployment |
@@ -206,7 +206,6 @@ GITHUB_PAGES=true
 VITE_GAME_TRANSPORT=spacetime
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com
 VITE_SPACETIME_DB=elmental-v2
-VITE_BOT_FALLBACK_SECONDS=30
 ```
 
 Run the public two-player first-to-3 smoke locally:
@@ -225,7 +224,7 @@ The same smoke is available as the manual GitHub Actions workflow `Public Multip
 
 `smoke:local-mock` runs a PR-safe deterministic browser match with the mock provider and verifies editable web users plus read-only Telegram profile data.
 
-`test:stdb-local-scenarios` starts a temporary in-memory SpacetimeDB server, publishes the module to a unique local database, runs room isolation, AI fallback matchmaking, invalid/duplicate move rejection, a full PvP match, Play Again, forfeit, timeout settlements, and checks the resulting `match_state` rows. It waits for real server timeout constants, so it takes a few minutes.
+`test:stdb-local-scenarios` starts a temporary in-memory SpacetimeDB server, publishes the module to a unique local database, runs room isolation, verifies solo players stay queued without a bot match, checks invalid/duplicate move rejection, plays a full PvP match, covers Play Again, forfeit, timeout settlements, and checks the resulting `match_state` rows. It waits for real server timeout constants, so it takes a few minutes.
 
 `Public Timeout Smoke` is a longer manual workflow for reconnect/timeout behavior. It verifies a one-player timeout win and a both-player disconnect/reconnect draw recovery against the public SpacetimeDB instance.
 
@@ -294,9 +293,7 @@ http://localhost:5173/?player=alice
 http://localhost:5173/?player=bob
 ```
 
-Both clients connect to SpacetimeDB at `VITE_SPACETIME_URI`, enter the reducer-driven queue, and play a real PvP match through the local database module. For LAN/mobile testing, set `VITE_SPACETIME_URI` to the reachable SpacetimeDB URL.
-
-If a player is alone in a queue, the backend creates an `AI Practice Bot` match after `VITE_BOT_FALLBACK_SECONDS` seconds. Set it to `0`, or add `?botFallbackSeconds=0` to the URL, to disable the fallback while testing pure two-player matchmaking.
+Both clients connect to SpacetimeDB at `VITE_SPACETIME_URI`, enter the reducer-driven queue, and play a real PvP match through the local database module. For LAN/mobile testing, set `VITE_SPACETIME_URI` to the reachable SpacetimeDB URL. If a player is alone in a queue, no match is created until another real player joins.
 
 SpacetimeDB matches use mandatory commit-reveal. The frontend commits a salted move hash, waits for both commits and the server minimum reveal delay, then reveals the stored local move and salt. The legacy `submit_move` reducer is intentionally disabled so clients cannot write open moves directly.
 
@@ -321,7 +318,7 @@ The TMA uses `apps/tma/src/services/gameProvider/types.ts` as the contract betwe
 | Telegram | @telegram-apps/sdk (TWA) | Native Mini App integration |
 | Realtime Backend | SpacetimeDB TypeScript module | Tables, reducers, subscriptions, persistent local state |
 | Legacy Server | Node.js + Express + Socket.io | Optional fallback for experiments |
-| Bot | Telegram Bot API | Matchmaking, onboarding |
+| Bot | Telegram Bot API | App launch and onboarding |
 | Database | SpacetimeDB | Persistent tables + realtime subscriptions |
 | Blockchain | Acki Nacki (TVM Solidity) | Fast, cheap, freemium gas |
 | SDK | @eversdk/core | Official TVM SDK |
@@ -349,7 +346,7 @@ elmental-v2/
 - [x] Game design specification
 - [x] Shared game logic with tests
 - [x] TMA frontend with all screens
-- [x] Mock test provider with AI
+- [x] Mock test provider with a deterministic opponent
 - [x] Server-authoritative SpacetimeDB economy for mechanics testing
 
 ### Phase 2: Infrastructure

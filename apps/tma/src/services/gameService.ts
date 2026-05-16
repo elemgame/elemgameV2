@@ -13,7 +13,6 @@ import { createMockProvider } from './gameProvider/mockProvider';
 import { recordGameLog } from './bugReport';
 import {
   createDefaultSpacetimeProvider,
-  getBotFallbackSeconds,
   getDatabaseName,
   getMatchRoom,
   getSpacetimeUri,
@@ -79,7 +78,6 @@ export async function startMatchmaking(): Promise<void> {
       mode: store.gameMode,
       room: getMatchRoom(),
       boostEnabled: store.boostEnabled,
-      botFallbackSeconds: getBotFallbackSeconds(),
     });
   } catch (err) {
     console.error('[game] Failed to join queue:', err);

@@ -23,16 +23,9 @@ const JOIN_RATE_LIMIT_MAX = 3;
 const FORFEIT_PENALTY_WINDOW_MICROS = 3_600_000_000n;
 const REPEAT_FORFEIT_RATING_MULTIPLIER = 2;
 const NEXT_ROUND_JITTER_MAX_MICROS = 500_000;
-const BOT_FALLBACK_DEFAULT_SECONDS = 30;
-const BOT_FALLBACK_MAX_SECONDS = 120;
-const BOT_NAME = 'AI Practice Bot';
-const BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000001');
 const INITIAL_BALANCE = 1000;
-const BOT_BALANCE = 1_000_000;
 const RAKE_PERCENT = 5;
 const BOOST_STAKE_PERCENT = 10;
-const BOT_ACCOUNT_ID = 'bot:practice';
-const ALL_MOVES = [0, 1, 2, 3, 4, 5] as const;
 
 const account = table(
   { name: 'account', public: true },
@@ -266,7 +259,7 @@ export const join_queue = spacetimedb.reducer(
     accountId: t.string().optional(),
     botFallbackSeconds: t.u32().optional(),
   },
-  (ctx, { name, stake, mode, room, boostEnabled, accountId, botFallbackSeconds }) => {
+  (ctx, { name, stake, mode, room, boostEnabled, accountId }) => {
     const validatedName = validateName(name);
     const validatedMode = validateMode(mode);
     const validatedRoom = validateRoom(room);
@@ -275,7 +268,7 @@ export const join_queue = spacetimedb.reducer(
     }
 
     const now = nowMicros(ctx);
-    cleanupQueue(ctx, now, false);
+    cleanupQueue(ctx, now);
     enforceJoinQueueRateLimit(ctx, now);
 
     const playerRow = requirePlayer(ctx);
@@ -305,7 +298,7 @@ export const join_queue = spacetimedb.reducer(
       room: validatedRoom,
       boostEnabled,
       joinedAtMicros: now,
-      botFallbackAtMicros: botFallbackDeadline(now, botFallbackSeconds),
+      botFallbackAtMicros: undefined,
     };
 
     const opponent = findOpponentForEntry(ctx, currentEntry, now);
@@ -316,7 +309,7 @@ export const join_queue = spacetimedb.reducer(
         'queue.joined',
         undefined,
         `${validatedName} joined ${validatedMode} queue`,
-        `room=${validatedRoom} stake=${stake} botFallbackAt=${currentEntry.botFallbackAtMicros ?? 'disabled'}`
+        `room=${validatedRoom} stake=${stake} matchmaking=players_only`
       );
       return;
     }
@@ -486,12 +479,6 @@ export const run_game_tick = spacetimedb.reducer({ arg: gameTick.rowType }, (ctx
       }
       continue;
     }
-    const botCommitMatch = ensureBotCommitIfNeeded(ctx, match, now);
-    if (botCommitMatch) {
-      submitBotMoveIfReady(ctx, botCommitMatch, now);
-      continue;
-    }
-    if (submitBotMoveIfReady(ctx, match, now)) continue;
     if (match.phase === 'result') {
       if (now - match.updatedAtMicros >= RESULT_TIMEOUT_MICROS) {
         expireResultPhase(ctx, match);
@@ -506,7 +493,7 @@ export const run_game_tick = spacetimedb.reducer({ arg: gameTick.rowType }, (ctx
   scheduleNextTick(ctx);
 });
 
-function cleanupQueue(ctx: ReducerContext, now: bigint, allowBotFallback = true) {
+function cleanupQueue(ctx: ReducerContext, now: bigint) {
   for (const entry of ctx.db.queueEntry.iter()) {
     const liveEntry = ctx.db.queueEntry.identity.find(entry.identity);
     if (!liveEntry) continue;
@@ -531,12 +518,6 @@ function cleanupQueue(ctx: ReducerContext, now: bigint, allowBotFallback = true)
       ctx.db.queueEntry.identity.delete(first.identity);
       ctx.db.queueEntry.identity.delete(second.identity);
       createPlayerMatch(ctx, first, second, now);
-      continue;
-    }
-
-    if (allowBotFallback && entry.botFallbackAtMicros !== undefined && now >= entry.botFallbackAtMicros) {
-      ctx.db.queueEntry.identity.delete(entry.identity);
-      createBotMatch(ctx, entry, now);
       continue;
     }
 
@@ -710,7 +691,7 @@ function resolveRound(ctx: ReducerContext, match: MatchRow) {
 }
 
 function startNextRound(ctx: ReducerContext, match: MatchRow, now: bigint) {
-  let updated = {
+  const updated = {
     ...match,
     phase: 'select',
     p1CommitHash: undefined,
@@ -723,7 +704,6 @@ function startNextRound(ctx: ReducerContext, match: MatchRow, now: bigint) {
     nextRoundReadyAtMicros: undefined,
     updatedAtMicros: now,
   };
-  updated = withBotCommit(ctx, updated, now);
   ctx.db.matchState.id.update(updated);
   logEvent(ctx, 'round.next', updated, `Round ${updated.currentRound} started`);
   return updated;
@@ -864,212 +844,6 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     `room=${p1Entry.room} mode=${p1Entry.mode} stake=${p1Entry.stake}`
   );
   return inserted;
-}
-
-function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) {
-  const botPlayer = ensureBotPlayer(ctx);
-  const humanPlayer = ctx.db.player.identity.find(entry.identity);
-  if (!humanPlayer) throw new SenderError('Player not found');
-  const humanAccount = reserveStake(ctx, humanPlayer, totalStake(entry.stake, entry.boostEnabled));
-  const botAccount = reserveStake(ctx, botPlayer, entry.stake);
-  const inserted = ctx.db.matchState.insert({
-    id: 0n,
-    p1: entry.identity,
-    p2: BOT_IDENTITY,
-    p1Name: entry.name,
-    p2Name: botPlayer.name,
-    p1Rating: humanAccount.rating,
-    p2Rating: botAccount.rating,
-    stake: entry.stake,
-    mode: entry.mode,
-    room: entry.room,
-    phase: 'select',
-    status: 'active',
-    currentRound: 1,
-    p1Score: 0,
-    p2Score: 0,
-    p1Energy: entry.boostEnabled ? STARTING_ENERGY + BOOST_EXTRA_ENERGY : STARTING_ENERGY,
-    p2Energy: STARTING_ENERGY,
-    p1BoostEnabled: entry.boostEnabled,
-    p2BoostEnabled: false,
-    p1CommitHash: undefined,
-    p2CommitHash: undefined,
-    p1RevealMove: undefined,
-    p2RevealMove: undefined,
-    p1RevealSalt: undefined,
-    p2RevealSalt: undefined,
-    winner: undefined,
-    replayHash: undefined,
-    roundStartedAtMicros: now,
-    nextRoundReadyAtMicros: undefined,
-    createdAtMicros: now,
-    updatedAtMicros: now,
-  });
-  const committed = withBotCommit(ctx, inserted, now);
-  ctx.db.matchState.id.update(committed);
-  logEvent(
-    ctx,
-    'bot.match_created',
-    committed,
-    `Bot fallback match ${committed.id} created for ${entry.name}`,
-    `room=${entry.room} mode=${entry.mode} stake=${entry.stake}`
-  );
-  return committed;
-}
-
-function ensureBotPlayer(ctx: ReducerContext) {
-  const botAccount = ensureAccount(ctx, BOT_ACCOUNT_ID, BOT_NAME, {
-    rating: INITIAL_RATING,
-    wins: 0,
-    losses: 0,
-    balance: BOT_BALANCE,
-  });
-  const fundedBotAccount = accountBalance(botAccount) < BOT_BALANCE
-    ? updateAccount(ctx, { ...botAccount, balance: BOT_BALANCE })
-    : botAccount;
-  const existing = ctx.db.player.identity.find(BOT_IDENTITY);
-  if (existing) {
-    const updated = playerFromAccount(existing, fundedBotAccount, BOT_NAME, true);
-    ctx.db.player.identity.update(updated);
-    return updated;
-  }
-
-  return ctx.db.player.insert({
-    identity: BOT_IDENTITY,
-    accountId: fundedBotAccount.id,
-    name: fundedBotAccount.name,
-    online: true,
-    rating: fundedBotAccount.rating,
-    wins: fundedBotAccount.wins,
-    losses: fundedBotAccount.losses,
-    balance: fundedBotAccount.balance,
-  });
-}
-
-function submitBotMoveIfReady(ctx: ReducerContext, match: MatchRow, now: bigint) {
-  if (!isBotMatch(match)) return false;
-  if (match.status !== 'active') return false;
-  if (match.phase !== 'select' && match.phase !== 'commit' && match.phase !== 'reveal') return false;
-  if (!match.p2CommitHash) return false;
-  if (match.p1RevealMove === undefined || match.p2RevealMove !== undefined) return false;
-
-  const revealReadyAt = roundStartedAtMicros(match) + MIN_REVEAL_DELAY_MICROS;
-  if (now < revealReadyAt) {
-    scheduleTickAt(ctx, revealReadyAt);
-    return false;
-  }
-
-  const botCommit = ensureBotMoveCommit(ctx, match, now);
-  if (commitHash(botCommit.move, botCommit.salt) !== match.p2CommitHash) {
-    throw new SenderError('Bot commitment mismatch');
-  }
-
-  const updated = revealServerMove(match, 'p2', botCommit.move, botCommit.salt, now);
-  logEvent(
-    ctx,
-    'bot.move_revealed',
-    updated,
-    `Bot revealed move for match ${updated.id}`,
-    `humanMove=${match.p1RevealMove} botMove=${botCommit.move}`
-  );
-
-  if (hasBothMoves(updated)) {
-    resolveRound(ctx, updated);
-  } else {
-    ctx.db.matchState.id.update({ ...updated, updatedAtMicros: now });
-  }
-  return true;
-}
-
-function isBotMatch(match: MatchRow) {
-  return isBotIdentity(match.p2);
-}
-
-function isBotIdentity(identity: IdentityLike) {
-  return identityEquals(identity, BOT_IDENTITY);
-}
-
-function ensureBotCommitIfNeeded(ctx: ReducerContext, match: MatchRow, now: bigint) {
-  if (!isBotMatch(match)) return undefined;
-  if (match.status !== 'active') return undefined;
-  if (match.p2CommitHash || match.p2RevealMove !== undefined) return undefined;
-  if (match.phase !== 'select' && match.phase !== 'commit') return undefined;
-  const updated = withBotCommit(ctx, match, now);
-  ctx.db.matchState.id.update(updated);
-  logEvent(ctx, 'bot.commit', updated, `Bot committed for round ${updated.currentRound}`);
-  return updated;
-}
-
-function withBotCommit(ctx: ReducerContext, match: MatchRow, now: bigint) {
-  if (!isBotMatch(match) || match.p2CommitHash) return match;
-  const botCommit = ensureBotMoveCommit(ctx, match, now);
-  return {
-    ...match,
-    phase: match.p1CommitHash ? 'reveal' : 'commit',
-    p2CommitHash: commitHash(botCommit.move, botCommit.salt),
-    updatedAtMicros: now,
-  };
-}
-
-function ensureBotMoveCommit(ctx: ReducerContext, match: MatchRow, now: bigint) {
-  const id = botCommitKey(match);
-  const existing = ctx.db.botMoveCommit.id.find(id);
-  if (existing) return existing;
-  return ctx.db.botMoveCommit.insert({
-    id,
-    matchId: match.id,
-    round: match.currentRound,
-    move: pickBotMove(match),
-    salt: botSalt(match, now),
-  });
-}
-
-function botCommitKey(match: MatchRow) {
-  return `${match.id}:${match.currentRound}:p2`;
-}
-
-function botSalt(match: MatchRow, now: bigint) {
-  const seed = `${match.id}:${match.currentRound}:${identityHex(match.p1)}:${now}:${match.createdAtMicros}`;
-  return `bot:${hashHex(`${seed}:a`)}${hashHex(`${seed}:b`)}`;
-}
-
-function pickBotMove(match: MatchRow) {
-  return ALL_MOVES[hash32(`${match.id}:${match.currentRound}:${match.createdAtMicros}:bot_move`) % ALL_MOVES.length];
-}
-
-function revealServerMove(match: MatchRow, side: 'p1' | 'p2', move: number, salt: string, now: bigint) {
-  if (side === 'p1') {
-    return {
-      ...match,
-      phase: match.p2RevealMove !== undefined ? 'result' : 'reveal',
-      updatedAtMicros: now,
-      p1RevealMove: move,
-      p1RevealSalt: salt,
-    };
-  }
-  return {
-    ...match,
-    phase: match.p1RevealMove !== undefined ? 'result' : 'reveal',
-    updatedAtMicros: now,
-    p2RevealMove: move,
-    p2RevealSalt: salt,
-  };
-}
-
-function hasBothMoves(match: MatchRow) {
-  return (
-    match.p1RevealMove !== undefined &&
-    match.p2RevealMove !== undefined &&
-    match.p1RevealSalt !== undefined &&
-    match.p2RevealSalt !== undefined
-  );
-}
-
-function botFallbackDeadline(now: bigint, requestedSeconds?: number) {
-  const seconds = requestedSeconds ?? BOT_FALLBACK_DEFAULT_SECONDS;
-  if (seconds <= 0) return undefined;
-  const clamped = Math.min(Math.floor(seconds), BOT_FALLBACK_MAX_SECONDS);
-  return now + BigInt(clamped) * 1_000_000n;
 }
 
 function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: string, now: bigint) {

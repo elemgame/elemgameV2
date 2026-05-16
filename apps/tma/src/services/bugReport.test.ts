@@ -57,7 +57,6 @@ function snapshot(logs: BugReportSnapshot['logs']): BugReportSnapshot {
       spacetimeUri: 'https://maincloud.spacetimedb.com',
       database: 'elmental-v2',
       room: 'public',
-      botFallbackSeconds: 30,
       location: 'https://elemgame.github.io/elemgameV2/',
       userAgent: 'vitest',
     },

@@ -45,10 +45,10 @@ interface MockMatch {
 }
 
 const DEFAULT_OPPONENTS = [
-  'Practice Bot',
-  'Elemental Bot',
-  'Training Bot',
-  'Arena Bot',
+  'Practice Rival',
+  'Elemental Rival',
+  'Training Rival',
+  'Arena Rival',
 ];
 
 export function createMockProvider(
@@ -106,7 +106,7 @@ export function createMockProvider(
       schedule(() => {
         if (!currentUser) return;
         const opponentName = options.opponentName
-          ?? (deterministic ? 'Practice Bot' : DEFAULT_OPPONENTS[Math.floor(random() * DEFAULT_OPPONENTS.length)]);
+          ?? (deterministic ? 'Practice Rival' : DEFAULT_OPPONENTS[Math.floor(random() * DEFAULT_OPPONENTS.length)]);
         const boostStake = request.boostEnabled ? Math.ceil(request.stake * 0.1) : 0;
         match = {
           id: `mock_${Date.now()}`,

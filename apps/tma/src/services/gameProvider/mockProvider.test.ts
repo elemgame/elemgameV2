@@ -36,7 +36,6 @@ describe('mock gameplay provider contract', () => {
       mode: GameMode.Classic,
       room: 'contract',
       boostEnabled: false,
-      botFallbackSeconds: 0,
     });
     await runTimers();
 
@@ -83,7 +82,6 @@ describe('mock gameplay provider contract', () => {
       mode: GameMode.Classic,
       room: 'cancel',
       boostEnabled: false,
-      botFallbackSeconds: 0,
     });
     await provider.cancelMatchmaking();
     await runTimers();
@@ -106,7 +104,6 @@ describe('mock gameplay provider contract', () => {
       mode: GameMode.Classic,
       room: 'forfeit',
       boostEnabled: false,
-      botFallbackSeconds: 0,
     });
     await runTimers();
     await provider.forfeitMatch();
@@ -186,7 +183,6 @@ describe('mock gameplay provider contract', () => {
       mode: GameMode.Classic,
       room,
       boostEnabled: false,
-      botFallbackSeconds: 0,
     });
     await runTimers();
 

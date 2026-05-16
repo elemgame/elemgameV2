@@ -20,7 +20,6 @@ const isolationRoomB = `${room}-b`;
 const errors = [];
 const events = [];
 const snapshots = [];
-let botFallbackBalance = null;
 
 let stdbServer;
 let tmaServer;
@@ -78,7 +77,7 @@ try {
 
   browser = await chromium.launch({ headless, slowMo });
   await verifyRoomIsolation();
-  await verifyBotFallback();
+  await verifySoloQueueWaitsForPlayers();
   await verifyFullMatchAndForfeit();
   await verifyTimeoutScenarios();
   await verifySqlState();
@@ -130,66 +129,24 @@ async function verifyRoomIsolation() {
   snapshots.push({ scenario: 'room-isolation', rooms: [isolationRoomA, isolationRoomB] });
 }
 
-async function verifyBotFallback() {
-  const p1 = await newLabeledPage('bot-fallback');
-  const botRoom = `${room}-bot`;
+async function verifySoloQueueWaitsForPlayers() {
+  const p1 = await newLabeledPage('solo-queue');
+  const soloRoom = `${room}-solo`;
 
-  await p1.goto(playerUrl('solo_bot', botRoom, { botFallbackSeconds: 2 }), {
+  await p1.goto(playerUrl('solo_waits', soloRoom, { botFallbackSeconds: 1 }), {
     waitUntil: 'domcontentloaded',
     timeout: 30_000,
   });
   await clickButton(p1, /PLAY NOW/i, 30_000);
-  await waitReadyForMove(p1, 1, 35_000);
-  await p1.waitForFunction(() => /AI Practice Bot/i.test(document.body.innerText), undefined, { timeout: 10_000 });
-
-  for (let round = 1; round <= 5; round += 1) {
-    console.log(`[spacetime-local] bot fallback round ${round}: player Earth+`);
-    await clickButton(p1, /EARTH\+\s*25/i);
-
-    const finished = await waitRoundOrFinal(p1);
-    if (finished) {
-      snapshots.push({
-        scenario: 'bot-fallback-final',
-        p1: await compactBody(p1, 450),
-      });
-      await clickButton(p1, /Back to Home/i);
-      botFallbackBalance = await readElmBalance(p1);
-      await p1.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 });
-      await waitBalance(p1, botFallbackBalance);
-      snapshots.push({
-        scenario: 'balance-persists-after-refresh',
-        balance: botFallbackBalance,
-        p1: await compactBody(p1, 300),
-      });
-      const secondDevice = await newLabeledPage('bot-fallback-second-device');
-      await secondDevice.goto(playerUrl('solo_bot', botRoom), {
-        waitUntil: 'domcontentloaded',
-        timeout: 30_000,
-      });
-      await waitBalance(secondDevice, botFallbackBalance);
-      snapshots.push({
-        scenario: 'balance-shared-across-devices',
-        balance: botFallbackBalance,
-        p1: await compactBody(secondDevice, 300),
-      });
-      await secondDevice.close();
-      break;
-    }
-
-    snapshots.push({
-      scenario: 'bot-fallback',
-      round,
-      p1: await compactBody(p1, 450),
-    });
-    await clickButton(p1, /CONTINUE/i);
-    await waitRoundOverlayGone(p1);
-    await waitReadyForMove(p1, round + 1);
-  }
-
-  if (!botFallbackBalance) {
-    throw new Error('Bot fallback match did not settle within five rounds');
-  }
-
+  await p1.getByRole('button', { name: /Cancel Search/i }).waitFor({ state: 'visible', timeout: 15_000 });
+  await p1.waitForTimeout(3500);
+  await assertNoText(p1, /Select Move|AI Practice Bot/i, 'solo player matched without a real opponent');
+  snapshots.push({
+    scenario: 'solo-queue-waits-for-player',
+    room: soloRoom,
+    p1: await compactBody(p1, 360),
+  });
+  await clickButton(p1, /Cancel Search/i);
   await p1.close();
 }
 
@@ -274,6 +231,28 @@ async function verifyFullMatchAndForfeit() {
     p1: await compactBody(p1, 450),
     p2: await compactBody(p2, 450),
   });
+
+  await clickButton(p2, /Back to Home/i);
+  const p2Balance = await readElmBalance(p2);
+  await p2.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await waitBalance(p2, p2Balance);
+  snapshots.push({
+    scenario: 'balance-persists-after-refresh',
+    balance: p2Balance,
+    p2: await compactBody(p2, 300),
+  });
+  const secondDevice = await newLabeledPage('p2-second-device');
+  await secondDevice.goto(playerUrl('scenario_b', room), {
+    waitUntil: 'domcontentloaded',
+    timeout: 30_000,
+  });
+  await waitBalance(secondDevice, p2Balance);
+  snapshots.push({
+    scenario: 'balance-shared-across-devices',
+    balance: p2Balance,
+    p2: await compactBody(secondDevice, 300),
+  });
+  await secondDevice.close();
   await Promise.all([p1.close(), p2.close()]);
 }
 
@@ -370,8 +349,7 @@ async function verifySqlState() {
     ],
     { cwd: repoRoot },
   );
-  const expectedBalance = botFallbackBalance?.replace(/,/g, '');
-  if (!playerOutput.includes('solo_bot') || (expectedBalance && !playerOutput.includes(expectedBalance))) {
+  if (!playerOutput.includes('scenario_a') || !playerOutput.includes('scenario_b')) {
     throw new Error(`Unexpected player balance query output:\n${playerOutput}`);
   }
   snapshots.push({ scenario: 'sql-player-balances', output: playerOutput.replace(/\s+/g, ' ').trim().slice(0, 700) });
@@ -458,16 +436,6 @@ async function waitAnyRoundResult(page, timeout = 30_000) {
     undefined,
     { timeout },
   );
-}
-
-async function waitRoundOrFinal(page, timeout = 30_000) {
-  await page.waitForFunction(
-    () => /VICTORY!|DEFEAT|YOU WIN|YOU LOSE|DRAW/i.test(document.body.innerText),
-    undefined,
-    { timeout },
-  );
-  const text = await page.locator('body').innerText({ timeout });
-  return /Play Again/i.test(text);
 }
 
 async function waitRoundOverlayGone(page, timeout = 30_000) {
