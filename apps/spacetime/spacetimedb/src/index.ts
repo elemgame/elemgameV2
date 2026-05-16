@@ -488,7 +488,7 @@ function logTimedOutRound(ctx: ReducerContext, match: MatchRow) {
   }
 
   if (match.p1RevealMove === undefined && match.p2RevealMove === undefined) {
-    expireMatchAsDraw(ctx, match, 'Both players timed out before submitting a move');
+    finishByCurrentScoreOrDraw(ctx, match, 'Both players timed out before submitting a move');
     return;
   }
 
@@ -599,17 +599,21 @@ function expireMatchAsDraw(ctx: ReducerContext, match: MatchRow, reason: string)
 }
 
 function expireResultPhase(ctx: ReducerContext, match: MatchRow) {
+  finishByCurrentScoreOrDraw(ctx, match, 'Result phase timed out');
+}
+
+function finishByCurrentScoreOrDraw(ctx: ReducerContext, match: MatchRow, reason: string) {
   if (match.p1Score > match.p2Score) {
-    logEvent(ctx, 'match.expired_score', match, 'Result phase timed out; p1 wins by current score');
+    logEvent(ctx, 'match.expired_score', match, `${reason}; p1 wins by current score`);
     finishMatch(ctx, { ...match, p1Score: Math.max(match.p1Score, ROUNDS_TO_WIN) }, match.p1);
     return;
   }
   if (match.p2Score > match.p1Score) {
-    logEvent(ctx, 'match.expired_score', match, 'Result phase timed out; p2 wins by current score');
+    logEvent(ctx, 'match.expired_score', match, `${reason}; p2 wins by current score`);
     finishMatch(ctx, { ...match, p2Score: Math.max(match.p2Score, ROUNDS_TO_WIN) }, match.p2);
     return;
   }
-  expireMatchAsDraw(ctx, match, 'Result phase timed out with tied score');
+  expireMatchAsDraw(ctx, match, `${reason}; tied score`);
 }
 
 function finishMatch(ctx: ReducerContext, match: MatchRow, winner: MatchRow['p1']) {
