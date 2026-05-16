@@ -190,6 +190,7 @@ function gameSnapshot(): Record<string, unknown> {
     matchResult: state.matchResult,
     roundHistory: state.roundHistory,
     stats: state.stats,
+    opponentStats: state.opponentStats,
     rating: state.rating,
     elmBalance: state.elmBalance,
     user: state.telegramUser

@@ -334,6 +334,12 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
     wins: store.stats.wins + (won ? 1 : 0),
     losses: store.stats.losses + (!won && !isDraw ? 1 : 0),
   });
+  store.recordOpponentResult({
+    opponentName: store.opponentName,
+    winner: event.winner,
+    myScore: event.myScore,
+    opponentScore: event.opponentScore,
+  });
 
   store.setMatchResult({
     winner: event.winner,

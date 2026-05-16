@@ -4,6 +4,7 @@ import { useGameStore } from '../stores/gameStore';
 import { updatePlayerProfile } from '../services/gameService';
 import { haptic, sanitizeWebUserName, saveWebUser } from '../services/telegram';
 import { playerDisplayName, playerFullName } from '../services/playerProfile';
+import { opponentWinRate } from '../services/opponentStats';
 import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
 import { StarIcon } from '../components/icons/StarIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
@@ -14,7 +15,7 @@ import { FlameIcon } from '../components/icons/FlameIcon';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 
 export function ProfileScreen() {
-  const { telegramUser, rating, stats, elmBalance, setScreen, setTelegramUser, transactions } = useGameStore();
+  const { telegramUser, rating, stats, opponentStats, elmBalance, setScreen, setTelegramUser, transactions } = useGameStore();
 
   const displayName = playerDisplayName(telegramUser);
   const profileSubtitle = telegramUser?.source === 'telegram' && telegramUser.username
@@ -244,6 +245,71 @@ export function ProfileScreen() {
               />
             </div>
           </div>
+        </motion.div>
+
+        {/* Rival stats */}
+        <motion.div
+          className="glass-card p-4"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.13 }}
+        >
+          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+            Rival Stats
+          </div>
+          {opponentStats.length === 0 ? (
+            <div className="text-center py-5">
+              <div className="flex justify-center mb-2">
+                <SwordsIcon size={28} className="text-text-muted" />
+              </div>
+              <div className="text-sm text-text-muted">No rivals yet</div>
+              <div className="text-xs text-text-muted mt-1">Finish a match to track head-to-head stats</div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {opponentStats.slice(0, 8).map((rival) => (
+                <div
+                  key={rival.opponentName}
+                  className="rounded-xl p-3"
+                  style={{ background: 'rgba(255,255,255,0.04)' }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-black text-text-primary truncate">{rival.opponentName}</div>
+                      <div className="text-[11px] text-text-secondary">
+                        {rival.matches} games · {opponentWinRate(rival)}% win rate
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-right flex-shrink-0">
+                      <div>
+                        <div className="text-lg font-black text-energy-high tabular-nums">{rival.wins}</div>
+                        <div className="text-[10px] text-text-muted uppercase">beat</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-black text-energy-low tabular-nums">{rival.losses}</div>
+                        <div className="text-[10px] text-text-muted uppercase">lost</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-black text-text-secondary tabular-nums">{rival.draws}</div>
+                        <div className="text-[10px] text-text-muted uppercase">draw</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="mt-2 h-1.5 rounded-full overflow-hidden"
+                    style={{ background: 'rgba(255,255,255,0.06)' }}
+                  >
+                    <motion.div
+                      className="h-full rounded-full bg-energy-high"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${opponentWinRate(rival)}%` }}
+                      transition={{ duration: 0.8, delay: 0.2 }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </motion.div>
 
         {/* Transaction History */}

@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { GameMode } from '@elmental/shared';
 import { isAudioEnabled, setAudioEnabled } from '../services/audio';
+import {
+  loadOpponentStats,
+  recordOpponentMatch,
+  saveOpponentStats,
+  type OpponentMatchOutcome,
+  type OpponentStats,
+} from '../services/opponentStats';
 
 export type Screen =
   | 'home'
@@ -79,7 +86,14 @@ interface GameStore {
   elmBalance: number;
   rating: number;
   stats: { wins: number; losses: number };
+  opponentStats: OpponentStats[];
   setPlayerStats: (stats: { elmBalance: number; rating: number; wins: number; losses: number }) => void;
+  recordOpponentResult: (result: {
+    opponentName: string;
+    winner: OpponentMatchOutcome;
+    myScore: number;
+    opponentScore: number;
+  }) => void;
 
   // Game settings
   gameMode: GameMode;
@@ -151,8 +165,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   elmBalance: 0,
   rating: 1200,
   stats: { wins: 0, losses: 0 },
+  opponentStats: loadOpponentStats(),
   setPlayerStats: ({ elmBalance, rating, wins, losses }) =>
     set({ elmBalance, rating, stats: { wins, losses } }),
+  recordOpponentResult: (result) =>
+    set((state) => {
+      const opponentStats = recordOpponentMatch(state.opponentStats, result);
+      saveOpponentStats(opponentStats);
+      return { opponentStats };
+    }),
 
   // Game settings
   gameMode: GameMode.Classic,

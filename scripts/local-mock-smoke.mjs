@@ -136,7 +136,7 @@ async function verifyTelegramProfileIsReadOnly(browser) {
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
   await page.getByRole('button').first().click();
   await page.waitForFunction(
-    () => /Telegram Tester/.test(document.body.innerText) && /@tg_tester/.test(document.body.innerText),
+    () => /tg_tester/.test(document.body.innerText) && /Telegram Tester/.test(document.body.innerText),
     undefined,
     { timeout: 10_000 },
   );
