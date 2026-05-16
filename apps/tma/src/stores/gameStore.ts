@@ -261,6 +261,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       matchResult: result,
       matchStatus: 'result',
       currentScreen: 'result',
+      myScore: result.myScore,
+      opponentScore: result.opponentScore,
+      roundPhase: 'result',
+      selectedMove: null,
+      roundTimer: 0,
     }),
 
   resetMatch: () =>

@@ -19,13 +19,24 @@ describe('bug report issue builder', () => {
       ts: '2026-05-16T12:00:00.000Z',
       level: 'info' as const,
       event: `spacetime.trace.${index}`,
-      data: { message: 'x'.repeat(80) },
+      data: {
+        event: index === 139 ? 'round.timeout_forfeit' : 'round.move_submitted',
+        matchId: '43',
+        round: 1,
+        message: 'x'.repeat(80),
+        data: 'winner=c200 score=0:3',
+        ignoredNested: { tooMuch: 'y'.repeat(500) },
+      },
     }));
 
     const url = buildBugReportIssueUrl(snapshot(logs));
+    const body = new URL(url).searchParams.get('body') ?? '';
 
     expect(url.length).toBeLessThan(9000);
-    expect(new URL(url).searchParams.get('body')).toContain('spacetime.trace.');
+    expect(body).toContain('spacetime.trace.');
+    expect(body).toContain('round.timeout_forfeit');
+    expect(body).toContain('"matchId": "43"');
+    expect(body).not.toContain('ignoredNested');
   });
 
   it('formats the report as JSON inside markdown', () => {

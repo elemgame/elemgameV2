@@ -159,7 +159,12 @@ function buildTitle(snapshot: BugReportSnapshot): string {
 }
 
 function compactLogs(logs: BugReportLogEntry[]): BugReportLogEntry[] {
-  return logs.map(({ ts, level, event }) => ({ ts, level, event }));
+  return logs.map(({ ts, level, event, data }) => ({
+    ts,
+    level,
+    event,
+    data: compactLogData(data),
+  }));
 }
 
 function gameSnapshot(): Record<string, unknown> {
@@ -255,4 +260,62 @@ function serializeValue(value: unknown, depth: number): unknown {
     return output;
   }
   return String(value);
+}
+
+function compactLogData(value: unknown): unknown {
+  if (value === undefined || value === null) return value;
+  if (typeof value === 'string') return value.slice(0, 220);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'bigint') return value.toString();
+  if (Array.isArray(value)) return value.slice(0, 8).map(compactLogData);
+  if (typeof value !== 'object') return String(value).slice(0, 220);
+
+  const source = value as Record<string, unknown>;
+  const allowedKeys = [
+    'event',
+    'matchId',
+    'round',
+    'phase',
+    'status',
+    'message',
+    'data',
+    'score',
+    'winner',
+    'room',
+    'mode',
+    'stake',
+    'name',
+    'opponentName',
+    'opponentRating',
+    'isPlayer1',
+    'currentRound',
+    'p1',
+    'p2',
+    'p1Move',
+    'p2Move',
+    'move',
+    'myMove',
+    'opponentMove',
+    'result',
+    'myScore',
+    'opponentScore',
+    'selectedMove',
+    'code',
+    'source',
+  ];
+  const output: Record<string, unknown> = {};
+  for (const key of allowedKeys) {
+    if (!(key in source)) continue;
+    const nested = source[key];
+    if (typeof nested === 'string') {
+      output[key] = nested.slice(0, 220);
+    } else if (typeof nested === 'bigint') {
+      output[key] = nested.toString();
+    } else if (nested === undefined || nested === null || typeof nested === 'number' || typeof nested === 'boolean') {
+      output[key] = nested;
+    } else {
+      output[key] = serializeValue(nested, 1);
+    }
+  }
+  return output;
 }
