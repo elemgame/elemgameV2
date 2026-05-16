@@ -146,8 +146,8 @@ async function verifyBotFallback() {
     console.log(`[spacetime-local] bot fallback round ${round}: player Earth+`);
     await clickButton(p1, /EARTH\+\s*25/i);
 
-    if (round === 5) {
-      await waitFinalResult(p1, /VICTORY!|DEFEAT|DRAW/i, 30_000);
+    const finished = await waitRoundOrFinal(p1);
+    if (finished) {
       snapshots.push({
         scenario: 'bot-fallback-final',
         p1: await compactBody(p1, 450),
@@ -176,7 +176,6 @@ async function verifyBotFallback() {
       break;
     }
 
-    await waitAnyRoundResult(p1);
     snapshots.push({
       scenario: 'bot-fallback',
       round,
@@ -185,6 +184,10 @@ async function verifyBotFallback() {
     await clickButton(p1, /CONTINUE/i);
     await waitRoundOverlayGone(p1);
     await waitReadyForMove(p1, round + 1);
+  }
+
+  if (!botFallbackBalance) {
+    throw new Error('Bot fallback match did not settle within five rounds');
   }
 
   await p1.close();
@@ -455,6 +458,16 @@ async function waitAnyRoundResult(page, timeout = 30_000) {
     undefined,
     { timeout },
   );
+}
+
+async function waitRoundOrFinal(page, timeout = 30_000) {
+  await page.waitForFunction(
+    () => /VICTORY!|DEFEAT|YOU WIN|YOU LOSE|DRAW/i.test(document.body.innerText),
+    undefined,
+    { timeout },
+  );
+  const text = await page.locator('body').innerText({ timeout });
+  return /Play Again/i.test(text);
 }
 
 async function waitRoundOverlayGone(page, timeout = 30_000) {

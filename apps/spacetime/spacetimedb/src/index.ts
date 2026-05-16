@@ -1177,7 +1177,7 @@ function linkPlayerAccount(ctx: ReducerContext, playerRow: MatchRow, requestedAc
   const accountId = normalizeAccountId(requestedAccountId, previousAccountId);
   const existingAccount = ctx.db.account.id.find(accountId);
   const accountRow = existingAccount ?? ensureAccount(ctx, accountId, name, playerRow);
-  const namedAccount = previousAccountId !== accountId && existingAccount
+  const namedAccount = previousAccountId !== accountId && existingAccount && hasLegacyProgress(playerRow)
     ? mergeLegacyPlayerIntoAccount(ctx, accountRow, playerRow, name)
     : accountRow.name === name ? accountRow : updateAccount(ctx, { ...accountRow, name });
   ctx.db.player.identity.update(playerFromAccount(playerRow, namedAccount, name, true));
@@ -1214,6 +1214,15 @@ function mergeLegacyPlayerIntoAccount(ctx: ReducerContext, accountRow: AccountRo
     losses: accountRow.losses + (playerRow.losses ?? 0),
     balance: Math.max(accountBalance(accountRow), playerRow.balance ?? INITIAL_BALANCE),
   });
+}
+
+function hasLegacyProgress(playerRow: MatchRow) {
+  return (
+    (playerRow.wins ?? 0) > 0 ||
+    (playerRow.losses ?? 0) > 0 ||
+    (playerRow.rating ?? INITIAL_RATING) !== INITIAL_RATING ||
+    (playerRow.balance ?? INITIAL_BALANCE) !== INITIAL_BALANCE
+  );
 }
 
 function syncAccountToPlayers(ctx: ReducerContext, accountRow: AccountRow) {
