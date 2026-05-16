@@ -147,6 +147,68 @@ describe('web user profile helpers', () => {
     expect(offEvent).toHaveBeenCalledWith('contentSafeAreaChanged', expect.any(Function));
   });
 
+  it('does not add Telegram fullscreen chrome offset outside fullscreen mode', () => {
+    setMockWindow('');
+    const setProperty = vi.fn();
+    Object.defineProperty(globalThis, 'document', {
+      value: {
+        documentElement: {
+          style: { setProperty },
+        },
+      },
+      configurable: true,
+      writable: true,
+    });
+    window.Telegram = {
+      WebApp: {
+        viewportStableHeight: 720,
+        viewportHeight: 700,
+        isFullscreen: false,
+        safeAreaInset: { top: 12 },
+        contentSafeAreaInset: { top: 0 },
+        onEvent: vi.fn(),
+        offEvent: vi.fn(),
+      } as never,
+    };
+
+    const cleanup = installTelegramViewportSync();
+
+    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '12px');
+
+    cleanup();
+  });
+
+  it('keeps the app below Telegram fullscreen chrome when safe area is too small', () => {
+    setMockWindow('');
+    const setProperty = vi.fn();
+    Object.defineProperty(globalThis, 'document', {
+      value: {
+        documentElement: {
+          style: { setProperty },
+        },
+      },
+      configurable: true,
+      writable: true,
+    });
+    window.Telegram = {
+      WebApp: {
+        viewportStableHeight: 720,
+        viewportHeight: 700,
+        isFullscreen: true,
+        safeAreaInset: { top: 12 },
+        contentSafeAreaInset: { top: 0 },
+        onEvent: vi.fn(),
+        offEvent: vi.fn(),
+      } as never,
+    };
+
+    const cleanup = installTelegramViewportSync();
+
+    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '59px');
+
+    cleanup();
+  });
+
   it('falls back to a generated player when stored data is invalid', () => {
     const { localStorage } = setMockWindow('');
     localStorage.setItem('elmental.webUser', '{bad json');
