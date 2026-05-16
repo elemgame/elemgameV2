@@ -2,12 +2,15 @@ import http from 'http';
 import { createPurchaseId, createSignedInvoicePayload } from './invoicePayload.js';
 import { ELM_STARS_PACKAGES, findElmStarsPackage } from './packages.js';
 import { validateTelegramInitData } from './telegramInitData.js';
+import { handleTelegramUpdate, noopPaymentEventRecorder } from './telegramUpdates.js';
 import type { PaymentsConfig } from './config.js';
 import type { TelegramBotApi } from './telegramBotApi.js';
+import type { PaymentEventRecorder } from './telegramUpdates.js';
 
 interface ServerDeps {
   config: PaymentsConfig;
   telegram: TelegramBotApi;
+  paymentRecorder?: PaymentEventRecorder;
 }
 
 interface InvoiceRequestBody {
@@ -15,9 +18,9 @@ interface InvoiceRequestBody {
   packageId?: unknown;
 }
 
-export function createPaymentsServer({ config, telegram }: ServerDeps): http.Server {
+export function createPaymentsServer({ config, telegram, paymentRecorder = noopPaymentEventRecorder }: ServerDeps): http.Server {
   return http.createServer((req, res) => {
-    void handleRequest(req, res, config, telegram).catch(err => {
+    void handleRequest(req, res, config, telegram, paymentRecorder).catch(err => {
       console.error('[payments] Request failed:', err);
       sendJson(res, 500, { error: 'Internal server error' });
     });
@@ -29,6 +32,7 @@ async function handleRequest(
   res: http.ServerResponse,
   config: PaymentsConfig,
   telegram: TelegramBotApi,
+  paymentRecorder: PaymentEventRecorder,
 ): Promise<void> {
   setCors(req, res, config);
 
@@ -55,7 +59,33 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === 'POST' && url.pathname === '/telegram/webhook') {
+    await handleTelegramWebhook(req, res, config, telegram, paymentRecorder);
+    return;
+  }
+
   sendJson(res, 404, { error: 'Not found' });
+}
+
+async function handleTelegramWebhook(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  config: PaymentsConfig,
+  telegram: TelegramBotApi,
+  paymentRecorder: PaymentEventRecorder,
+): Promise<void> {
+  if (config.webhookSecret && req.headers['x-telegram-bot-api-secret-token'] !== config.webhookSecret) {
+    sendJson(res, 401, { error: 'Invalid webhook secret' });
+    return;
+  }
+
+  const update = await readJsonBody<unknown>(req);
+  const result = await handleTelegramUpdate(update, {
+    payloadSecret: config.payloadSecret,
+    telegram,
+    recorder: paymentRecorder,
+  });
+  sendJson(res, 200, { ok: true, result });
 }
 
 async function handleCreateInvoice(

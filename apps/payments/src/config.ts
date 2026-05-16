@@ -2,6 +2,7 @@ export interface PaymentsConfig {
   port: number;
   botToken: string;
   payloadSecret: string;
+  webhookSecret?: string;
   botApiBaseUrl: string;
   allowedOrigins: string[];
   nodeEnv: string;
@@ -21,6 +22,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PaymentsConfig
     port: parsePort(env['PAYMENTS_PORT'] ?? env['PORT'] ?? '3002'),
     botToken,
     payloadSecret,
+    ...(env['PAYMENTS_WEBHOOK_SECRET'] ? { webhookSecret: env['PAYMENTS_WEBHOOK_SECRET'] } : {}),
     botApiBaseUrl: env['TELEGRAM_BOT_API_BASE_URL'] ?? 'https://api.telegram.org',
     allowedOrigins: parseAllowedOrigins(env['PAYMENTS_ALLOWED_ORIGINS'] ?? '*'),
     nodeEnv,

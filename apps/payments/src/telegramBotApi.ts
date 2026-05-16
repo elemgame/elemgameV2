@@ -8,6 +8,13 @@ export interface CreateInvoiceLinkInput {
 
 export interface TelegramBotApi {
   createInvoiceLink(input: CreateInvoiceLinkInput): Promise<string>;
+  answerPreCheckoutQuery(input: AnswerPreCheckoutQueryInput): Promise<void>;
+}
+
+export interface AnswerPreCheckoutQueryInput {
+  preCheckoutQueryId: string;
+  ok: boolean;
+  errorMessage?: string;
 }
 
 interface BotApiResponse<T> {
@@ -48,6 +55,23 @@ export function createTelegramBotApi(
       }
 
       return parsed.result;
+    },
+
+    async answerPreCheckoutQuery(input: AnswerPreCheckoutQueryInput): Promise<void> {
+      const response = await fetchImpl(`${baseUrl}/bot${botToken}/answerPreCheckoutQuery`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          pre_checkout_query_id: input.preCheckoutQueryId,
+          ok: input.ok,
+          ...(input.errorMessage ? { error_message: input.errorMessage } : {}),
+        }),
+      });
+
+      const parsed = await response.json() as BotApiResponse<boolean>;
+      if (!response.ok || !parsed.ok) {
+        throw new Error(parsed.description || `Telegram Bot API failed with HTTP ${response.status}`);
+      }
     },
   };
 }
