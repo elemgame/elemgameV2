@@ -25,6 +25,17 @@
 
     --tg-theme-bg-color: #0a0a1a;
     --tg-theme-text-color: #f0f6fc;
+
+    --elmental-js-viewport-height: 100dvh;
+    --elmental-js-safe-top: 0px;
+    --elmental-js-safe-right: 0px;
+    --elmental-js-safe-bottom: 0px;
+    --elmental-js-safe-left: 0px;
+    --elmental-app-height: var(--elmental-js-viewport-height, var(--tg-viewport-stable-height, 100dvh));
+    --elmental-safe-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px), var(--elmental-js-safe-top, 0px));
+    --elmental-safe-right: max(env(safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--elmental-js-safe-right, 0px));
+    --elmental-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px), var(--elmental-js-safe-bottom, 0px));
+    --elmental-safe-left: max(env(safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px), var(--tg-content-safe-area-inset-left, 0px), var(--elmental-js-safe-left, 0px));
   }
 
   html, body {
@@ -154,6 +165,14 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .app-safe-shell {
+    box-sizing: border-box;
+    padding-top: var(--elmental-safe-top);
+    padding-right: var(--elmental-safe-right);
+    padding-bottom: var(--elmental-safe-bottom);
+    padding-left: var(--elmental-safe-left);
+  }
 }
 
 /* ============================================================
@@ -165,7 +184,7 @@
   }
 
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: var(--elmental-safe-bottom);
   }
 }
 

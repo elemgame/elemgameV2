@@ -11,6 +11,16 @@ if (!/^https:\/\/.+/i.test(webappUrl)) {
 }
 
 const apiBase = `https://api.telegram.org/bot${token}`;
+const activeCommands = [
+  { command: 'start', description: 'Open Elmental' },
+  { command: 'play', description: 'Open the Mini App' },
+];
+const commandScopes = [
+  { type: 'default' },
+  { type: 'all_private_chats' },
+  { type: 'all_group_chats' },
+  { type: 'all_chat_administrators' },
+];
 
 const bot = await callTelegram('getMe');
 console.log(`[telegram] Bot: @${bot.username} (${bot.first_name})`);
@@ -19,15 +29,15 @@ if (bot.username.toLowerCase() !== expectedBotUsername.toLowerCase()) {
   fail(`Expected @${expectedBotUsername}, got @${bot.username}. Refusing to configure the wrong bot.`);
 }
 
+for (const scope of commandScopes) {
+  await callTelegram('deleteMyCommands', { scope });
+}
+
 await callTelegram('setMyCommands', {
-  commands: [
-    { command: 'start', description: 'Open Elmental' },
-    { command: 'play', description: 'Open the Mini App' },
-    { command: 'stats', description: 'View player stats' },
-    { command: 'help', description: 'How to play' },
-  ],
+  commands: activeCommands,
+  scope: { type: 'default' },
 });
-console.log('[telegram] Commands configured: /start /play /stats /help');
+console.log(`[telegram] Commands configured: ${activeCommands.map((command) => `/${command.command}`).join(' ')}`);
 
 await callTelegram('setChatMenuButton', {
   menu_button: {

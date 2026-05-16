@@ -236,7 +236,14 @@ The floating report button opens a GitHub issue draft with the current game stat
 Telegram launch for the public mechanics instance is documented in `docs/telegram-launch.md`.
 After the Main Mini App is configured in BotFather, the TMA launch link is `https://t.me/elemgamebot/?startapp`.
 
-GitHub has a manual `Configure Telegram Bot` workflow that reads `TELEGRAM_BOT_TOKEN` from repository secrets/variables and `TELEGRAM_WEBAPP_URL` from repository variables:
+Every successful GitHub Pages deploy automatically runs the Telegram bot configuration job. It uses the deployed Pages URL plus the current commit SHA (`?v=<github.sha>`) for cache busting, so the bot menu follows the exact published build.
+
+The Bot API configuration intentionally exposes only the commands that open the app:
+
+- `/start`
+- `/play`
+
+The same configuration can be run manually when needed. The manual workflow reads `TELEGRAM_BOT_TOKEN` from repository secrets/variables and defaults to the current Pages URL for the selected workflow ref:
 
 ```bash
 gh workflow run configure-telegram.yml --repo elemgame/elemgameV2
@@ -246,11 +253,11 @@ The same configuration can be run locally when the token is available:
 
 ```bash
 export TELEGRAM_BOT_TOKEN='...'
-export TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/'
+export TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/?v=<commit-sha>'
 pnpm telegram:configure
 ```
 
-This configures bot commands and the Telegram menu button. The token must stay outside git.
+This configures bot commands and the Telegram menu button. The token must stay outside git. The Main Mini App URL behind `https://t.me/elemgamebot/?startapp` is still a BotFather setting; set it to the same Pages URL when changing it there.
 
 Outside Telegram, browser users can edit their public name from Profile. Telegram users are read from the Telegram profile and are not editable inside the app.
 

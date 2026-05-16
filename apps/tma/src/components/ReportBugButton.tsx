@@ -11,8 +11,8 @@ export function ReportBugButton() {
       title="Report bug"
       className="absolute z-50 flex h-10 w-10 items-center justify-center rounded-xl"
       style={{
-        right: 12,
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+        right: 'calc(var(--elmental-safe-right) + 12px)',
+        bottom: 'calc(var(--elmental-safe-bottom) + 12px)',
         background: 'rgba(10, 10, 26, 0.82)',
         border: '1px solid rgba(255,255,255,0.16)',
         boxShadow: '0 10px 24px rgba(0,0,0,0.35)',

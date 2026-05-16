@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getMockUser,
   getTelegramUser,
+  installTelegramViewportSync,
   sanitizeWebUserName,
   saveWebUser,
   userNameFromDisplayName,
@@ -110,6 +111,42 @@ describe('web user profile helpers', () => {
     });
   });
 
+  it('syncs Telegram viewport and content safe area variables', () => {
+    setMockWindow('');
+    const setProperty = vi.fn();
+    const onEvent = vi.fn();
+    const offEvent = vi.fn();
+    Object.defineProperty(globalThis, 'document', {
+      value: {
+        documentElement: {
+          style: { setProperty },
+        },
+      },
+      configurable: true,
+      writable: true,
+    });
+    window.Telegram = {
+      WebApp: {
+        viewportStableHeight: 720,
+        viewportHeight: 700,
+        safeAreaInset: { top: 24, bottom: 8 },
+        contentSafeAreaInset: { top: 68, bottom: 16 },
+        onEvent,
+        offEvent,
+      } as never,
+    };
+
+    const cleanup = installTelegramViewportSync();
+
+    expect(onEvent).toHaveBeenCalledWith('contentSafeAreaChanged', expect.any(Function));
+    expect(setProperty).toHaveBeenCalledWith('--elmental-js-viewport-height', '720px');
+    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '68px');
+    expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-bottom', '16px');
+
+    cleanup();
+    expect(offEvent).toHaveBeenCalledWith('contentSafeAreaChanged', expect.any(Function));
+  });
+
   it('falls back to a generated player when stored data is invalid', () => {
     const { localStorage } = setMockWindow('');
     localStorage.setItem('elmental.webUser', '{bad json');
@@ -131,6 +168,9 @@ function setMockWindow(search: string) {
       location: { search },
       localStorage,
       sessionStorage,
+      innerHeight: 680,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
     },
     configurable: true,
     writable: true,
