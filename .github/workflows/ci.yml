@@ -53,8 +53,17 @@ jobs:
       - name: Test Telegram Mini App
         run: pnpm --filter @elmental/tma test -- --run
 
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run local mock smoke
+        run: pnpm smoke:local-mock
+
       - name: Build SpacetimeDB module
         run: spacetime build --module-path apps/spacetime/spacetimedb
+
+      - name: Run local SpacetimeDB reducer scenarios
+        run: pnpm test:stdb-local-scenarios
 
       - name: Build Telegram Mini App
         run: pnpm --filter @elmental/tma build

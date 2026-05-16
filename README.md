@@ -214,11 +214,17 @@ Run the public two-player first-to-3 smoke locally:
 pnpm --filter @elmental/shared build
 pnpm test:matrix-parity
 pnpm exec playwright install chromium
+pnpm smoke:local-mock
+pnpm test:stdb-local-scenarios
 pnpm smoke:public-match
 pnpm smoke:public-timeouts
 ```
 
 The same smoke is available as the manual GitHub Actions workflow `Public Multiplayer Smoke`. It opens two browser clients against GitHub Pages, verifies matchmaking, three round resolutions, final result, Play Again, and fails on browser console errors or warnings.
+
+`smoke:local-mock` runs a PR-safe deterministic browser match with the mock provider and verifies editable web users plus read-only Telegram profile data.
+
+`test:stdb-local-scenarios` starts a temporary in-memory SpacetimeDB server, publishes the module to a unique local database, runs room isolation, invalid/duplicate move rejection, a full PvP match, Play Again, forfeit, timeout settlements, and checks the resulting `match_state` rows. It waits for real server timeout constants, so it takes a few minutes.
 
 `Public Timeout Smoke` is a longer manual workflow for reconnect/timeout behavior. It verifies a one-player timeout win and a both-player disconnect/reconnect draw recovery against the public SpacetimeDB instance.
 
@@ -278,6 +284,15 @@ http://localhost:5173/?player=bob
 ```
 
 Both clients connect to SpacetimeDB at `VITE_SPACETIME_URI`, enter the reducer-driven queue, and play a real PvP match through the local database module. For LAN/mobile testing, set `VITE_SPACETIME_URI` to the reachable SpacetimeDB URL.
+
+### Gameplay Provider Boundary
+
+The TMA uses `apps/tma/src/services/gameProvider/types.ts` as the contract between UI flow and data backends.
+
+- `gameService.ts` translates provider events into Zustand store updates, timers, local economy presentation, haptics, and sounds.
+- `gameProvider/mockProvider.ts` is deterministic for local smoke tests and demos.
+- `gameProvider/spacetimeProvider.ts` is the SpacetimeDB adapter and the only non-generated frontend file that imports generated bindings.
+- Future settlement or blockchain adapters should replace/extend this provider layer instead of changing match screens.
 
 ---
 

@@ -43,6 +43,17 @@ When editing SpacetimeDB code, also follow `apps/spacetime/AGENTS.md`.
 - Ignore stale active/settled match updates that do not belong to the current/latest active match.
 - Keep `VITE_GAME_TRACE=true` enabled for public testing until the multiplayer flow is stable.
 
+## Gameplay Provider Boundary
+
+The TMA talks to gameplay through `apps/tma/src/services/gameProvider/types.ts`.
+
+- `gameService.ts` owns UI store mutations, economy presentation, timers, haptics, and audio.
+- `gameProvider/mockProvider.ts` is the deterministic local provider for PR-safe browser smoke tests.
+- `gameProvider/spacetimeProvider.ts` is the only non-generated frontend file that may import `apps/tma/src/module_bindings`.
+- Provider implementations emit contract events (`matchFound`, `matchUpdate`, `roundResult`, `matchSettled`, `trace`, `error`) and must not mutate Zustand directly.
+- New data backends, including future blockchain-backed settlement, should be added as provider/adapters behind this contract instead of changing match screens.
+- If a provider needs different persistence, keep it behind provider options. Do not let screens read database/client SDK state directly.
+
 ## Game Specification
 
 Basic element cycle:
@@ -136,6 +147,8 @@ spacetime build --module-path apps/spacetime/spacetimedb
 pnpm --filter @elmental/shared build
 pnpm --filter @elmental/shared test -- run
 pnpm test:matrix-parity
+pnpm smoke:local-mock
+pnpm test:stdb-local-scenarios
 pnpm --filter @elmental/tma build
 ```
 

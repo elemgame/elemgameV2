@@ -22,91 +22,91 @@ This PRD defines a non-blockchain refactor that introduces a clear gameplay data
 **Description:** As a developer, I need a single typed contract for gameplay data access so UI code does not depend on SpacetimeDB generated bindings or a future blockchain provider directly.
 
 **Acceptance Criteria:**
-- [ ] Add a provider contract under `apps/tma/src/services/gameProvider/`.
-- [ ] Contract exposes actions for `initialize`, `updateProfile`, `startMatchmaking`, `cancelMatchmaking`, `submitMove`, `advanceRound`, `forfeitMatch`, `applyResults`, and `dispose`.
-- [ ] Contract emits domain events for player stats, queue state, match found, match update, round result, match settled, provider error, and trace event.
-- [ ] Contract types use domain names and shared package enums, not SpacetimeDB table row names.
-- [ ] No UI screen imports `../module_bindings`.
-- [ ] Typecheck passes.
+- [x] Add a provider contract under `apps/tma/src/services/gameProvider/`.
+- [x] Contract exposes actions for `initialize`, `updateProfile`, `startMatchmaking`, `cancelMatchmaking`, `submitMove`, `advanceRound`, `forfeitMatch`, `applyResults`, and `dispose`.
+- [x] Contract emits domain events for player stats, queue state, match found, match update, round result, match settled, provider error, and trace event.
+- [x] Contract types use domain names and shared package enums, not SpacetimeDB table row names.
+- [x] No UI screen imports `../module_bindings`.
+- [x] Typecheck passes.
 
 ### US-002: Move SpacetimeDB Code Into A Provider Adapter
 
 **Description:** As a developer, I want all SpacetimeDB connection and row mapping code isolated in one adapter so the production provider can be replaced later without touching UI screens.
 
 **Acceptance Criteria:**
-- [ ] Move direct imports of `spacetimedb`, `DbConnection`, and generated `module_bindings` out of `gameService.ts`.
-- [ ] Add `spacetimeProvider` that owns token storage, connection setup, subscriptions, reducer calls, reconnect handling, and SpacetimeDB row normalization.
-- [ ] Extract row-to-domain mapping functions for `Player`, `MatchState`, and `RoundResult`.
-- [ ] Add unit tests for row-to-domain mapping from both p1 and p2 perspectives.
-- [ ] Existing public smoke behavior stays unchanged.
-- [ ] Typecheck passes.
+- [x] Move direct imports of `spacetimedb`, `DbConnection`, and generated `module_bindings` out of `gameService.ts`.
+- [x] Add `spacetimeProvider` that owns token storage, connection setup, subscriptions, reducer calls, reconnect handling, and SpacetimeDB row normalization.
+- [x] Extract row-to-domain mapping functions for `MatchState` and `RoundResult`; player rows emit normalized `playerStats` directly.
+- [x] Add unit tests for row-to-domain mapping from both p1 and p2 perspectives.
+- [x] Existing public smoke behavior stays unchanged.
+- [x] Typecheck passes.
 
 ### US-003: Convert Mock Gameplay Into A Provider Adapter
 
 **Description:** As a developer, I want mock/local gameplay to implement the same provider contract so tests and development do not depend on SpacetimeDB.
 
 **Acceptance Criteria:**
-- [ ] Move mock gameplay API behind `mockProvider`.
-- [ ] Provider supports deterministic test mode with injected delay and RNG controls.
-- [ ] Existing `VITE_GAME_TRANSPORT=mock` behavior remains available.
-- [ ] Mock provider emits the same event types as the SpacetimeDB provider.
-- [ ] Unit tests cover matchmaking, round result, match settlement, play again, and forfeit.
-- [ ] Typecheck passes.
+- [x] Move mock gameplay API behind `mockProvider`.
+- [x] Provider supports deterministic test mode with injected delay and RNG controls.
+- [x] Existing `VITE_GAME_TRANSPORT=mock` behavior remains available.
+- [x] Mock provider emits the same event types as the SpacetimeDB provider.
+- [x] Unit tests cover matchmaking, round result, match settlement, play again, profile update, and forfeit.
+- [x] Typecheck passes.
 
 ### US-004: Add Provider Contract Tests
 
 **Description:** As a developer, I want a reusable provider contract test suite so each provider proves it satisfies the same gameplay semantics.
 
 **Acceptance Criteria:**
-- [ ] Add contract tests that can run against mock provider without network.
-- [ ] Tests verify profile update, queue join/cancel, match found, move submission, round result, match settlement, and play again.
-- [ ] Tests assert event order for the happy path.
+- [x] Add contract tests that can run against mock provider without network.
+- [x] Tests verify profile update, queue join/cancel, match found, move submission, round result, match settlement, and play again.
+- [x] Tests assert event order for the happy path.
 - [ ] Tests assert provider errors are normalized into the same error shape.
-- [ ] CI runs these tests on every push and PR.
+- [x] CI runs these tests on every push and PR.
 
 ### US-005: Add TMA Profile Tests
 
 **Description:** As a player, I want browser usernames to be editable while Telegram names stay tied to Telegram so identity display is predictable.
 
 **Acceptance Criteria:**
-- [ ] Add tests for `sanitizeWebUserName`, `userNameFromDisplayName`, `saveWebUser`, and `getMockUser`.
-- [ ] Add browser test for non-Telegram profile editing: field visible, save button enabled on change, name and handle update after save.
-- [ ] Add browser test for Telegram profile: Telegram name and username render, web username field is absent.
-- [ ] Verify in browser using Playwright.
-- [ ] Typecheck passes.
+- [x] Add tests for `sanitizeWebUserName`, `userNameFromDisplayName`, `saveWebUser`, and `getMockUser`.
+- [x] Add browser test for non-Telegram profile editing: field visible, save button enabled on change, name and handle update after save.
+- [x] Add browser test for Telegram profile: Telegram name and username render, web username field is absent.
+- [x] Verify in browser using Playwright.
+- [x] Typecheck passes.
 
 ### US-006: Add Local Playwright Smoke For PR-Safe UI Regression Checks
 
 **Description:** As a developer, I want PR-safe smoke tests that do not create cloud SpacetimeDB matches so common UI regressions are caught before deployment.
 
 **Acceptance Criteria:**
-- [ ] Add a local Playwright workflow using `VITE_GAME_TRANSPORT=mock`.
-- [ ] Test home, profile, matchmaking, first round selection, result state, and settings navigation.
-- [ ] Test fails on browser console errors and warnings.
-- [ ] CI runs local smoke on push and PR.
-- [ ] Public cloud smokes remain manual workflows.
+- [x] Add a local Playwright workflow using `VITE_GAME_TRANSPORT=mock`.
+- [x] Test home, profile, matchmaking, first round selection, result state, and settings navigation.
+- [x] Test fails on browser console errors and warnings.
+- [x] CI runs local smoke on push and PR.
+- [x] Public cloud smokes remain manual workflows.
 
 ### US-007: Document Provider Boundary And Migration Rules
 
 **Description:** As a future blockchain implementer, I need clear rules for where blockchain or alternate persistence code belongs so it does not leak into UI screens.
 
 **Acceptance Criteria:**
-- [ ] Update `AGENTS.md` with provider boundary rules.
-- [ ] Update `README.md` architecture section with provider diagram or concise flow.
-- [ ] Document which modules may import SpacetimeDB generated bindings.
-- [ ] Document how to add a future provider without editing UI screens.
-- [ ] Typecheck/build commands remain documented.
+- [x] Update `AGENTS.md` with provider boundary rules.
+- [x] Update `README.md` architecture section with provider diagram or concise flow.
+- [x] Document which modules may import SpacetimeDB generated bindings.
+- [x] Document how to add a future provider without editing UI screens.
+- [x] Typecheck/build commands remain documented.
 
 ### US-008: Improve SpacetimeDB Reducer Scenario Coverage
 
 **Description:** As a developer, I want reducer-level scenario coverage for SpacetimeDB behavior so timeout, matchmaking, and settlement changes are safer.
 
 **Acceptance Criteria:**
-- [ ] Add an automated scenario harness or scripts that exercise a local ephemeral SpacetimeDB database.
-- [ ] Cover two-player queue match, room isolation, invalid move rejection, duplicate move rejection, forfeit, result timeout, one-player timeout, and both-player timeout.
-- [ ] Tests do not require SpacetimeDB Cloud credentials.
-- [ ] CI runs the reducer scenario suite or documents why it remains manual.
-- [ ] Existing `test:matrix-parity` remains in CI.
+- [x] Add an automated scenario harness or scripts that exercise a local ephemeral SpacetimeDB database.
+- [x] Cover two-player queue match, room isolation, invalid move rejection, duplicate move rejection, forfeit, result timeout, one-player timeout, and both-player timeout.
+- [x] Tests do not require SpacetimeDB Cloud credentials.
+- [x] CI runs the reducer scenario suite or documents why it remains manual.
+- [x] Existing `test:matrix-parity` remains in CI.
 
 ## Functional Requirements
 
