@@ -206,6 +206,7 @@ GITHUB_PAGES=true
 VITE_GAME_TRANSPORT=spacetime
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com
 VITE_SPACETIME_DB=elmental-v2
+VITE_BOT_FALLBACK_SECONDS=30
 ```
 
 Run the public two-player first-to-3 smoke locally:
@@ -224,9 +225,11 @@ The same smoke is available as the manual GitHub Actions workflow `Public Multip
 
 `smoke:local-mock` runs a PR-safe deterministic browser match with the mock provider and verifies editable web users plus read-only Telegram profile data.
 
-`test:stdb-local-scenarios` starts a temporary in-memory SpacetimeDB server, publishes the module to a unique local database, runs room isolation, invalid/duplicate move rejection, a full PvP match, Play Again, forfeit, timeout settlements, and checks the resulting `match_state` rows. It waits for real server timeout constants, so it takes a few minutes.
+`test:stdb-local-scenarios` starts a temporary in-memory SpacetimeDB server, publishes the module to a unique local database, runs room isolation, AI fallback matchmaking, invalid/duplicate move rejection, a full PvP match, Play Again, forfeit, timeout settlements, and checks the resulting `match_state` rows. It waits for real server timeout constants, so it takes a few minutes.
 
 `Public Timeout Smoke` is a longer manual workflow for reconnect/timeout behavior. It verifies a one-player timeout win and a both-player disconnect/reconnect draw recovery against the public SpacetimeDB instance.
+
+The floating report button opens a GitHub issue draft with the current game state, public environment, recent client trace logs, and replicated SpacetimeDB `game_event` logs. Sensitive URL/auth fields are redacted before the issue body is generated.
 
 ### Telegram Bot Launch
 
@@ -284,6 +287,8 @@ http://localhost:5173/?player=bob
 ```
 
 Both clients connect to SpacetimeDB at `VITE_SPACETIME_URI`, enter the reducer-driven queue, and play a real PvP match through the local database module. For LAN/mobile testing, set `VITE_SPACETIME_URI` to the reachable SpacetimeDB URL.
+
+If a player is alone in a queue, the backend creates an `AI Practice Bot` match after `VITE_BOT_FALLBACK_SECONDS` seconds. Set it to `0`, or add `?botFallbackSeconds=0` to the URL, to disable the fallback while testing pure two-player matchmaking.
 
 ### Gameplay Provider Boundary
 

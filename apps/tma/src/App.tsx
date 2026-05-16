@@ -2,7 +2,9 @@ import React, { useEffect } from 'react';
 import { useGameStore } from './stores/gameStore';
 import { initTelegram, getTelegramUser, getMockUser } from './services/telegram';
 import { initializeGameSession } from './services/gameService';
+import { installBugReportCapture } from './services/bugReport';
 import { useSpatialNavigation } from './hooks/useSpatialNavigation';
+import { ReportBugButton } from './components/ReportBugButton';
 
 // Screens
 import { HomeScreen } from './screens/HomeScreen';
@@ -20,6 +22,7 @@ export default function App() {
 
   // Initialize Telegram SDK and load user
   useEffect(() => {
+    installBugReportCapture();
     initTelegram();
 
     const tgUser = getTelegramUser();
@@ -77,6 +80,7 @@ export default function App() {
       <div key={currentScreen} className="absolute inset-0">
         {renderScreen()}
       </div>
+      <ReportBugButton />
     </div>
   );
 }

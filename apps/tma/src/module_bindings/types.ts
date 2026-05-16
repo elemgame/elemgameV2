@@ -80,6 +80,7 @@ export const QueueEntry = __t.object("QueueEntry", {
   room: __t.string(),
   boostEnabled: __t.bool(),
   joinedAtMicros: __t.u64(),
+  botFallbackAtMicros: __t.option(__t.u64()),
 });
 export type QueueEntry = __Infer<typeof QueueEntry>;
 

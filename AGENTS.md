@@ -28,8 +28,9 @@ Use SpacetimeDB as the server-authoritative backend:
 - Reducers mutate state. They do not return gameplay data to the client.
 - Clients subscribe to tables and derive UI state from replicated table rows.
 - Matchmaking happens through `join_queue` with a room key. Players only match inside the same room.
+- If no real opponent appears, `join_queue` can create an `AI Practice Bot` match after `VITE_BOT_FALLBACK_SECONDS` seconds. `0` disables the fallback, and real players always have priority over the bot.
 - Moves are submitted through `submit_move`. The current test flow does not require commit/reveal UX.
-- The scheduler only expires stale rounds/matches. It must not auto-pick moves or auto-advance active gameplay.
+- The scheduler expires stale rounds/matches and may submit the bot opponent's move after the real player moves. It must not auto-pick moves for real users or auto-advance active gameplay.
 - Use `game_event` rows plus console logs for traceability.
 
 When editing SpacetimeDB code, also follow `apps/spacetime/AGENTS.md`.
@@ -42,6 +43,7 @@ When editing SpacetimeDB code, also follow `apps/spacetime/AGENTS.md`.
 - Match screens should tolerate subscription delay and reconnects without black screens.
 - Ignore stale active/settled match updates that do not belong to the current/latest active match.
 - Keep `VITE_GAME_TRACE=true` enabled for public testing until the multiplayer flow is stable.
+- The floating report button uses `bugReport.ts` to open a GitHub issue draft with sanitized game state and recent trace logs. Do not add client-side GitHub tokens.
 
 ## Gameplay Provider Boundary
 
@@ -125,6 +127,7 @@ VITE_GAME_TRANSPORT=spacetime \
 VITE_GAME_TRACE=true \
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com \
 VITE_SPACETIME_DB=elmental-v2 \
+VITE_BOT_FALLBACK_SECONDS=30 \
 pnpm --filter @elmental/tma dev
 ```
 
@@ -137,6 +140,7 @@ VITE_GAME_TRANSPORT=spacetime \
 VITE_GAME_TRACE=true \
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com \
 VITE_SPACETIME_DB=elmental-v2 \
+VITE_BOT_FALLBACK_SECONDS=30 \
 pnpm --filter @elmental/tma build
 ```
 
@@ -189,6 +193,7 @@ GitHub Pages deployment is handled by `.github/workflows/deploy-pages.yml` on pu
 - `VITE_GAME_TRANSPORT=spacetime`
 - `VITE_SPACETIME_URI=https://maincloud.spacetimedb.com`
 - `VITE_SPACETIME_DB=elmental-v2`
+- `VITE_BOT_FALLBACK_SECONDS=30`
 
 Vite uses `/elemgameV2/` as the base path when `GITHUB_PAGES=true`.
 
@@ -210,6 +215,7 @@ Watch for these regressions:
 - Result screens wait forever after a match is settled.
 - Matrix outcomes differ by player position.
 - Browser console shows SpacetimeDB SDK errors or subscription errors.
+- Bug report issue bodies miss `matchId`, score, phase, or recent `spacetime.server.event` rows.
 
 ## Editing Rules
 

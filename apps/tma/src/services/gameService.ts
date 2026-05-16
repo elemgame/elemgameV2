@@ -9,8 +9,10 @@ import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stor
 import { showAlert } from './telegram';
 import { playSound } from './audio';
 import { createMockProvider } from './gameProvider/mockProvider';
+import { recordGameLog } from './bugReport';
 import {
   createDefaultSpacetimeProvider,
+  getBotFallbackSeconds,
   getDatabaseName,
   getMatchRoom,
   getSpacetimeUri,
@@ -75,6 +77,7 @@ export async function startMatchmaking(): Promise<void> {
       mode: store.gameMode,
       room: getMatchRoom(),
       boostEnabled: store.boostEnabled,
+      botFallbackSeconds: getBotFallbackSeconds(),
     });
   } catch (err) {
     console.error('[game] Failed to join queue:', err);
@@ -412,6 +415,7 @@ function toStoreEnergyLevel(level: string): EnergyLevel {
 }
 
 function trace(event: string, data: Record<string, unknown>): void {
+  recordGameLog('info', event, data);
   if (!TRACE_ENABLED) return;
   console.info(`[elmental:client] ${event}`, data);
 }

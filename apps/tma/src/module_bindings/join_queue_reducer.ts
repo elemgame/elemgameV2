@@ -16,4 +16,5 @@ export default {
   mode: __t.string(),
   room: __t.string(),
   boostEnabled: __t.bool(),
+  botFallbackSeconds: __t.option(__t.u32()),
 };

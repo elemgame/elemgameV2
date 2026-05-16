@@ -1,4 +1,4 @@
-import { ScheduleAt } from 'spacetimedb';
+import { Identity, ScheduleAt } from 'spacetimedb';
 import { SenderError, schema, table, t } from 'spacetimedb/server';
 
 const STARTING_ENERGY = 100;
@@ -16,6 +16,10 @@ const ROUND_TIMEOUT_MICROS = 60_000_000n;
 const RESULT_TIMEOUT_MICROS = 60_000_000n;
 const QUEUE_TIMEOUT_MICROS = 180_000_000n;
 const GAME_TICK_MICROS = 2_000_000n;
+const BOT_FALLBACK_DEFAULT_SECONDS = 30;
+const BOT_FALLBACK_MAX_SECONDS = 120;
+const BOT_NAME = 'AI Practice Bot';
+const BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000001');
 
 const player = table(
   { name: 'player', public: true },
@@ -40,6 +44,7 @@ const queueEntry = table(
     room: t.string(),
     boostEnabled: t.bool(),
     joinedAtMicros: t.u64(),
+    botFallbackAtMicros: t.u64().optional().default(undefined),
   }
 );
 
@@ -134,6 +139,7 @@ export default spacetimedb;
 type IdentityLike = { isEqual(other: IdentityLike): boolean };
 type ReducerContext = any;
 type MatchRow = any;
+type QueueEntryRow = any;
 
 export const init = spacetimedb.init(ctx => {
   logEvent(ctx, 'system.init', undefined, 'SpacetimeDB module initialized');
@@ -182,8 +188,15 @@ export const set_profile = spacetimedb.reducer(
 );
 
 export const join_queue = spacetimedb.reducer(
-  { name: t.string(), stake: t.u32(), mode: t.string(), room: t.string(), boostEnabled: t.bool() },
-  (ctx, { name, stake, mode, room, boostEnabled }) => {
+  {
+    name: t.string(),
+    stake: t.u32(),
+    mode: t.string(),
+    room: t.string(),
+    boostEnabled: t.bool(),
+    botFallbackSeconds: t.u32().optional(),
+  },
+  (ctx, { name, stake, mode, room, boostEnabled, botFallbackSeconds }) => {
     const validatedName = validateName(name);
     const validatedMode = validateMode(mode);
     const validatedRoom = validateRoom(room);
@@ -191,7 +204,8 @@ export const join_queue = spacetimedb.reducer(
       throw new SenderError('Stake must be positive');
     }
 
-    cleanupQueue(ctx, nowMicros(ctx));
+    const now = nowMicros(ctx);
+    cleanupQueue(ctx, now, false);
 
     const playerRow = requirePlayer(ctx);
     ctx.db.player.identity.update({ ...playerRow, name: validatedName, online: true });
@@ -209,64 +223,33 @@ export const join_queue = spacetimedb.reducer(
       return;
     }
 
-    const opponent = findOpponent(ctx, stake, validatedMode, validatedRoom, nowMicros(ctx));
+    const currentEntry = {
+      identity: ctx.sender,
+      name: validatedName,
+      rating: playerRow.rating,
+      stake,
+      mode: validatedMode,
+      room: validatedRoom,
+      boostEnabled,
+      joinedAtMicros: now,
+      botFallbackAtMicros: botFallbackDeadline(now, botFallbackSeconds),
+    };
+
+    const opponent = findOpponent(ctx, stake, validatedMode, validatedRoom, now);
     if (!opponent) {
-      ctx.db.queueEntry.insert({
-        identity: ctx.sender,
-        name: validatedName,
-        rating: playerRow.rating,
-        stake,
-        mode: validatedMode,
-        room: validatedRoom,
-        boostEnabled,
-        joinedAtMicros: nowMicros(ctx),
-      });
-      logEvent(ctx, 'queue.joined', undefined, `${validatedName} joined ${validatedMode} queue`, `room=${validatedRoom} stake=${stake}`);
+      ctx.db.queueEntry.insert(currentEntry);
+      logEvent(
+        ctx,
+        'queue.joined',
+        undefined,
+        `${validatedName} joined ${validatedMode} queue`,
+        `room=${validatedRoom} stake=${stake} botFallbackAt=${currentEntry.botFallbackAtMicros ?? 'disabled'}`
+      );
       return;
     }
 
     ctx.db.queueEntry.identity.delete(opponent.identity);
-    const opponentPlayer = ctx.db.player.identity.find(opponent.identity);
-    const opponentRating = opponentPlayer?.rating ?? opponent.rating;
-
-    const inserted = ctx.db.matchState.insert({
-      id: 0n,
-      p1: opponent.identity,
-      p2: ctx.sender,
-      p1Name: opponent.name,
-      p2Name: validatedName,
-      p1Rating: opponentRating,
-      p2Rating: playerRow.rating,
-      stake,
-      mode: validatedMode,
-      room: validatedRoom,
-      phase: 'select',
-      status: 'active',
-      currentRound: 1,
-      p1Score: 0,
-      p2Score: 0,
-      p1Energy: opponent.boostEnabled ? STARTING_ENERGY + BOOST_EXTRA_ENERGY : STARTING_ENERGY,
-      p2Energy: boostEnabled ? STARTING_ENERGY + BOOST_EXTRA_ENERGY : STARTING_ENERGY,
-      p1BoostEnabled: opponent.boostEnabled,
-      p2BoostEnabled: boostEnabled,
-      p1CommitHash: undefined,
-      p2CommitHash: undefined,
-      p1RevealMove: undefined,
-      p2RevealMove: undefined,
-      p1RevealSalt: undefined,
-      p2RevealSalt: undefined,
-      winner: undefined,
-      replayHash: undefined,
-      createdAtMicros: nowMicros(ctx),
-      updatedAtMicros: nowMicros(ctx),
-    });
-    logEvent(
-      ctx,
-      'match.created',
-      inserted,
-      `Match ${inserted.id} created: ${opponent.name} vs ${validatedName}`,
-      `room=${validatedRoom} mode=${validatedMode} stake=${stake}`
-    );
+    createPlayerMatch(ctx, opponent, currentEntry, now);
   }
 );
 
@@ -328,6 +311,7 @@ export const submit_move = spacetimedb.reducer(
 
     const updated = setServerMove(ctx, match, side, move, 'player');
     logEvent(ctx, 'round.move_submitted', updated, `${side} submitted move`, `move=${move}`);
+    if (submitBotMoveIfReady(ctx, updated, nowMicros(ctx))) return;
     if (hasBothMoves(updated)) {
       resolveRound(ctx, updated);
     } else {
@@ -416,6 +400,7 @@ export const run_game_tick = spacetimedb.reducer({ arg: gameTick.rowType }, (ctx
   cleanupQueue(ctx, now);
   for (const match of ctx.db.matchState.iter()) {
     if (match.status !== 'active') continue;
+    if (submitBotMoveIfReady(ctx, match, now)) continue;
     if (match.phase === 'result') {
       if (now - match.updatedAtMicros >= RESULT_TIMEOUT_MICROS) {
         expireResultPhase(ctx, match);
@@ -430,8 +415,11 @@ export const run_game_tick = spacetimedb.reducer({ arg: gameTick.rowType }, (ctx
   scheduleNextTick(ctx);
 });
 
-function cleanupQueue(ctx: ReducerContext, now: bigint) {
+function cleanupQueue(ctx: ReducerContext, now: bigint, allowBotFallback = true) {
   for (const entry of ctx.db.queueEntry.iter()) {
+    const liveEntry = ctx.db.queueEntry.identity.find(entry.identity);
+    if (!liveEntry) continue;
+
     const activeMatch = findLatestActiveMatchForPlayer(ctx, entry.identity);
     if (activeMatch) {
       ctx.db.queueEntry.identity.delete(entry.identity);
@@ -442,6 +430,22 @@ function cleanupQueue(ctx: ReducerContext, now: bigint) {
         `${entry.name} removed from queue because an active match exists`,
         `room=${entry.room} identity=${identityHex(entry.identity)}`
       );
+      continue;
+    }
+
+    const opponent = findOpponentForEntry(ctx, entry, now);
+    if (opponent) {
+      const first = entry.joinedAtMicros <= opponent.joinedAtMicros ? entry : opponent;
+      const second = identityEquals(first.identity, entry.identity) ? opponent : entry;
+      ctx.db.queueEntry.identity.delete(first.identity);
+      ctx.db.queueEntry.identity.delete(second.identity);
+      createPlayerMatch(ctx, first, second, now);
+      continue;
+    }
+
+    if (allowBotFallback && entry.botFallbackAtMicros !== undefined && now >= entry.botFallbackAtMicros) {
+      ctx.db.queueEntry.identity.delete(entry.identity);
+      createBotMatch(ctx, entry, now);
       continue;
     }
 
@@ -652,6 +656,149 @@ function finishMatch(ctx: ReducerContext, match: MatchRow, winner: MatchRow['p1'
   }
 }
 
+function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry: QueueEntryRow, now: bigint) {
+  const p1Player = ctx.db.player.identity.find(p1Entry.identity);
+  const p2Player = ctx.db.player.identity.find(p2Entry.identity);
+  const inserted = ctx.db.matchState.insert({
+    id: 0n,
+    p1: p1Entry.identity,
+    p2: p2Entry.identity,
+    p1Name: p1Entry.name,
+    p2Name: p2Entry.name,
+    p1Rating: p1Player?.rating ?? p1Entry.rating,
+    p2Rating: p2Player?.rating ?? p2Entry.rating,
+    stake: p1Entry.stake,
+    mode: p1Entry.mode,
+    room: p1Entry.room,
+    phase: 'select',
+    status: 'active',
+    currentRound: 1,
+    p1Score: 0,
+    p2Score: 0,
+    p1Energy: p1Entry.boostEnabled ? STARTING_ENERGY + BOOST_EXTRA_ENERGY : STARTING_ENERGY,
+    p2Energy: p2Entry.boostEnabled ? STARTING_ENERGY + BOOST_EXTRA_ENERGY : STARTING_ENERGY,
+    p1BoostEnabled: p1Entry.boostEnabled,
+    p2BoostEnabled: p2Entry.boostEnabled,
+    p1CommitHash: undefined,
+    p2CommitHash: undefined,
+    p1RevealMove: undefined,
+    p2RevealMove: undefined,
+    p1RevealSalt: undefined,
+    p2RevealSalt: undefined,
+    winner: undefined,
+    replayHash: undefined,
+    createdAtMicros: now,
+    updatedAtMicros: now,
+  });
+  logEvent(
+    ctx,
+    'match.created',
+    inserted,
+    `Match ${inserted.id} created: ${p1Entry.name} vs ${p2Entry.name}`,
+    `room=${p1Entry.room} mode=${p1Entry.mode} stake=${p1Entry.stake}`
+  );
+  return inserted;
+}
+
+function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) {
+  const botPlayer = ensureBotPlayer(ctx);
+  const humanPlayer = ctx.db.player.identity.find(entry.identity);
+  const inserted = ctx.db.matchState.insert({
+    id: 0n,
+    p1: entry.identity,
+    p2: BOT_IDENTITY,
+    p1Name: entry.name,
+    p2Name: botPlayer.name,
+    p1Rating: humanPlayer?.rating ?? entry.rating,
+    p2Rating: botPlayer.rating,
+    stake: entry.stake,
+    mode: entry.mode,
+    room: entry.room,
+    phase: 'select',
+    status: 'active',
+    currentRound: 1,
+    p1Score: 0,
+    p2Score: 0,
+    p1Energy: entry.boostEnabled ? STARTING_ENERGY + BOOST_EXTRA_ENERGY : STARTING_ENERGY,
+    p2Energy: STARTING_ENERGY,
+    p1BoostEnabled: entry.boostEnabled,
+    p2BoostEnabled: false,
+    p1CommitHash: undefined,
+    p2CommitHash: undefined,
+    p1RevealMove: undefined,
+    p2RevealMove: undefined,
+    p1RevealSalt: undefined,
+    p2RevealSalt: undefined,
+    winner: undefined,
+    replayHash: undefined,
+    createdAtMicros: now,
+    updatedAtMicros: now,
+  });
+  logEvent(
+    ctx,
+    'bot.match_created',
+    inserted,
+    `Bot fallback match ${inserted.id} created for ${entry.name}`,
+    `room=${entry.room} mode=${entry.mode} stake=${entry.stake}`
+  );
+  return inserted;
+}
+
+function ensureBotPlayer(ctx: ReducerContext) {
+  const existing = ctx.db.player.identity.find(BOT_IDENTITY);
+  if (existing) {
+    const updated = { ...existing, name: BOT_NAME, online: true };
+    ctx.db.player.identity.update(updated);
+    return updated;
+  }
+
+  return ctx.db.player.insert({
+    identity: BOT_IDENTITY,
+    name: BOT_NAME,
+    online: true,
+    rating: INITIAL_RATING,
+    wins: 0,
+    losses: 0,
+  });
+}
+
+function submitBotMoveIfReady(ctx: ReducerContext, match: MatchRow, now: bigint) {
+  if (!isBotMatch(match)) return false;
+  if (match.status !== 'active') return false;
+  if (match.phase !== 'select' && match.phase !== 'commit' && match.phase !== 'reveal') return false;
+  if (match.p1RevealMove === undefined || match.p2RevealMove !== undefined) return false;
+
+  const move = pickBotMove(match.p1RevealMove);
+  const updated = setServerMove(ctx, match, 'p2', move, 'bot');
+  logEvent(
+    ctx,
+    'bot.move_submitted',
+    updated,
+    `Bot submitted move for match ${updated.id}`,
+    `humanMove=${match.p1RevealMove} botMove=${move}`
+  );
+
+  if (hasBothMoves(updated)) {
+    resolveRound(ctx, updated);
+  } else {
+    ctx.db.matchState.id.update({ ...updated, updatedAtMicros: now });
+  }
+  return true;
+}
+
+function isBotMatch(match: MatchRow) {
+  return isBotIdentity(match.p2);
+}
+
+function isBotIdentity(identity: IdentityLike) {
+  return identityEquals(identity, BOT_IDENTITY);
+}
+
+function pickBotMove(humanMove: number) {
+  const losingMoveByHumanMove = [2, 0, 1, 0, 1, 2];
+  return losingMoveByHumanMove[humanMove] ?? 0;
+}
+
 function setServerMove(ctx: ReducerContext, match: MatchRow, side: 'p1' | 'p2', move: number, source: string) {
   const salt = `${source}:${hashHex(`${match.id}:${match.currentRound}:${side}:${move}:${nowMicros(ctx)}`)}`;
   const update = {
@@ -686,6 +833,13 @@ function hasBothMoves(match: MatchRow) {
   );
 }
 
+function botFallbackDeadline(now: bigint, requestedSeconds?: number) {
+  const seconds = requestedSeconds ?? BOT_FALLBACK_DEFAULT_SECONDS;
+  if (seconds <= 0) return undefined;
+  const clamped = Math.min(Math.floor(seconds), BOT_FALLBACK_MAX_SECONDS);
+  return now + BigInt(clamped) * 1_000_000n;
+}
+
 function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: string, now: bigint) {
   let candidate: MatchRow | undefined = undefined;
   for (const entry of ctx.db.queueEntry.iter()) {
@@ -715,6 +869,40 @@ function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: st
     }
     if (entry.room !== room) continue;
     if (entry.stake !== stake || entry.mode !== mode) continue;
+    if (!candidate || entry.joinedAtMicros < candidate.joinedAtMicros) candidate = entry;
+  }
+  return candidate;
+}
+
+function findOpponentForEntry(ctx: ReducerContext, target: QueueEntryRow, now: bigint) {
+  let candidate: QueueEntryRow | undefined = undefined;
+  for (const entry of ctx.db.queueEntry.iter()) {
+    if (identityEquals(entry.identity, target.identity)) continue;
+    const activeMatch = findLatestActiveMatchForPlayer(ctx, entry.identity);
+    if (activeMatch) {
+      ctx.db.queueEntry.identity.delete(entry.identity);
+      logEvent(
+        ctx,
+        'queue.removed_active_match',
+        activeMatch,
+        `${entry.name} removed from queue because an active match exists`,
+        `room=${entry.room} identity=${identityHex(entry.identity)}`
+      );
+      continue;
+    }
+    if (now - entry.joinedAtMicros >= QUEUE_TIMEOUT_MICROS) {
+      ctx.db.queueEntry.identity.delete(entry.identity);
+      logEvent(
+        ctx,
+        'queue.expired',
+        undefined,
+        `${entry.name} removed from queue after timeout`,
+        `room=${entry.room} waitedMicros=${now - entry.joinedAtMicros}`
+      );
+      continue;
+    }
+    if (entry.room !== target.room) continue;
+    if (entry.stake !== target.stake || entry.mode !== target.mode) continue;
     if (!candidate || entry.joinedAtMicros < candidate.joinedAtMicros) candidate = entry;
   }
   return candidate;

@@ -77,6 +77,7 @@ try {
 
   browser = await chromium.launch({ headless, slowMo });
   await verifyRoomIsolation();
+  await verifyBotFallback();
   await verifyFullMatchAndForfeit();
   await verifyTimeoutScenarios();
   await verifySqlState();
@@ -128,6 +129,45 @@ async function verifyRoomIsolation() {
   snapshots.push({ scenario: 'room-isolation', rooms: [isolationRoomA, isolationRoomB] });
 }
 
+async function verifyBotFallback() {
+  const p1 = await newLabeledPage('bot-fallback');
+  const botRoom = `${room}-bot`;
+
+  await p1.goto(playerUrl('solo_bot', botRoom, { botFallbackSeconds: 2 }), {
+    waitUntil: 'domcontentloaded',
+    timeout: 30_000,
+  });
+  await clickButton(p1, /PLAY NOW/i, 30_000);
+  await waitReadyForMove(p1, 1, 35_000);
+  await p1.waitForFunction(() => /AI Practice Bot/i.test(document.body.innerText), undefined, { timeout: 10_000 });
+
+  for (let round = 1; round <= 3; round += 1) {
+    console.log(`[spacetime-local] bot fallback round ${round}: player Fire`);
+    await clickButton(p1, /FIRE\s*10/i);
+
+    if (round === 3) {
+      await waitFinalResult(p1, /VICTORY!/i, 30_000);
+      snapshots.push({
+        scenario: 'bot-fallback-final',
+        p1: await compactBody(p1, 450),
+      });
+      break;
+    }
+
+    await waitRoundResult(p1, /YOU WIN/i, `${round} : 0`);
+    snapshots.push({
+      scenario: 'bot-fallback',
+      round,
+      p1: await compactBody(p1, 450),
+    });
+    await clickButton(p1, /CONTINUE/i);
+    await waitRoundOverlayGone(p1);
+    await waitReadyForMove(p1, round + 1);
+  }
+
+  await p1.close();
+}
+
 async function verifyFullMatchAndForfeit() {
   const p1 = await newLabeledPage('p1');
   const p2 = await newLabeledPage('p2');
@@ -142,6 +182,10 @@ async function verifyFullMatchAndForfeit() {
     clickButton(p2, /PLAY NOW/i, 30_000),
   ]);
   await Promise.all([waitReadyForMove(p1, 1), waitReadyForMove(p2, 1)]);
+  await Promise.all([
+    assertNoText(p1, /AI Practice Bot/i, 'player 1 matched with bot despite real opponent'),
+    assertNoText(p2, /AI Practice Bot/i, 'player 2 matched with bot despite real opponent'),
+  ]);
   await expectSubmitMoveRejected(p1, 99, /Unknown move/i);
 
   for (let round = 1; round <= 3; round += 1) {
@@ -308,8 +352,14 @@ async function newLabeledPage(label) {
   return page;
 }
 
-function playerUrl(player, matchRoom) {
-  return `${tmaUrl}?player=${encodeURIComponent(player)}&room=${encodeURIComponent(matchRoom)}`;
+function playerUrl(player, matchRoom, extraParams = {}) {
+  const url = new URL(tmaUrl);
+  url.searchParams.set('player', player);
+  url.searchParams.set('room', matchRoom);
+  for (const [key, value] of Object.entries(extraParams)) {
+    url.searchParams.set(key, String(value));
+  }
+  return url.toString();
 }
 
 function wirePage(page, label) {

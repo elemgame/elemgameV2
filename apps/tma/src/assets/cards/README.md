@@ -1,6 +1,6 @@
 # Card Art Assets
 
-Drop optimized PNG card artwork here. The frontend auto-detects these files through `MoveArt`.
+Optimized PNG card artwork lives here. The frontend auto-detects these files through `MoveArt`.
 
 Expected files:
 
@@ -10,7 +10,7 @@ Expected files:
 | Fire | `Fire_Common.png` | `Fire_Epic.png` |
 | Water | `Water_Common.png` | `Water_Epic.png` |
 
-The original issue also lists `Rare` and `Immortal` variants. They can be added later without changing the current move mapping:
+Generated `Rare` and `Immortal` variants are also included so the asset set matches the original handoff contract:
 
 - `Earth_Rare.png`
 - `Earth_Immortal.png`
@@ -19,4 +19,4 @@ The original issue also lists `Rare` and `Immortal` variants. They can be added 
 - `Water_Rare.png`
 - `Water_Immortal.png`
 
-Keep each mobile asset below 200 KB where possible. If a file is missing, the UI falls back to the existing element icon.
+Keep each mobile asset below 200 KB. If a file is missing, the UI falls back to the existing element icon. Original production art can replace these PNGs without code changes if filenames stay the same.

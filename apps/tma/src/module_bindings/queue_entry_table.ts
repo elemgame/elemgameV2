@@ -19,4 +19,5 @@ export default __t.row({
   room: __t.string(),
   boostEnabled: __t.bool().name("boost_enabled"),
   joinedAtMicros: __t.u64().name("joined_at_micros"),
+  botFallbackAtMicros: __t.option(__t.u64()).name("bot_fallback_at_micros"),
 });
