@@ -11,6 +11,7 @@ import {
   resolveRound,
 } from '@elmental/shared';
 import { playerDisplayName } from '../playerProfile';
+import { balanceKindForUser } from '../economy';
 import type {
   GameplayProvider,
   GameplayProviderContext,
@@ -74,6 +75,7 @@ export function createMockProvider(
         type: 'playerStats',
         name: displayName(user),
         elmBalance: 1000,
+        balanceKind: balanceKindForUser(user),
         rating: 1200,
         wins: 12,
         losses: 8,
@@ -87,6 +89,7 @@ export function createMockProvider(
         type: 'playerStats',
         name: displayName(user),
         elmBalance: 1000,
+        balanceKind: balanceKindForUser(user),
         rating: 1200,
         wins: 12,
         losses: 8,
@@ -101,6 +104,7 @@ export function createMockProvider(
         room: request.room,
         mode: request.mode,
         stake: request.stake,
+        balanceKind: activeBalanceKind(),
       });
 
       schedule(() => {
@@ -127,6 +131,7 @@ export function createMockProvider(
         context.emit({
           type: 'matchFound',
           matchId: match.id,
+          balanceKind: activeBalanceKind(),
           opponentName,
           opponentRating,
           isPlayer1: true,
@@ -236,6 +241,7 @@ export function createMockProvider(
     context.emit({
       type: 'roundResult',
       matchId: match.id,
+      balanceKind: activeBalanceKind(),
       round: match.currentRound,
       myMove: finalPlayerMove,
       opponentMove,
@@ -278,6 +284,7 @@ export function createMockProvider(
     context.emit({
       type: 'matchUpdate',
       matchId: match.id,
+      balanceKind: activeBalanceKind(),
       phase: match.phase === 'result' ? 'result' : match.phase,
       status: 'active',
       currentRound: match.currentRound,
@@ -295,6 +302,7 @@ export function createMockProvider(
     context.emit({
       type: 'matchSettled',
       matchId: match.id,
+      balanceKind: activeBalanceKind(),
       winner,
       myScore: match.myScore,
       opponentScore: match.opponentScore,
@@ -320,6 +328,10 @@ export function createMockProvider(
 
   function trace(event: string, data: Record<string, unknown>): void {
     context.emit({ type: 'trace', event, data });
+  }
+
+  function activeBalanceKind(): string {
+    return balanceKindForUser(currentUser);
   }
 
   return provider;

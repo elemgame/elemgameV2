@@ -176,6 +176,7 @@ function gameSnapshot(): Record<string, unknown> {
     currentScreen: state.currentScreen,
     matchStatus: state.matchStatus,
     matchId: state.matchId,
+    matchBalanceKind: state.matchBalanceKind,
     isPlayer1: state.isPlayer1,
     opponentName: state.opponentName,
     opponentRating: state.opponentRating,
@@ -199,6 +200,7 @@ function gameSnapshot(): Record<string, unknown> {
     economy: {
       currency,
       balanceKind,
+      matchBalanceKind: state.matchBalanceKind,
       balance: state.elmBalance,
     },
     user: state.telegramUser

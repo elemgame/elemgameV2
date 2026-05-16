@@ -33,6 +33,7 @@ export interface TelegramUser {
 
 export interface MatchResult {
   winner: 'me' | 'opponent' | 'draw';
+  balanceKind: string;
   myScore: number;
   opponentScore: number;
   elmEarned: number;
@@ -114,6 +115,7 @@ interface GameStore {
 
   // Match state
   matchId: string | null;
+  matchBalanceKind: string;
   isPlayer1: boolean;
   matchStatus: MatchStatus;
   opponentName: string;
@@ -137,6 +139,7 @@ interface GameStore {
   cancelMatchmaking: () => void;
   setMatchFound: (
     matchId: string,
+    balanceKind: string,
     opponentName: string,
     opponentRating: number,
     isPlayer1?: boolean,
@@ -197,6 +200,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // Match state
   matchId: null,
+  matchBalanceKind: 'demo_teml',
   isPlayer1: true,
   matchStatus: 'idle',
   opponentName: '',
@@ -223,9 +227,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cancelMatchmaking: () =>
     set({ matchStatus: 'idle', currentScreen: 'home' }),
 
-  setMatchFound: (matchId, opponentName, opponentRating, isPlayer1 = true) =>
+  setMatchFound: (matchId, balanceKind, opponentName, opponentRating, isPlayer1 = true) =>
     set({
       matchId,
+      matchBalanceKind: balanceKind,
       isPlayer1,
       opponentName,
       opponentRating,
@@ -296,6 +301,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetMatch: () =>
     set({
       matchId: null,
+      matchBalanceKind: 'demo_teml',
       isPlayer1: true,
       matchStatus: 'idle',
       opponentName: '',

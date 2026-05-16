@@ -9,7 +9,7 @@ import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stor
 import { showAlert } from './telegram';
 import { playSound } from './audio';
 import { playerAccountId, playerDisplayName } from './playerProfile';
-import { currencyForUser, formatCurrencyAmount } from './economy';
+import { currencyForBalanceKind, formatCurrencyAmount } from './economy';
 import { createMockProvider } from './gameProvider/mockProvider';
 import { recordGameLog } from './bugReport';
 import {
@@ -168,6 +168,10 @@ function handleProviderEvent(event: GameplayProviderEvent): void {
       return;
 
     case 'playerStats':
+      trace('player.stats', {
+        balance: event.elmBalance,
+        balanceKind: event.balanceKind,
+      });
       useGameStore.getState().setPlayerStats({
         elmBalance: event.elmBalance,
         rating: event.rating,
@@ -221,7 +225,7 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
 
   if (!deductedMatchIds.has(event.matchId)) {
     deductedMatchIds.add(event.matchId);
-    const currency = activeCurrency();
+    const currency = currencyForBalanceKind(event.balanceKind);
     if (FORCE_MOCK) {
       store.setPlayerStats({
         elmBalance: store.elmBalance - event.stake - event.boostStake,
@@ -241,9 +245,10 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
     opponentName: event.opponentName,
     opponentRating: event.opponentRating,
     isPlayer1: event.isPlayer1,
+    balanceKind: event.balanceKind,
   });
   useGameStore.setState({ matchStake: event.stake, matchBoostStake: event.boostStake });
-  store.setMatchFound(event.matchId, event.opponentName, event.opponentRating, event.isPlayer1);
+  store.setMatchFound(event.matchId, event.balanceKind, event.opponentName, event.opponentRating, event.isPlayer1);
   useGameStore.setState({
     currentRound: event.currentRound,
     myEnergy: event.myEnergy,
@@ -314,7 +319,7 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
   const isDraw = event.winner === 'draw';
   const { winnerPayout, rake } = calculatePayout(event.stake, RAKE_PERCENT);
   const boostStake = store.matchBoostStake;
-  const currency = activeCurrency();
+  const currency = currencyForBalanceKind(event.balanceKind);
 
   let ratingDelta = 0;
   if (!isDraw) {
@@ -353,6 +358,7 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
 
   store.setMatchResult({
     winner: event.winner,
+    balanceKind: event.balanceKind,
     myScore: event.myScore,
     opponentScore: event.opponentScore,
     elmEarned: isDraw ? 0 : won ? winnerPayout - event.stake + boostStake : -event.stake - boostStake,
@@ -440,9 +446,4 @@ function trace(event: string, data: Record<string, unknown>): void {
   recordGameLog('info', event, data);
   if (!TRACE_ENABLED) return;
   console.info(`[elmental:client] ${event}`, data);
-}
-
-function activeCurrency() {
-  const store = useGameStore.getState();
-  return currencyForUser(store.telegramUser ?? currentUser);
 }

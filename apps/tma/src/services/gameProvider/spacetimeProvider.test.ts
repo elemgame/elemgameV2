@@ -70,6 +70,7 @@ describe('SpacetimeDB provider mappers', () => {
 
     expect(p1Result).toMatchObject({
       type: 'roundResult',
+      balanceKind: 'demo_teml',
       myMove: MoveId.Fire,
       opponentMove: MoveId.Earth,
       result: 'win',
@@ -80,6 +81,7 @@ describe('SpacetimeDB provider mappers', () => {
     });
     expect(p2Result).toMatchObject({
       type: 'roundResult',
+      balanceKind: 'demo_teml',
       myMove: MoveId.Earth,
       opponentMove: MoveId.Fire,
       result: 'lose',

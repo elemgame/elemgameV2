@@ -44,6 +44,7 @@ describe('bug report issue builder', () => {
       economy: {
         currency: 'tELM',
         balanceKind: 'demo_teml',
+        matchBalanceKind: 'demo_teml',
         balance: 1000,
       },
     }));
@@ -53,6 +54,7 @@ describe('bug report issue builder', () => {
     expect(body).toContain('"database": "elmental-v2"');
     expect(body).toContain('"currency": "tELM"');
     expect(body).toContain('"balanceKind": "demo_teml"');
+    expect(body).toContain('"matchBalanceKind": "demo_teml"');
   });
 });
 

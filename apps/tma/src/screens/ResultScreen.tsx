@@ -5,7 +5,7 @@ import { RAKE_PERCENT, getMoveInfo } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { applyResults } from '../services/gameService';
 import { playSound } from '../services/audio';
-import { currencyForUser, formatCurrencyAmount } from '../services/economy';
+import { currencyForBalanceKind, formatCurrencyAmount } from '../services/economy';
 import { TrophyIcon } from '../components/icons/TrophyIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { HandshakeIcon } from '../components/icons/HandshakeIcon';
@@ -48,9 +48,7 @@ export function ResultScreen() {
     roundHistory,
     resetMatch,
     setScreen,
-    telegramUser,
   } = useGameStore();
-  const currency = currencyForUser(telegramUser);
 
   const hasFiredHaptic = useRef(false);
 
@@ -93,6 +91,7 @@ export function ResultScreen() {
   const isWin = matchResult.winner === 'me';
   const isDraw = matchResult.winner === 'draw';
   const isLose = matchResult.winner === 'opponent';
+  const currency = currencyForBalanceKind(matchResult.balanceKind);
 
   const resultConfig = isWin
     ? {
