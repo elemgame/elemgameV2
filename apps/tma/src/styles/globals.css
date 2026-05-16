@@ -93,8 +93,6 @@
   .btn-play {
     @apply btn text-bg-base text-xl font-black px-10 py-4 rounded-2xl;
     background: linear-gradient(135deg, #ffd700, #ff8c00);
-    box-shadow: 0 6px 32px rgba(255, 215, 0, 0.5), 0 0 0 0 rgba(255, 215, 0, 0.4);
-    animation: play-pulse 2s ease-in-out infinite;
   }
 
   .btn-ghost {
@@ -266,8 +264,8 @@
 }
 
 .btn-play.nav-focused {
-  outline-color: #ffd700;
-  box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.25), 0 6px 32px rgba(255, 215, 0, 0.7) !important;
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
 }
 
 .glass-card button.nav-focused,
