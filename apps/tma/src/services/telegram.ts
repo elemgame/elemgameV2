@@ -61,6 +61,17 @@ export interface TelegramWebApp {
   showConfirm(message: string, cb?: (confirmed: boolean) => void): void;
 }
 
+export interface WebUserProfile {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+}
+
+const WEB_USER_STORAGE_KEY = 'elmental.webUser';
+const LEGACY_WEB_USER_STORAGE_KEY = 'elmental.devUser';
+
 declare global {
   interface Window {
     Telegram?: {
@@ -156,32 +167,30 @@ export function getMockUser() {
   const params = new URLSearchParams(window.location.search);
   const explicitName = params.get('player') ?? params.get('user');
   if (explicitName) {
+    const cleanName = sanitizeWebUserName(explicitName) || 'Player';
     let hash = 0;
-    for (let i = 0; i < explicitName.length; i++) {
-      hash = (hash * 31 + explicitName.charCodeAt(i)) >>> 0;
+    for (let i = 0; i < cleanName.length; i++) {
+      hash = (hash * 31 + cleanName.charCodeAt(i)) >>> 0;
     }
     return {
       id: 100_000_000 + (hash % 800_000_000),
-      first_name: explicitName,
+      first_name: cleanName,
       last_name: undefined,
-      username: explicitName.toLowerCase().replace(/[^a-z0-9_]/g, '_'),
+      username: userNameFromDisplayName(cleanName),
       photo_url: undefined,
     };
   }
 
-  const storageKey = 'elmental.devUser';
-  const stored = sessionStorage.getItem(storageKey);
+  const stored = readStorage(WEB_USER_STORAGE_KEY) ?? readStorage(LEGACY_WEB_USER_STORAGE_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored) as {
-        id: number;
-        first_name: string;
-        last_name?: string;
-        username?: string;
-        photo_url?: string;
-      };
+      const user = JSON.parse(stored) as WebUserProfile;
+      if (typeof user.id === 'number' && typeof user.first_name === 'string') {
+        return saveWebUser(user);
+      }
     } catch {
-      sessionStorage.removeItem(storageKey);
+      removeStorage(WEB_USER_STORAGE_KEY);
+      removeStorage(LEGACY_WEB_USER_STORAGE_KEY);
     }
   }
 
@@ -193,8 +202,73 @@ export function getMockUser() {
     username: `player_${String(id).slice(-6)}`,
     photo_url: undefined,
   };
-  sessionStorage.setItem(storageKey, JSON.stringify(user));
-  return {
-    ...user,
+  return saveWebUser(user);
+}
+
+export function saveWebUser(user: WebUserProfile): WebUserProfile {
+  const firstName = sanitizeWebUserName(user.first_name) || `Player${String(user.id).slice(-4)}`;
+  const saved = {
+    id: user.id,
+    first_name: firstName,
+    last_name: undefined,
+    username: userNameFromDisplayName(firstName),
+    photo_url: user.photo_url,
   };
+  const payload = JSON.stringify(saved);
+  writeStorage(WEB_USER_STORAGE_KEY, payload);
+  writeStorage(LEGACY_WEB_USER_STORAGE_KEY, payload);
+  return saved;
+}
+
+export function sanitizeWebUserName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').slice(0, 32);
+}
+
+export function userNameFromDisplayName(name: string): string {
+  const normalized = sanitizeWebUserName(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 32);
+  return normalized || 'player';
+}
+
+function readStorage(key: string): string | null {
+  try {
+    const localValue = window.localStorage.getItem(key);
+    if (localValue) return localValue;
+  } catch {
+    // Ignore storage restrictions.
+  }
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage restrictions.
+  }
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Ignore storage restrictions.
+  }
+}
+
+function removeStorage(key: string): void {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage restrictions.
+  }
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Ignore storage restrictions.
+  }
 }

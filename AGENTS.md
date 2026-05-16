@@ -158,7 +158,15 @@ TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/' \
 pnpm telegram:configure
 ```
 
+When the token is stored in GitHub, run the manual `Configure Telegram Bot` workflow instead:
+
+```bash
+gh workflow run configure-telegram.yml --repo elemgame/elemgameV2
+```
+
 The token must never be committed. Detailed launch notes are in `docs/telegram-launch.md`.
+
+Browser fallback users are editable from Profile and persist in browser storage. Telegram users keep the profile name supplied by Telegram WebApp init data.
 
 ## Deployment
 

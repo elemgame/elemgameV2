@@ -1,0 +1,26 @@
+name: Configure Telegram Bot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configure bot commands and menu button
+        run: node scripts/configure-telegram-bot.mjs
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || vars.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBAPP_URL: ${{ vars.TELEGRAM_WEBAPP_URL || secrets.TELEGRAM_WEBAPP_URL }}

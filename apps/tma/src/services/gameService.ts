@@ -97,6 +97,21 @@ export async function initializeGameSession(user: AuthUserInput): Promise<void> 
   }
 }
 
+export async function updatePlayerProfile(user: AuthUserInput): Promise<void> {
+  currentUser = user;
+  trace('session.profile.update', { user: displayName(user), transport: TRANSPORT });
+  if (FORCE_MOCK) return;
+
+  const connection = await ensureConnection(user);
+  try {
+    trace('reducer.setProfile.call', { name: displayName(user), reason: 'profile-edit' });
+    await connection.reducers.setProfile({ name: displayName(user) });
+  } catch (err) {
+    reportReducerError(err);
+    throw err;
+  }
+}
+
 async function ensureConnection(user?: AuthUserInput): Promise<DbConnection> {
   if (conn?.isActive) return conn;
   if (connectPromise) return connectPromise;

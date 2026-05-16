@@ -226,6 +226,14 @@ The same smoke is available as the manual GitHub Actions workflow `Public Multip
 
 Telegram launch for the public mechanics instance is documented in `docs/telegram-launch.md`.
 
+GitHub has a manual `Configure Telegram Bot` workflow that reads `TELEGRAM_BOT_TOKEN` from repository secrets/variables and `TELEGRAM_WEBAPP_URL` from repository variables:
+
+```bash
+gh workflow run configure-telegram.yml --repo elemgame/elemgameV2
+```
+
+The same configuration can be run locally when the token is available:
+
 ```bash
 export TELEGRAM_BOT_TOKEN='...'
 export TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/'
@@ -233,6 +241,8 @@ pnpm telegram:configure
 ```
 
 This configures bot commands and the Telegram menu button. The token must stay outside git.
+
+Outside Telegram, browser users can edit their public name from Profile. Telegram users are read from the Telegram profile and are not editable inside the app.
 
 ### Local Test Multiplayer Instance
 
@@ -315,7 +325,7 @@ elmental-v2/
 ### Phase 2: Infrastructure
 - [x] Local SpacetimeDB test instance for real multiplayer mechanics
 - [x] Production SpacetimeDB deployment
-- [ ] Telegram Bot configuration ([#19](https://github.com/elemgame/elemgameV2/issues/19))
+- [x] Telegram Bot configuration ([#19](https://github.com/elemgame/elemgameV2/issues/19))
 - [x] CI/CD pipeline ([#11](https://github.com/elemgame/elemgameV2/issues/11))
 
 ### Phase 3: Blockchain

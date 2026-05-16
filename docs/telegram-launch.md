@@ -10,6 +10,19 @@ The current mechanics test instance runs from GitHub Pages and SpacetimeDB Cloud
 
 Do not commit the bot token.
 
+From GitHub repository secrets/variables, run the manual workflow:
+
+```bash
+gh workflow run configure-telegram.yml --repo elemgame/elemgameV2
+```
+
+Required repository configuration:
+
+- `TELEGRAM_BOT_TOKEN`: repository secret preferred; repository variable also works.
+- `TELEGRAM_WEBAPP_URL`: repository variable, currently `https://elemgame.github.io/elemgameV2/`.
+
+Local fallback:
+
 ```bash
 export TELEGRAM_BOT_TOKEN='...'
 export TELEGRAM_WEBAPP_URL='https://elemgame.github.io/elemgameV2/'
@@ -68,3 +81,5 @@ Browser fallback remains available for smoke testing outside Telegram:
 https://elemgame.github.io/elemgameV2/?player=alice&room=public
 https://elemgame.github.io/elemgameV2/?player=bob&room=public
 ```
+
+Without `player`/`user` URL parameters, browser users can edit their public name from Profile. The name is stored in browser storage and synced to SpacetimeDB with `setProfile`; Telegram names stay read-only because Telegram profile data is the source of truth.

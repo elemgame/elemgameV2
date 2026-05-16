@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
+import { updatePlayerProfile } from '../services/gameService';
+import { haptic, sanitizeWebUserName, saveWebUser } from '../services/telegram';
 import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
 import { StarIcon } from '../components/icons/StarIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
@@ -11,11 +13,22 @@ import { FlameIcon } from '../components/icons/FlameIcon';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 
 export function ProfileScreen() {
-  const { telegramUser, rating, stats, elmBalance, setScreen, transactions } = useGameStore();
+  const { telegramUser, rating, stats, elmBalance, setScreen, setTelegramUser, transactions } = useGameStore();
 
   const displayName = telegramUser
     ? `${telegramUser.first_name}${telegramUser.last_name ? ` ${telegramUser.last_name}` : ''}`
     : 'Player';
+  const isWebUser = telegramUser?.source === 'web';
+  const [draftName, setDraftName] = useState(displayName);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const cleanDraftName = useMemo(() => sanitizeWebUserName(draftName), [draftName]);
+  const canSaveWebName =
+    isWebUser && cleanDraftName.length > 0 && cleanDraftName !== displayName && saveStatus !== 'saving';
+
+  useEffect(() => {
+    setDraftName(displayName);
+    setSaveStatus('idle');
+  }, [displayName]);
 
   const winRate =
     stats.wins + stats.losses > 0
@@ -23,6 +36,30 @@ export function ProfileScreen() {
       : 0;
 
   const totalGames = stats.wins + stats.losses;
+
+  const handleSaveWebName = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!telegramUser || !isWebUser || !cleanDraftName) return;
+
+    setSaveStatus('saving');
+    const savedUser = saveWebUser({
+      id: telegramUser.id,
+      first_name: cleanDraftName,
+      photo_url: telegramUser.photo_url,
+    });
+    const nextUser = { ...savedUser, source: 'web' as const };
+    setTelegramUser(nextUser);
+    setDraftName(savedUser.first_name);
+
+    try {
+      await updatePlayerProfile(nextUser);
+      haptic.success();
+      setSaveStatus('saved');
+    } catch {
+      haptic.error();
+      setSaveStatus('error');
+    }
+  };
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide bg-game-bg">
@@ -71,6 +108,53 @@ export function ProfileScreen() {
               <div className="text-sm text-text-secondary">@{telegramUser.username}</div>
             )}
           </div>
+
+          {isWebUser && (
+            <form className="w-full flex flex-col gap-2" onSubmit={handleSaveWebName}>
+              <label className="text-[10px] text-text-secondary font-semibold uppercase tracking-widest">
+                Web username
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  data-nav
+                  aria-label="Web username"
+                  className="min-w-0 flex-1 rounded-xl border border-bg-border bg-bg-elevated px-3 py-2 text-sm font-bold text-text-primary outline-none focus:border-water"
+                  value={draftName}
+                  maxLength={32}
+                  onChange={(event) => {
+                    setDraftName(event.target.value);
+                    if (saveStatus !== 'idle') setSaveStatus('idle');
+                  }}
+                />
+                <motion.button
+                  data-nav
+                  type="submit"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-40"
+                  style={{
+                    background: canSaveWebName ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.06)',
+                    border: canSaveWebName ? '1px solid rgba(34,197,94,0.45)' : '1px solid rgba(255,255,255,0.1)',
+                  }}
+                  disabled={!canSaveWebName}
+                  whileTap={canSaveWebName ? { scale: 0.95 } : {}}
+                >
+                  <CheckIcon size={18} className={canSaveWebName ? 'text-energy-high' : 'text-text-muted'} />
+                </motion.button>
+              </div>
+              {saveStatus !== 'idle' && (
+                <div
+                  className={`text-xs ${
+                    saveStatus === 'error'
+                      ? 'text-energy-low'
+                      : saveStatus === 'saved'
+                        ? 'text-energy-high'
+                        : 'text-text-secondary'
+                  }`}
+                >
+                  {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Save failed'}
+                </div>
+              )}
+            </form>
+          )}
 
           {/* Rating badge */}
           <div

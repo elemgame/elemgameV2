@@ -20,6 +20,7 @@ export interface TelegramUser {
   last_name?: string;
   username?: string;
   photo_url?: string;
+  source: 'telegram' | 'web';
 }
 
 export interface MatchResult {

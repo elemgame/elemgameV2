@@ -24,6 +24,7 @@ export default function App() {
 
     const tgUser = getTelegramUser();
     const user = tgUser ?? getMockUser();
+    const source = tgUser ? 'telegram' : 'web';
 
     setTelegramUser({
       id: user.id,
@@ -31,6 +32,7 @@ export default function App() {
       last_name: user.last_name,
       username: user.username,
       photo_url: user.photo_url,
+      source,
     });
 
     setPlayerStats({
