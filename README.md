@@ -1,5 +1,8 @@
 # ELMENTAL
 
+[![CI](https://github.com/elemgame/elemgameV2/actions/workflows/ci.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/ci.yml)
+[![Deploy TMA to GitHub Pages](https://github.com/elemgame/elemgameV2/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/deploy-pages.yml)
+
 ### Strategic PvP on Blockchain. Not luck. Pressure.
 
 ---
