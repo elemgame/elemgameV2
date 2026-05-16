@@ -1,0 +1,48 @@
+name: Public Timeout Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      public_tma_url:
+        description: Public TMA URL to test
+        required: false
+        default: https://elemgame.github.io/elemgameV2/
+      room_prefix:
+        description: Optional room prefix; generated when empty
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  timeout-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run public timeout smoke
+        run: pnpm smoke:public-timeouts
+        env:
+          PUBLIC_TMA_URL: ${{ inputs.public_tma_url }}
+          SMOKE_ROOM_PREFIX: ${{ inputs.room_prefix }}

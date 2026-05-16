@@ -3,6 +3,7 @@
 [![CI](https://github.com/elemgame/elemgameV2/actions/workflows/ci.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/ci.yml)
 [![Deploy TMA to GitHub Pages](https://github.com/elemgame/elemgameV2/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/deploy-pages.yml)
 [![Public Multiplayer Smoke](https://github.com/elemgame/elemgameV2/actions/workflows/public-smoke.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/public-smoke.yml)
+[![Public Timeout Smoke](https://github.com/elemgame/elemgameV2/actions/workflows/public-timeout-smoke.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/public-timeout-smoke.yml)
 
 ### Strategic PvP on Blockchain. Not luck. Pressure.
 
@@ -214,9 +215,12 @@ pnpm --filter @elmental/shared build
 pnpm test:matrix-parity
 pnpm exec playwright install chromium
 pnpm smoke:public-match
+pnpm smoke:public-timeouts
 ```
 
 The same smoke is available as the manual GitHub Actions workflow `Public Multiplayer Smoke`. It opens two browser clients against GitHub Pages, verifies matchmaking, three round resolutions, final result, Play Again, and fails on browser console errors or warnings.
+
+`Public Timeout Smoke` is a longer manual workflow for reconnect/timeout behavior. It verifies a one-player timeout win and a both-player disconnect/reconnect draw recovery against the public SpacetimeDB instance.
 
 ### Local Test Multiplayer Instance
 

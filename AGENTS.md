@@ -144,9 +144,11 @@ Public multiplayer smoke:
 ```bash
 pnpm exec playwright install chromium
 pnpm smoke:public-match
+pnpm smoke:public-timeouts
 ```
 
 The `Public Multiplayer Smoke` GitHub Actions workflow runs the same browser test manually against GitHub Pages and SpacetimeDB Cloud. It should stay manual unless we intentionally want every push to create cloud test matches.
+The longer `Public Timeout Smoke` workflow verifies one-player timeout win and both-player disconnect/reconnect draw recovery.
 
 ## Deployment
 
