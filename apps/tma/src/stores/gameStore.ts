@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { GameMode } from '@elmental/shared';
+import { isAudioEnabled, setAudioEnabled } from '../services/audio';
 
 export type Screen =
   | 'home'
@@ -157,8 +158,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   boostEnabled: false,
   setGameMode: (mode) => set({ gameMode: mode }),
   setBoostEnabled: (enabled) => set({ boostEnabled: enabled }),
-  soundEnabled: true,
-  setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
+  soundEnabled: isAudioEnabled(),
+  setSoundEnabled: (enabled) => {
+    setAudioEnabled(enabled);
+    set({ soundEnabled: enabled });
+  },
 
   // Economy
   transactions: [],

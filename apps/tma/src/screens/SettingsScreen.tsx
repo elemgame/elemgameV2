@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
 import { GameMode } from '@elmental/shared';
 import { haptic } from '../services/telegram';
+import { playSound } from '../services/audio';
 import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
@@ -74,7 +75,9 @@ function ToggleRow({ icon, label, desc, value, onChange }: ToggleRowProps) {
         }}
         onClick={() => {
           haptic.selection();
-          onChange(!value);
+          const next = !value;
+          onChange(next);
+          if (next) playSound('moveSelect');
         }}
       >
         <motion.div

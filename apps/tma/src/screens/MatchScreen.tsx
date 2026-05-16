@@ -9,6 +9,7 @@ import { OpponentInfo } from '../components/OpponentInfo';
 import { RoundResult } from '../components/RoundResult';
 import { submitMove, advanceRound, forfeitMatch } from '../services/gameService';
 import { haptic } from '../services/telegram';
+import { playSound } from '../services/audio';
 import { STARTING_ENERGY, BOOST_EXTRA_ENERGY } from '@elmental/shared';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { HourglassIcon } from '../components/icons/HourglassIcon';
@@ -49,7 +50,17 @@ export function MatchScreen() {
   // Show result overlay when phase becomes 'result'
   useEffect(() => {
     if (roundPhase === 'result') {
-      haptic.success();
+      if (lastRoundResult?.result === 'win') {
+        haptic.success();
+        playSound('roundWin');
+      } else if (lastRoundResult?.result === 'lose') {
+        haptic.error();
+        playSound('roundLose');
+      } else {
+        haptic.warning();
+        playSound('roundDraw');
+      }
+      if (lastRoundResult?.wasOverclocked) playSound('overclock');
       setShowRoundResult(true);
       return;
     }
@@ -59,6 +70,7 @@ export function MatchScreen() {
   const handleMoveSelect = (moveId: MoveId) => {
     if (roundPhase !== 'select') return;
     haptic.medium();
+    playSound('moveSelect');
     void submitMove(moveId);
   };
 

@@ -4,6 +4,7 @@ import { useGameStore } from '../stores/gameStore';
 import { RAKE_PERCENT } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { applyResults } from '../services/gameService';
+import { playSound } from '../services/audio';
 import { EarthIcon } from '../components/icons/EarthIcon';
 import { FireIcon } from '../components/icons/FireIcon';
 import { WaterIcon } from '../components/icons/WaterIcon';
@@ -73,10 +74,13 @@ export function ResultScreen() {
     hasFiredHaptic.current = true;
     if (matchResult.winner === 'me') {
       haptic.success();
+      playSound('matchWin');
     } else if (matchResult.winner === 'opponent') {
       haptic.error();
+      playSound('matchLose');
     } else {
       haptic.warning();
+      playSound('matchDraw');
     }
   }, [matchResult]);
 

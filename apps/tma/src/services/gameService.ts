@@ -18,6 +18,7 @@ import type {
 } from '../module_bindings/types';
 import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stores/gameStore';
 import { showAlert } from './telegram';
+import { playSound } from './audio';
 import {
   startMockMatchmaking,
   cancelMockMatchmaking,
@@ -234,6 +235,7 @@ export async function submitMove(moveId: MoveId): Promise<void> {
 
   stopRoundTimer();
   store.selectMove(moveId);
+  playSound('commit');
   pendingReveal = null;
 
   trace('move.submit.call', {
@@ -686,6 +688,7 @@ function startRoundTimer(): void {
       return;
     }
 
+    if (next <= 5) playSound('timerTick');
     store.setRoundTimer(next);
   }, 1000);
 }
