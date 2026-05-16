@@ -20,6 +20,10 @@ const BOT_FALLBACK_DEFAULT_SECONDS = 30;
 const BOT_FALLBACK_MAX_SECONDS = 120;
 const BOT_NAME = 'AI Practice Bot';
 const BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000001');
+const INITIAL_BALANCE = 1000;
+const BOT_BALANCE = 1_000_000;
+const RAKE_PERCENT = 5;
+const BOOST_STAKE_PERCENT = 10;
 
 const player = table(
   { name: 'player', public: true },
@@ -30,6 +34,7 @@ const player = table(
     rating: t.i32(),
     wins: t.u32(),
     losses: t.u32(),
+    balance: t.i32().default(INITIAL_BALANCE),
   }
 );
 
@@ -149,7 +154,7 @@ export const init = spacetimedb.init(ctx => {
 export const onConnect = spacetimedb.clientConnected(ctx => {
   const existing = ctx.db.player.identity.find(ctx.sender);
   if (existing) {
-    ctx.db.player.identity.update({ ...existing, online: true });
+    ctx.db.player.identity.update({ ...existing, online: true, balance: existing.balance ?? INITIAL_BALANCE });
     logEvent(ctx, 'player.connected', undefined, `Player reconnected ${existing.name}`, identityHex(ctx.sender));
     return;
   }
@@ -161,6 +166,7 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
     rating: INITIAL_RATING,
     wins: 0,
     losses: 0,
+    balance: INITIAL_BALANCE,
   });
   logEvent(ctx, 'player.connected', undefined, `Player connected ${shortIdentity(ctx.sender)}`, identityHex(ctx.sender));
 });
@@ -208,6 +214,7 @@ export const join_queue = spacetimedb.reducer(
     cleanupQueue(ctx, now, false);
 
     const playerRow = requirePlayer(ctx);
+    assertCanStake(playerRow, totalStake(stake, boostEnabled));
     ctx.db.player.identity.update({ ...playerRow, name: validatedName, online: true });
     ctx.db.queueEntry.identity.delete(ctx.sender);
 
@@ -590,8 +597,10 @@ function resolveRound(ctx: ReducerContext, match: MatchRow) {
 }
 
 function expireMatchAsDraw(ctx: ReducerContext, match: MatchRow, reason: string) {
+  if (match.status === 'settled') return;
   const replayHash = hashHex(`${match.id}:draw:${match.currentRound}:${nowMicros(ctx)}`);
   logEvent(ctx, 'match.expired_draw', match, reason, `score=${match.p1Score}:${match.p2Score}`);
+  refundDrawBalances(ctx, match);
   ctx.db.matchState.id.update({
     ...match,
     phase: 'complete',
@@ -621,6 +630,7 @@ function finishByCurrentScoreOrDraw(ctx: ReducerContext, match: MatchRow, reason
 }
 
 function finishMatch(ctx: ReducerContext, match: MatchRow, winner: MatchRow['p1']) {
+  if (match.status === 'settled') return;
   const replayHash = hashHex(`${match.id}:${match.p1Score}:${match.p2Score}:${match.currentRound}`);
   logEvent(
     ctx,
@@ -643,10 +653,14 @@ function finishMatch(ctx: ReducerContext, match: MatchRow, winner: MatchRow['p1'
   const loserPlayer = ctx.db.player.identity.find(loser);
   if (winnerPlayer && loserPlayer) {
     const [newWinner, newLoser] = calculateElo(winnerPlayer.rating, loserPlayer.rating);
+    const winnerSide = identityEquals(winner, match.p1) ? 'p1' : 'p2';
+    const winnerBoostRefund = playerBoostStake(match, winnerSide);
+    const winnerPayout = calculateWinnerPayout(match.stake);
     ctx.db.player.identity.update({
       ...winnerPlayer,
       rating: newWinner,
       wins: winnerPlayer.wins + 1,
+      balance: playerBalance(winnerPlayer) + winnerPayout + winnerBoostRefund,
     });
     ctx.db.player.identity.update({
       ...loserPlayer,
@@ -659,6 +673,9 @@ function finishMatch(ctx: ReducerContext, match: MatchRow, winner: MatchRow['p1'
 function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry: QueueEntryRow, now: bigint) {
   const p1Player = ctx.db.player.identity.find(p1Entry.identity);
   const p2Player = ctx.db.player.identity.find(p2Entry.identity);
+  if (!p1Player || !p2Player) throw new SenderError('Player not found');
+  reserveStake(ctx, p1Player, totalStake(p1Entry.stake, p1Entry.boostEnabled));
+  reserveStake(ctx, p2Player, totalStake(p2Entry.stake, p2Entry.boostEnabled));
   const inserted = ctx.db.matchState.insert({
     id: 0n,
     p1: p1Entry.identity,
@@ -703,6 +720,9 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
 function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) {
   const botPlayer = ensureBotPlayer(ctx);
   const humanPlayer = ctx.db.player.identity.find(entry.identity);
+  if (!humanPlayer) throw new SenderError('Player not found');
+  reserveStake(ctx, humanPlayer, totalStake(entry.stake, entry.boostEnabled));
+  reserveStake(ctx, botPlayer, entry.stake);
   const inserted = ctx.db.matchState.insert({
     id: 0n,
     p1: entry.identity,
@@ -747,7 +767,7 @@ function createBotMatch(ctx: ReducerContext, entry: QueueEntryRow, now: bigint) 
 function ensureBotPlayer(ctx: ReducerContext) {
   const existing = ctx.db.player.identity.find(BOT_IDENTITY);
   if (existing) {
-    const updated = { ...existing, name: BOT_NAME, online: true };
+    const updated = { ...existing, name: BOT_NAME, online: true, balance: Math.max(existing.balance ?? 0, BOT_BALANCE) };
     ctx.db.player.identity.update(updated);
     return updated;
   }
@@ -759,6 +779,7 @@ function ensureBotPlayer(ctx: ReducerContext) {
     rating: INITIAL_RATING,
     wins: 0,
     losses: 0,
+    balance: BOT_BALANCE,
   });
 }
 
@@ -924,6 +945,61 @@ function requirePlayer(ctx: ReducerContext) {
     throw new SenderError('Player is not connected');
   }
   return existing;
+}
+
+function reserveStake(ctx: ReducerContext, playerRow: MatchRow, amount: number) {
+  assertCanStake(playerRow, amount);
+  ctx.db.player.identity.update({
+    ...playerRow,
+    balance: playerBalance(playerRow) - amount,
+  });
+}
+
+function assertCanStake(playerRow: MatchRow, amount: number) {
+  if (playerBalance(playerRow) < amount) {
+    throw new SenderError(`Insufficient ELM balance: need ${amount}, have ${playerBalance(playerRow)}`);
+  }
+}
+
+function refundDrawBalances(ctx: ReducerContext, match: MatchRow) {
+  const p1Player = ctx.db.player.identity.find(match.p1);
+  const p2Player = ctx.db.player.identity.find(match.p2);
+  if (p1Player) {
+    ctx.db.player.identity.update({
+      ...p1Player,
+      balance: playerBalance(p1Player) + match.stake + playerBoostStake(match, 'p1'),
+    });
+  }
+  if (p2Player) {
+    ctx.db.player.identity.update({
+      ...p2Player,
+      balance: playerBalance(p2Player) + match.stake + playerBoostStake(match, 'p2'),
+    });
+  }
+}
+
+function totalStake(stake: number, boostEnabled: boolean) {
+  return stake + (boostEnabled ? boostStake(stake) : 0);
+}
+
+function playerBoostStake(match: MatchRow, side: 'p1' | 'p2') {
+  return side === 'p1'
+    ? match.p1BoostEnabled ? boostStake(match.stake) : 0
+    : match.p2BoostEnabled ? boostStake(match.stake) : 0;
+}
+
+function boostStake(stake: number) {
+  return Math.ceil((stake * BOOST_STAKE_PERCENT) / 100);
+}
+
+function calculateWinnerPayout(stake: number) {
+  const pool = stake * 2;
+  const rake = Math.floor((pool * RAKE_PERCENT) / 100);
+  return pool - rake;
+}
+
+function playerBalance(playerRow: MatchRow) {
+  return playerRow.balance ?? INITIAL_BALANCE;
 }
 
 function requireActiveMatch(ctx: ReducerContext, matchId: bigint) {

@@ -151,6 +151,14 @@ async function verifyBotFallback() {
         scenario: 'bot-fallback-final',
         p1: await compactBody(p1, 450),
       });
+      await clickButton(p1, /Back to Home/i);
+      await waitBalance(p1, '1,090');
+      await p1.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await waitBalance(p1, '1,090');
+      snapshots.push({
+        scenario: 'balance-persists-after-refresh',
+        p1: await compactBody(p1, 300),
+      });
       break;
     }
 
@@ -334,6 +342,22 @@ async function verifySqlState() {
     throw new Error(`Unexpected match_state query output:\n${output}`);
   }
   snapshots.push({ scenario: 'sql-state', output: output.replace(/\s+/g, ' ').trim().slice(0, 700) });
+
+  const playerOutput = await runCommand(
+    'spacetime',
+    [
+      'sql',
+      '--server',
+      stdbUrl,
+      database,
+      'SELECT name, balance, wins, losses FROM player',
+    ],
+    { cwd: repoRoot },
+  );
+  if (!playerOutput.includes('solo_bot') || !playerOutput.includes('1090')) {
+    throw new Error(`Unexpected player balance query output:\n${playerOutput}`);
+  }
+  snapshots.push({ scenario: 'sql-player-balances', output: playerOutput.replace(/\s+/g, ' ').trim().slice(0, 700) });
 }
 
 async function startTwoPlayerMatch(p1, p2) {
@@ -417,6 +441,17 @@ async function waitFinalResult(page, label, timeout = 30_000) {
   await page.waitForFunction(
     ({ labelSource, labelFlags }) => new RegExp(labelSource, labelFlags).test(document.body.innerText),
     { labelSource: label.source, labelFlags: label.flags },
+    { timeout },
+  );
+}
+
+async function waitBalance(page, expectedBalance, timeout = 30_000) {
+  await page.waitForFunction(
+    ({ expectedBalance }) => {
+      const text = document.body.innerText.replace(/\s+/g, ' ');
+      return text.toLowerCase().includes('elm balance') && text.includes(expectedBalance);
+    },
+    { expectedBalance },
     { timeout },
   );
 }

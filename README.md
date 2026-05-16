@@ -158,9 +158,9 @@ Only **2 transactions per match**: stake escrow + settlement. Everything else is
 
 ## What's Built (Current State)
 
-### Playable Demo
+### Local Mock Demo
 
-The frontend can still run as a **standalone mock demo** with an AI opponent and local economy simulation.
+The production/default path is SpacetimeDB. The frontend can still run as a **standalone mock demo** for local smoke tests and UI demos only; it does not back the public multiplayer instance.
 
 ```bash
 git clone https://github.com/elemgame/elemgameV2.git
@@ -176,7 +176,7 @@ VITE_GAME_TRANSPORT=mock pnpm --filter @elmental/tma dev
 |-----------|--------|---------|
 | **Game Logic** | **Production-ready** | 6x6 matrix, energy calc, overclock, ELO — 78 tests passing |
 | **Frontend (TMA)** | **Demo-ready** | 6 screens, full game flow, animations, keyboard nav |
-| **Mock Engine** | **Complete** | AI with 3 personalities, full economy, transaction ledger |
+| **Mock Provider** | **Test-only** | Deterministic AI flow for local smoke tests and demos |
 | **SpacetimeDB Backend** | **Cloud test instance** | TypeScript module with players, queue, matches, round resolution, ELO |
 | **Legacy Node Server** | Optional fallback | Express + Socket.io memory server kept for experiments |
 | **Smart Contracts** | Written | 6 Solidity contracts — need compilation + deployment |
@@ -295,7 +295,7 @@ If a player is alone in a queue, the backend creates an `AI Practice Bot` match 
 The TMA uses `apps/tma/src/services/gameProvider/types.ts` as the contract between UI flow and data backends.
 
 - `gameService.ts` translates provider events into Zustand store updates, timers, local economy presentation, haptics, and sounds.
-- `gameProvider/mockProvider.ts` is deterministic for local smoke tests and demos.
+- `gameProvider/mockProvider.ts` is deterministic for local smoke tests and demos; production balance, matchmaking, and results come from SpacetimeDB.
 - `gameProvider/spacetimeProvider.ts` is the SpacetimeDB adapter and the only non-generated frontend file that imports generated bindings.
 - Future settlement or blockchain adapters should replace/extend this provider layer instead of changing match screens.
 
@@ -322,7 +322,7 @@ The TMA uses `apps/tma/src/services/gameProvider/types.ts` as the contract betwe
 ```
 elmental-v2/
   apps/
-    tma/          — Telegram Mini App (React, SpacetimeDB client, mock fallback)
+    tma/          — Telegram Mini App (React, SpacetimeDB client, mock test transport)
     spacetime/    — SpacetimeDB module (matchmaking, rounds, player state)
     server/       — Legacy Node.js realtime server experiments
   contracts/      — Smart contracts (6 Solidity files)
@@ -339,8 +339,8 @@ elmental-v2/
 - [x] Game design specification
 - [x] Shared game logic with tests
 - [x] TMA frontend with all screens
-- [x] Mock game engine with AI
-- [x] Full economy simulation
+- [x] Mock test provider with AI
+- [x] Server-authoritative SpacetimeDB economy for mechanics testing
 
 ### Phase 2: Infrastructure
 - [x] Local SpacetimeDB test instance for real multiplayer mechanics

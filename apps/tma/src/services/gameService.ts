@@ -51,12 +51,7 @@ export async function initializeGameSession(user: PlayerProfileInput): Promise<v
     await getProvider().initialize(user);
   } catch (err) {
     console.warn('[game] Provider initialization failed:', err);
-    useGameStore.getState().setPlayerStats({
-      elmBalance: 1000,
-      rating: 1200,
-      wins: 0,
-      losses: 0,
-    });
+    trace('session.initialize.failed', { error: err instanceof Error ? err.message : String(err) });
   }
 }
 
@@ -83,9 +78,9 @@ export async function startMatchmaking(): Promise<void> {
   } catch (err) {
     console.error('[game] Failed to join queue:', err);
     store.cancelMatchmaking();
-    await showAlert(FORCE_MOCK
-      ? 'Mock matchmaking is unavailable.'
-      : 'SpacetimeDB is unavailable. Run spacetime start and publish the module, or set VITE_GAME_TRANSPORT=mock.');
+    const message = err instanceof Error ? err.message : String(err);
+    trace('matchmaking.join.failed', { error: message });
+    await showAlert(matchmakingErrorMessage(message));
   }
 }
 
@@ -167,7 +162,7 @@ function handleProviderEvent(event: GameplayProviderEvent): void {
 
     case 'playerStats':
       useGameStore.getState().setPlayerStats({
-        elmBalance: useGameStore.getState().elmBalance || 1000,
+        elmBalance: event.elmBalance,
         rating: event.rating,
         wins: event.wins,
         losses: event.losses,
@@ -219,12 +214,14 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
 
   if (!deductedMatchIds.has(event.matchId)) {
     deductedMatchIds.add(event.matchId);
-    store.setPlayerStats({
-      elmBalance: store.elmBalance - event.stake - event.boostStake,
-      rating: store.rating,
-      wins: store.stats.wins,
-      losses: store.stats.losses,
-    });
+    if (FORCE_MOCK) {
+      store.setPlayerStats({
+        elmBalance: store.elmBalance - event.stake - event.boostStake,
+        rating: store.rating,
+        wins: store.stats.wins,
+        losses: store.stats.losses,
+      });
+    }
     addTx('stake', -event.stake, event.matchId, `Staked ${event.stake} ELM for match vs ${event.opponentName}`);
     if (event.boostStake > 0) {
       addTx('stake', -event.boostStake, event.matchId, `Energy Boost investment: ${event.boostStake} ELM`);
@@ -330,12 +327,14 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
     if (boostStake > 0) addTx('boost_burn', -boostStake, event.matchId, `Boost burned: ${boostStake} ELM`);
   }
 
-  store.setPlayerStats({
-    elmBalance: store.elmBalance + balanceDelta,
-    rating: store.rating + ratingDelta,
-    wins: store.stats.wins + (won ? 1 : 0),
-    losses: store.stats.losses + (!won && !isDraw ? 1 : 0),
-  });
+  if (FORCE_MOCK) {
+    store.setPlayerStats({
+      elmBalance: store.elmBalance + balanceDelta,
+      rating: store.rating + ratingDelta,
+      wins: store.stats.wins + (won ? 1 : 0),
+      losses: store.stats.losses + (!won && !isDraw ? 1 : 0),
+    });
+  }
   store.recordOpponentResult({
     opponentName: store.opponentName,
     winner: event.winner,
@@ -411,6 +410,12 @@ function addTx(type: EconomyTransaction['type'], amount: number, matchId: string
     timestamp: Date.now(),
     description,
   });
+}
+
+function matchmakingErrorMessage(message: string): string {
+  if (FORCE_MOCK) return 'Mock matchmaking is unavailable.';
+  if (message.includes('Insufficient ELM balance')) return message;
+  return 'SpacetimeDB matchmaking is unavailable. Check the backend logs and try again.';
 }
 
 function displayName(user?: PlayerProfileInput | null): string {

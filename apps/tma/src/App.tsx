@@ -15,7 +15,7 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 
 export default function App() {
-  const { currentScreen, setTelegramUser, setPlayerStats } = useGameStore();
+  const { currentScreen, setTelegramUser } = useGameStore();
 
   // Enable spatial keyboard navigation (Tab + Arrow keys)
   useSpatialNavigation();
@@ -39,15 +39,8 @@ export default function App() {
 
     setTelegramUser(profileUser);
 
-    setPlayerStats({
-      elmBalance: 1000,
-      rating: 1200,
-      wins: 0,
-      losses: 0,
-    });
-
     void initializeGameSession(profileUser);
-  }, [setTelegramUser, setPlayerStats]);
+  }, [setTelegramUser]);
 
   const renderScreen = () => {
     switch (currentScreen) {

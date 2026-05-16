@@ -68,6 +68,7 @@ export const Player = __t.object("Player", {
   rating: __t.i32(),
   wins: __t.u32(),
   losses: __t.u32(),
+  balance: __t.i32(),
 });
 export type Player = __Infer<typeof Player>;
 

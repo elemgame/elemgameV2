@@ -206,10 +206,17 @@ export function createSpacetimeProvider(
 
   function handlePlayer(row: Player): void {
     if (!currentIdentity || !identityEquals(row.identity, currentIdentity)) return;
-    trace('spacetime.player.update', { name: row.name, rating: row.rating, wins: row.wins, losses: row.losses });
+    trace('spacetime.player.update', {
+      name: row.name,
+      balance: row.balance,
+      rating: row.rating,
+      wins: row.wins,
+      losses: row.losses,
+    });
     context.emit({
       type: 'playerStats',
       name: row.name,
+      elmBalance: row.balance,
       rating: row.rating,
       wins: row.wins,
       losses: row.losses,
@@ -596,7 +603,91 @@ export function createDefaultSpacetimeProvider(context: GameplayProviderContext)
     uri: getSpacetimeUri(),
     database: getDatabaseName(),
     room: getMatchRoom(),
-    tokenStorage: sessionStorage,
+    tokenStorage: createPersistentTokenStorage(),
     matchStorage: sessionStorage,
   });
+}
+
+function createPersistentTokenStorage(): Storage {
+  return {
+    get length() {
+      try {
+        return localStorage.length;
+      } catch {
+        return 0;
+      }
+    },
+
+    clear() {
+      try {
+        localStorage.clear();
+      } catch {
+        // Ignore unavailable browser storage.
+      }
+      try {
+        sessionStorage.clear();
+      } catch {
+        // Ignore unavailable browser storage.
+      }
+    },
+
+    getItem(key: string) {
+      try {
+        const persisted = localStorage.getItem(key);
+        if (persisted) return persisted;
+      } catch {
+        // Fall back to the legacy session token below.
+      }
+
+      try {
+        const legacySessionToken = sessionStorage.getItem(key);
+        if (legacySessionToken) {
+          try {
+            localStorage.setItem(key, legacySessionToken);
+          } catch {
+            // Keep using the legacy token for this tab.
+          }
+          return legacySessionToken;
+        }
+      } catch {
+        // Browser storage can be blocked in embedded contexts.
+      }
+
+      return null;
+    },
+
+    key(index: number) {
+      try {
+        return localStorage.key(index);
+      } catch {
+        return null;
+      }
+    },
+
+    removeItem(key: string) {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // Ignore unavailable browser storage.
+      }
+      try {
+        sessionStorage.removeItem(key);
+      } catch {
+        // Ignore unavailable browser storage.
+      }
+    },
+
+    setItem(key: string, value: string) {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        // Ignore unavailable browser storage.
+      }
+      try {
+        sessionStorage.setItem(key, value);
+      } catch {
+        // Ignore unavailable browser storage.
+      }
+    },
+  };
 }

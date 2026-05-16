@@ -47,10 +47,6 @@ export function ResultScreen() {
     roundHistory,
     resetMatch,
     setScreen,
-    stats,
-    setPlayerStats,
-    elmBalance,
-    rating,
   } = useGameStore();
 
   const hasFiredHaptic = useRef(false);

@@ -27,6 +27,7 @@ Use SpacetimeDB as the server-authoritative backend:
 - Tables store players, queue entries, matches, round results, and game events.
 - Reducers mutate state. They do not return gameplay data to the client.
 - Clients subscribe to tables and derive UI state from replicated table rows.
+- Player balance is server-authoritative in the `player.balance` column. The frontend must render subscribed balance updates and must not locally reset, debit, or credit ELM outside explicit mock transport.
 - Matchmaking happens through `join_queue` with a room key. Players only match inside the same room.
 - If no real opponent appears, `join_queue` can create an `AI Practice Bot` match after `VITE_BOT_FALLBACK_SECONDS` seconds. `0` disables the fallback, and real players always have priority over the bot.
 - Moves are submitted through `submit_move`. The current test flow does not require commit/reveal UX.

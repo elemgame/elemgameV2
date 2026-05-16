@@ -78,7 +78,7 @@ export interface MatchSettledEvent {
 export type GameplayProviderEvent =
   | { type: 'trace'; event: string; data: Record<string, unknown> }
   | { type: 'error'; code: string; message: string; source: string; metadata?: Record<string, unknown> }
-  | { type: 'playerStats'; name: string; rating: number; wins: number; losses: number }
+  | { type: 'playerStats'; name: string; elmBalance: number; rating: number; wins: number; losses: number }
   | { type: 'queueActive'; name: string; room: string; mode: string; stake: number }
   | { type: 'queueRemoved'; name: string; room: string; mode: string; stake: number }
   | MatchFoundEvent

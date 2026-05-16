@@ -73,6 +73,7 @@ export function createMockProvider(
       context.emit({
         type: 'playerStats',
         name: displayName(user),
+        elmBalance: 1000,
         rating: 1200,
         wins: 12,
         losses: 8,
@@ -85,6 +86,7 @@ export function createMockProvider(
       context.emit({
         type: 'playerStats',
         name: displayName(user),
+        elmBalance: 1000,
         rating: 1200,
         wins: 12,
         losses: 8,
