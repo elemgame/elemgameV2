@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateElo,
+  calculateDrawRefund,
   calculateEnergy,
   calculatePayout,
   getMoveInfo,
@@ -515,5 +516,25 @@ describe('calculatePayout', () => {
     // RAKE_PERCENT = 5, pool = 200, rake = 10
     expect(rake).toBe(10);
     expect(winnerPayout).toBe(190);
+  });
+});
+
+describe('calculateDrawRefund', () => {
+  it('charges symmetric per-player rake on draw refunds', () => {
+    const { refund, rake } = calculateDrawRefund(50, 5);
+    expect(rake).toBe(2);
+    expect(refund).toBe(48);
+  });
+
+  it('0% rake refunds the full stake on a draw', () => {
+    const { refund, rake } = calculateDrawRefund(50, 0);
+    expect(rake).toBe(0);
+    expect(refund).toBe(50);
+  });
+
+  it('uses default RAKE_PERCENT when second arg omitted', () => {
+    const { refund, rake } = calculateDrawRefund(100);
+    expect(rake).toBe(5);
+    expect(refund).toBe(95);
   });
 });

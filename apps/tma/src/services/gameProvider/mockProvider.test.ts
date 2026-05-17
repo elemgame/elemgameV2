@@ -53,6 +53,7 @@ describe('mock gameplay provider contract', () => {
     expect(roundResults).toHaveLength(3);
     expect(roundResults[0]).toMatchObject({
       type: 'roundResult',
+      balanceKind: 'demo_teml',
       myEnergyBefore: 100,
       myEnergyAfter: 95,
     });
@@ -62,6 +63,7 @@ describe('mock gameplay provider contract', () => {
     });
     expect(events.at(-1)).toMatchObject({
       type: 'matchSettled',
+      balanceKind: 'demo_teml',
       winner: 'me',
       myScore: 3,
       opponentScore: 0,
@@ -147,6 +149,7 @@ describe('mock gameplay provider contract', () => {
     expect(events.find((event) => event.type === 'playerStats')).toMatchObject({
       type: 'playerStats',
       name: 'tg_nick',
+      balanceKind: 'paid_elm',
     });
   });
 

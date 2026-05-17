@@ -8,6 +8,7 @@ import {
   type OpponentMatchOutcome,
   type OpponentStats,
 } from '../services/opponentStats';
+import type { WalletHistoryEntry, WalletHistorySummary } from '../services/payments';
 
 export type Screen =
   | 'home'
@@ -33,6 +34,7 @@ export interface TelegramUser {
 
 export interface MatchResult {
   winner: 'me' | 'opponent' | 'draw';
+  balanceKind: string;
   myScore: number;
   opponentScore: number;
   elmEarned: number;
@@ -108,12 +110,21 @@ interface GameStore {
 
   // Economy
   transactions: EconomyTransaction[];
+  walletHistory: WalletHistoryEntry[];
+  walletHistorySummary: WalletHistorySummary | null;
+  walletHistoryStatus: 'idle' | 'loading' | 'ready' | 'failed';
   matchStake: number;
   matchBoostStake: number;
   addTransaction: (tx: EconomyTransaction) => void;
+  setWalletHistory: (
+    entries: WalletHistoryEntry[],
+    summary: WalletHistorySummary | null,
+    status: 'idle' | 'loading' | 'ready' | 'failed',
+  ) => void;
 
   // Match state
   matchId: string | null;
+  matchBalanceKind: string;
   isPlayer1: boolean;
   matchStatus: MatchStatus;
   opponentName: string;
@@ -137,6 +148,7 @@ interface GameStore {
   cancelMatchmaking: () => void;
   setMatchFound: (
     matchId: string,
+    balanceKind: string,
     opponentName: string,
     opponentRating: number,
     isPlayer1?: boolean,
@@ -191,12 +203,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // Economy
   transactions: [],
+  walletHistory: [],
+  walletHistorySummary: null,
+  walletHistoryStatus: 'idle',
   matchStake: 0,
   matchBoostStake: 0,
   addTransaction: (tx) => set((state) => ({ transactions: [tx, ...state.transactions].slice(0, 50) })),
+  setWalletHistory: (entries, summary, status) => set({
+    walletHistory: entries.slice(0, 80),
+    walletHistorySummary: summary,
+    walletHistoryStatus: status,
+  }),
 
   // Match state
   matchId: null,
+  matchBalanceKind: 'demo_teml',
   isPlayer1: true,
   matchStatus: 'idle',
   opponentName: '',
@@ -223,9 +244,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cancelMatchmaking: () =>
     set({ matchStatus: 'idle', currentScreen: 'home' }),
 
-  setMatchFound: (matchId, opponentName, opponentRating, isPlayer1 = true) =>
+  setMatchFound: (matchId, balanceKind, opponentName, opponentRating, isPlayer1 = true) =>
     set({
       matchId,
+      matchBalanceKind: balanceKind,
       isPlayer1,
       opponentName,
       opponentRating,
@@ -296,6 +318,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetMatch: () =>
     set({
       matchId: null,
+      matchBalanceKind: 'demo_teml',
       isPlayer1: true,
       matchStatus: 'idle',
       opponentName: '',

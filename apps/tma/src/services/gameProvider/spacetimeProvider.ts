@@ -3,6 +3,7 @@ import { BOOST_EXTRA_ENERGY, MoveId, STARTING_ENERGY } from '@elmental/shared';
 import { DbConnection } from '../../module_bindings';
 import { playerAccountId, playerDisplayName } from '../playerProfile';
 import type {
+  Account,
   GameEvent,
   MatchState,
   Player,
@@ -237,6 +238,8 @@ export function createSpacetimeProvider(
     if (wiredConnection === connection) return;
     wiredConnection = connection;
 
+    connection.db.account.onInsert((_ctx, row) => handleAccount(row));
+    connection.db.account.onUpdate((_ctx, _oldRow, row) => handleAccount(row));
     connection.db.player.onInsert((_ctx, row) => handlePlayer(row));
     connection.db.player.onUpdate((_ctx, _oldRow, row) => handlePlayer(row));
     connection.db.queueEntry.onInsert((_ctx, row) => handleQueueEntry(row));
@@ -247,11 +250,13 @@ export function createSpacetimeProvider(
     connection.db.gameEvent.onInsert((_ctx, row) => handleGameEvent(row));
   }
 
-  function handlePlayer(row: Player): void {
-    if (!currentIdentity || !identityEquals(row.identity, currentIdentity)) return;
-    trace('spacetime.player.update', {
+  function handleAccount(row: Account): void {
+    if (row.id !== currentAccountId()) return;
+    trace('spacetime.account.update', {
+      accountId: row.id,
       name: row.name,
       balance: row.balance,
+      balanceKind: row.balanceKind,
       rating: row.rating,
       wins: row.wins,
       losses: row.losses,
@@ -260,6 +265,39 @@ export function createSpacetimeProvider(
       type: 'playerStats',
       name: row.name,
       elmBalance: row.balance,
+      balanceKind: row.balanceKind,
+      rating: row.rating,
+      wins: row.wins,
+      losses: row.losses,
+    });
+  }
+
+  function handlePlayer(row: Player): void {
+    if (!currentIdentity || !identityEquals(row.identity, currentIdentity)) return;
+    const accountId = currentAccountId();
+    if (accountId && accountIdForPlayerRow(row) !== accountId) {
+      trace('spacetime.player.ignored_account_mismatch', {
+        rowAccountId: accountIdForPlayerRow(row),
+        currentAccountId: accountId,
+        balance: row.balance,
+        balanceKind: row.balanceKind,
+      });
+      return;
+    }
+    if (currentAccountRow()) return;
+    trace('spacetime.player.update', {
+      name: row.name,
+      balance: row.balance,
+      balanceKind: row.balanceKind,
+      rating: row.rating,
+      wins: row.wins,
+      losses: row.losses,
+    });
+    context.emit({
+      type: 'playerStats',
+      name: row.name,
+      elmBalance: row.balance,
+      balanceKind: row.balanceKind,
       rating: row.rating,
       wins: row.wins,
       losses: row.losses,
@@ -273,8 +311,9 @@ export function createSpacetimeProvider(
       room: row.room,
       mode: row.mode,
       stake: row.stake,
+      balanceKind: row.balanceKind,
     });
-    context.emit({ type: 'queueActive', name: row.name, room: row.room, mode: row.mode, stake: row.stake });
+    context.emit({ type: 'queueActive', name: row.name, room: row.room, mode: row.mode, stake: row.stake, balanceKind: row.balanceKind });
   }
 
   function handleQueueRemoved(row: QueueEntry): void {
@@ -284,8 +323,9 @@ export function createSpacetimeProvider(
       room: row.room,
       mode: row.mode,
       stake: row.stake,
+      balanceKind: row.balanceKind,
     });
-    context.emit({ type: 'queueRemoved', name: row.name, room: row.room, mode: row.mode, stake: row.stake });
+    context.emit({ type: 'queueRemoved', name: row.name, room: row.room, mode: row.mode, stake: row.stake, balanceKind: row.balanceKind });
   }
 
   function handleMatch(row: MatchState): void {
@@ -324,6 +364,7 @@ export function createSpacetimeProvider(
       matchId: perspective.matchId,
       phase: row.phase,
       status: row.status,
+      balanceKind: row.balanceKind,
       round: row.currentRound,
       p1: row.p1Name,
       p2: row.p2Name,
@@ -337,6 +378,7 @@ export function createSpacetimeProvider(
       context.emit({
         type: 'matchFound',
         matchId: perspective.matchId,
+        balanceKind: row.balanceKind,
         opponentName: perspective.opponentName,
         opponentRating: perspective.opponentRating,
         isPlayer1: perspective.isPlayer1,
@@ -353,6 +395,7 @@ export function createSpacetimeProvider(
         context.emit({
           type: 'matchUpdate',
           matchId: perspective.matchId,
+          balanceKind: row.balanceKind,
           phase: mapRoundPhase(row.phase, selectedMove),
           status: 'active',
           currentRound: row.currentRound,
@@ -398,6 +441,7 @@ export function createSpacetimeProvider(
       p2Move: row.p2Move,
       result: result.result,
       score: `${row.p1Score}:${row.p2Score}`,
+      balanceKind: activeMatch.balanceKind,
     });
     context.emit(result);
   }
@@ -445,6 +489,7 @@ export function createSpacetimeProvider(
       context.emit({
         type: 'matchSettled',
         matchId: perspective.matchId,
+        balanceKind: row.balanceKind,
         winner: row.winner === undefined
           ? 'draw'
           : isWinnerForPerspective(row, perspective)
@@ -629,6 +674,11 @@ export function createSpacetimeProvider(
 
   function syncPlayerStats(): void {
     if (!conn || !currentIdentity) return;
+    const account = currentAccountRow();
+    if (account) {
+      handleAccount(account);
+      return;
+    }
     for (const player of conn.db.player.iter()) handlePlayer(player);
   }
 
@@ -703,6 +753,16 @@ export function createSpacetimeProvider(
     return row.accountId || `identity:${row.identity.toHexString()}`;
   }
 
+  function currentAccountId(): string | null {
+    return currentUser ? playerAccountId(currentUser) : null;
+  }
+
+  function currentAccountRow(): Account | null {
+    const accountId = currentAccountId();
+    if (!conn || !accountId) return null;
+    return conn.db.account.id.find(accountId) ?? null;
+  }
+
   function trace(event: string, data: Record<string, unknown>): void {
     context.emit({ type: 'trace', event, data });
   }
@@ -771,6 +831,7 @@ export function mapRoundResultPerspective(
   return {
     type: 'roundResult' as const,
     matchId: row.matchId.toString(),
+    balanceKind: match.balanceKind,
     round: row.round,
     myMove: (isPlayer1 ? row.p1Move : row.p2Move) as MoveId,
     opponentMove: (isPlayer1 ? row.p2Move : row.p1Move) as MoveId,

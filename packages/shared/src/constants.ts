@@ -19,6 +19,7 @@ export const MATCH_SETTLE_TIMEOUT_MS = 600_000; // 10 min
 
 export const RAKE_PERCENT = 5;
 export const BOOST_PERCENT = 10;
+export const MATCH_STAKE = 50;
 
 export const INITIAL_RATING = 1200;
 export const ELO_K_FACTOR = 32;

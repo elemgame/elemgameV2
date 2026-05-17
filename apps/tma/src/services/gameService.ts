@@ -1,6 +1,8 @@
 import {
+  MATCH_STAKE,
   MoveId,
   RAKE_PERCENT,
+  calculateDrawRefund,
   calculateElo,
   calculatePayout,
   getEnergyLevel,
@@ -9,6 +11,7 @@ import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stor
 import { showAlert } from './telegram';
 import { playSound } from './audio';
 import { playerAccountId, playerDisplayName } from './playerProfile';
+import { currencyForBalanceKind, formatCurrencyAmount } from './economy';
 import { createMockProvider } from './gameProvider/mockProvider';
 import { recordGameLog } from './bugReport';
 import {
@@ -23,7 +26,6 @@ import type {
   PlayerProfileInput,
 } from './gameProvider/types';
 
-const MATCH_STAKE = 100;
 const ROUND_SECONDS = 15;
 
 const TRANSPORT = (import.meta.env.VITE_GAME_TRANSPORT ?? 'spacetime').toLowerCase();
@@ -165,6 +167,10 @@ function handleProviderEvent(event: GameplayProviderEvent): void {
       return;
 
     case 'playerStats':
+      trace('player.stats', {
+        balance: event.elmBalance,
+        balanceKind: event.balanceKind,
+      });
       useGameStore.getState().setPlayerStats({
         elmBalance: event.elmBalance,
         rating: event.rating,
@@ -218,6 +224,7 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
 
   if (!deductedMatchIds.has(event.matchId)) {
     deductedMatchIds.add(event.matchId);
+    const currency = currencyForBalanceKind(event.balanceKind);
     if (FORCE_MOCK) {
       store.setPlayerStats({
         elmBalance: store.elmBalance - event.stake - event.boostStake,
@@ -226,9 +233,9 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
         losses: store.stats.losses,
       });
     }
-    addTx('stake', -event.stake, event.matchId, `Staked ${event.stake} ELM for match vs ${event.opponentName}`);
+    addTx('stake', -event.stake, event.matchId, `Staked ${formatCurrencyAmount(event.stake, currency)} for match vs ${event.opponentName}`);
     if (event.boostStake > 0) {
-      addTx('stake', -event.boostStake, event.matchId, `Energy Boost investment: ${event.boostStake} ELM`);
+      addTx('stake', -event.boostStake, event.matchId, `Energy Boost investment: ${formatCurrencyAmount(event.boostStake, currency)}`);
     }
   }
 
@@ -237,9 +244,10 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
     opponentName: event.opponentName,
     opponentRating: event.opponentRating,
     isPlayer1: event.isPlayer1,
+    balanceKind: event.balanceKind,
   });
   useGameStore.setState({ matchStake: event.stake, matchBoostStake: event.boostStake });
-  store.setMatchFound(event.matchId, event.opponentName, event.opponentRating, event.isPlayer1);
+  store.setMatchFound(event.matchId, event.balanceKind, event.opponentName, event.opponentRating, event.isPlayer1);
   useGameStore.setState({
     currentRound: event.currentRound,
     myEnergy: event.myEnergy,
@@ -309,7 +317,10 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
   const won = event.winner === 'me';
   const isDraw = event.winner === 'draw';
   const { winnerPayout, rake } = calculatePayout(event.stake, RAKE_PERCENT);
+  const draw = calculateDrawRefund(event.stake, RAKE_PERCENT);
+  const appliedRake = isDraw ? draw.rake : rake;
   const boostStake = store.matchBoostStake;
+  const currency = currencyForBalanceKind(event.balanceKind);
 
   let ratingDelta = 0;
   if (!isDraw) {
@@ -319,16 +330,16 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
 
   let balanceDelta = 0;
   if (isDraw) {
-    balanceDelta = event.stake + boostStake;
-    addTx('win', event.stake, event.matchId, `Draw. Stake refunded: ${event.stake} ELM`);
-    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost refunded: ${boostStake} ELM`);
+    balanceDelta = draw.refund + boostStake;
+    addTx('win', draw.refund, event.matchId, `Draw. Stake refund after rake: ${formatCurrencyAmount(draw.refund, currency)}`);
+    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost refunded: ${formatCurrencyAmount(boostStake, currency)}`);
   } else if (won) {
     balanceDelta = winnerPayout + boostStake;
-    addTx('win', winnerPayout, event.matchId, `Won. Payout: ${winnerPayout} ELM`);
-    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost returned: ${boostStake} ELM`);
+    addTx('win', winnerPayout, event.matchId, `Won. Payout: ${formatCurrencyAmount(winnerPayout, currency)}`);
+    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost returned: ${formatCurrencyAmount(boostStake, currency)}`);
   } else {
-    addTx('loss', -event.stake, event.matchId, `Lost match. Stake ${event.stake} ELM forfeited.`);
-    if (boostStake > 0) addTx('boost_burn', -boostStake, event.matchId, `Boost burned: ${boostStake} ELM`);
+    addTx('loss', -event.stake, event.matchId, `Lost match. Stake ${formatCurrencyAmount(event.stake, currency)} forfeited.`);
+    if (boostStake > 0) addTx('boost_burn', -boostStake, event.matchId, `Boost burned: ${formatCurrencyAmount(boostStake, currency)}`);
   }
 
   if (FORCE_MOCK) {
@@ -348,13 +359,14 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
 
   store.setMatchResult({
     winner: event.winner,
+    balanceKind: event.balanceKind,
     myScore: event.myScore,
     opponentScore: event.opponentScore,
-    elmEarned: isDraw ? 0 : won ? winnerPayout - event.stake + boostStake : -event.stake - boostStake,
+    elmEarned: isDraw ? -draw.rake : won ? winnerPayout - event.stake + boostStake : -event.stake - boostStake,
     ratingChange: ratingDelta,
     rounds: store.roundHistory,
     stake: event.stake,
-    rake,
+    rake: appliedRake,
     boostStake,
     boostBurned: !won && !isDraw && boostStake > 0,
     boostReturned: (won || isDraw) && boostStake > 0,
@@ -418,7 +430,7 @@ function addTx(type: EconomyTransaction['type'], amount: number, matchId: string
 
 function matchmakingErrorMessage(message: string): string {
   if (FORCE_MOCK) return 'Mock matchmaking is unavailable.';
-  if (message.includes('Insufficient ELM balance')) return message;
+  if (message.includes('Insufficient ') && message.includes(' balance')) return message;
   return 'SpacetimeDB matchmaking is unavailable. Check the backend logs and try again.';
 }
 

@@ -9,6 +9,7 @@ build/
 
 # Environment
 .env
+.env.selfhost
 .env.local
 .env.*.local
 

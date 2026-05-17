@@ -16,6 +16,7 @@
     "test:matrix-parity": "node scripts/check-matrix-parity.mjs",
     "test:stdb-local-scenarios": "node scripts/spacetime-local-scenarios.mjs",
     "smoke:local-mock": "node scripts/local-mock-smoke.mjs",
+    "smoke:payments-ui": "node scripts/payment-ui-smoke.mjs",
     "smoke:public-match": "node scripts/public-match-smoke.mjs",
     "smoke:public-timeouts": "node scripts/public-timeout-smoke.mjs",
     "telegram:configure": "node scripts/configure-telegram-bot.mjs"

@@ -17,8 +17,23 @@ export const Account = __t.object("Account", {
   wins: __t.u32(),
   losses: __t.u32(),
   balance: __t.i32(),
+  balanceKind: __t.string(),
 });
 export type Account = __Infer<typeof Account>;
+
+export const AdminAuditEvent = __t.object("AdminAuditEvent", {
+  requestId: __t.string(),
+  adminTelegramId: __t.string(),
+  targetAccountId: __t.string(),
+  balanceKind: __t.string(),
+  operation: __t.string(),
+  previousBalance: __t.i32(),
+  newBalance: __t.i32(),
+  delta: __t.i32(),
+  reason: __t.string(),
+  createdAtMicros: __t.u64(),
+});
+export type AdminAuditEvent = __Infer<typeof AdminAuditEvent>;
 
 export const AutomationGuard = __t.object("AutomationGuard", {
   identity: __t.identity(),
@@ -65,6 +80,7 @@ export const MatchState = __t.object("MatchState", {
   p1Rating: __t.i32(),
   p2Rating: __t.i32(),
   stake: __t.u32(),
+  balanceKind: __t.string(),
   mode: __t.string(),
   room: __t.string(),
   phase: __t.string(),
@@ -91,6 +107,28 @@ export const MatchState = __t.object("MatchState", {
 });
 export type MatchState = __Infer<typeof MatchState>;
 
+export const PaymentLedger = __t.object("PaymentLedger", {
+  paymentId: __t.string(),
+  accountId: __t.string(),
+  telegramUserId: __t.string(),
+  starsAmount: __t.u32(),
+  elmAmount: __t.u32(),
+  refundableElmAmount: __t.u32(),
+  refundedStarsAmount: __t.u32(),
+  refundedElmAmount: __t.u32(),
+  telegramPaymentChargeId: __t.string(),
+  invoicePayload: __t.string(),
+  balanceKind: __t.string(),
+  status: __t.string(),
+  createdAtMicros: __t.u64(),
+  paidAtMicros: __t.option(__t.u64()),
+  creditedAtMicros: __t.option(__t.u64()),
+  refundRequestedAtMicros: __t.option(__t.u64()),
+  refundedAtMicros: __t.option(__t.u64()),
+  updatedAtMicros: __t.u64(),
+});
+export type PaymentLedger = __Infer<typeof PaymentLedger>;
+
 export const Player = __t.object("Player", {
   identity: __t.identity(),
   name: __t.string(),
@@ -99,6 +137,7 @@ export const Player = __t.object("Player", {
   wins: __t.u32(),
   losses: __t.u32(),
   balance: __t.i32(),
+  balanceKind: __t.string(),
   accountId: __t.string(),
 });
 export type Player = __Infer<typeof Player>;
@@ -114,6 +153,7 @@ export const QueueEntry = __t.object("QueueEntry", {
   joinedAtMicros: __t.u64(),
   botFallbackAtMicros: __t.option(__t.u64()),
   accountId: __t.string(),
+  balanceKind: __t.string(),
 });
 export type QueueEntry = __Infer<typeof QueueEntry>;
 

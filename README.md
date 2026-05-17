@@ -206,6 +206,7 @@ GITHUB_PAGES=true
 VITE_GAME_TRANSPORT=spacetime
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com
 VITE_SPACETIME_DB=elmental-v2
+VITE_PAYMENTS_URL=<Telegram Stars payment service URL>
 ```
 
 Run the public two-player first-to-3 smoke locally:

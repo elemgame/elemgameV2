@@ -1,10 +1,21 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../stores/gameStore';
-import { GameMode } from '@elmental/shared';
+import { BOOST_PERCENT, GameMode, MATCH_STAKE } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { startMatchmaking } from '../services/gameService';
 import { playerDisplayName } from '../services/playerProfile';
+import {
+  ELM_STARS_PACKAGES,
+  openTelegramStarsInvoice,
+  requestStarsRefund,
+  requestStarsRefundQuote,
+  requestStarsInvoice,
+  type ElmStarsPackageId,
+  type StarsRefundQuote,
+  type TelegramInvoiceStatus,
+} from '../services/payments';
+import { currencyForUser, formatCurrencyAmount } from '../services/economy';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { VortexIcon } from '../components/icons/VortexIcon';
@@ -39,6 +50,20 @@ const GAME_MODES = [
   },
 ] as const;
 
+type TopUpStatus = 'idle' | 'loading' | TelegramInvoiceStatus;
+
+interface TopUpState {
+  status: TopUpStatus;
+  packageId?: ElmStarsPackageId;
+  message?: string;
+}
+
+interface RefundState {
+  status: 'idle' | 'loading' | 'ready' | 'refunded' | 'failed';
+  quote?: StarsRefundQuote;
+  message?: string;
+}
+
 export function HomeScreen() {
   const {
     telegramUser,
@@ -51,6 +76,8 @@ export function HomeScreen() {
     setBoostEnabled,
     setScreen,
   } = useGameStore();
+  const [topUpState, setTopUpState] = React.useState<TopUpState>({ status: 'idle' });
+  const [refundState, setRefundState] = React.useState<RefundState>({ status: 'idle' });
 
   const displayName = playerDisplayName(telegramUser);
 
@@ -59,8 +86,12 @@ export function HomeScreen() {
       ? Math.round((stats.wins / (stats.wins + stats.losses)) * 100)
       : 0;
 
-  const stakeRequired = 100 + (boostEnabled ? 10 : 0);
+  const boostStake = boostEnabled ? Math.ceil((MATCH_STAKE * BOOST_PERCENT) / 100) : 0;
+  const stakeRequired = MATCH_STAKE + boostStake;
   const canAffordMatch = elmBalance >= stakeRequired;
+  const currency = currencyForUser(telegramUser);
+  const showStarsTopUp = telegramUser?.source === 'telegram' && Boolean(telegramUser.initData);
+  const pendingPackageId = topUpState.status === 'loading' ? topUpState.packageId : undefined;
 
   const handlePlay = () => {
     if (!canAffordMatch) {
@@ -69,6 +100,71 @@ export function HomeScreen() {
     }
     haptic.medium();
     void startMatchmaking();
+  };
+
+  const handleTopUp = async (packageId: ElmStarsPackageId) => {
+    const initData = telegramUser?.initData ?? '';
+    if (!initData) {
+      haptic.error();
+      setTopUpState({ status: 'failed', message: 'Telegram session unavailable.' });
+      return;
+    }
+
+    haptic.selection();
+    setTopUpState({ status: 'loading', packageId, message: 'Opening invoice...' });
+
+    try {
+      const invoice = await requestStarsInvoice({ initData, packageId });
+      const invoiceStatus = await openTelegramStarsInvoice(invoice.invoiceLink);
+      setTopUpState(topUpStateForInvoiceStatus(invoiceStatus));
+      notifyInvoiceStatus(invoiceStatus);
+    } catch {
+      haptic.error();
+      setTopUpState({ status: 'failed', message: 'Payment failed.' });
+    }
+  };
+
+  const handleRefundQuote = async () => {
+    const initData = telegramUser?.initData ?? '';
+    if (!initData) {
+      haptic.error();
+      setRefundState({ status: 'failed', message: 'Telegram session unavailable.' });
+      return;
+    }
+
+    haptic.selection();
+    setRefundState({ status: 'loading', message: 'Checking refundable lots...' });
+    try {
+      const quote = await requestStarsRefundQuote({ initData });
+      setRefundState({
+        status: 'ready',
+        quote,
+        message: refundQuoteMessage(quote),
+      });
+    } catch {
+      haptic.error();
+      setRefundState({ status: 'failed', message: 'Refund check failed.' });
+    }
+  };
+
+  const handleRefundNextLot = async () => {
+    const initData = telegramUser?.initData ?? '';
+    const lot = refundState.quote?.nextLot;
+    if (!initData || !lot) return;
+
+    haptic.warning();
+    setRefundState({ ...refundState, status: 'loading', message: 'Refunding Stars...' });
+    try {
+      const result = await requestStarsRefund({ initData, starsAmount: lot.starsAmount });
+      haptic.success();
+      setRefundState({
+        status: 'refunded',
+        message: `Refunded ${result.refundedStarsAmount} Stars. Balance updates from server.`,
+      });
+    } catch {
+      haptic.error();
+      setRefundState({ status: 'failed', message: 'Refund failed. Contact support if Stars were already refunded.' });
+    }
   };
 
   return (
@@ -131,7 +227,7 @@ export function HomeScreen() {
           </div>
         </motion.div>
 
-        {/* ELM Balance card */}
+        {/* Balance card */}
         <motion.div
           className="glass-card p-5 text-center"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -139,7 +235,7 @@ export function HomeScreen() {
           transition={{ delay: 0.1 }}
         >
           <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-1">
-            ELM Balance
+            {currency} Balance
           </div>
           <motion.div
             className="glow-text-gold text-5xl font-black tabular-nums"
@@ -173,6 +269,89 @@ export function HomeScreen() {
               <div className="text-xs text-text-secondary">Win Rate</div>
             </div>
           </div>
+
+          {showStarsTopUp ? (
+            <div className="mt-4 pt-4 border-t border-bg-border text-left">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase">
+                  Top up
+                </div>
+                <div className="flex items-center gap-1 text-xs font-bold text-gold">
+                  <StarIcon size={12} />
+                  Stars
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {ELM_STARS_PACKAGES.map((pkg) => {
+                  const isPending = pendingPackageId === pkg.id;
+                  const disabled = topUpState.status === 'loading';
+                  return (
+                    <motion.button
+                      key={pkg.id}
+                      data-nav
+                      className="min-h-[58px] rounded-xl border px-2 py-2 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                      style={{
+                        borderColor: isPending ? '#ffd700' : 'rgba(255,255,255,0.1)',
+                        background: isPending ? 'rgba(255, 215, 0, 0.12)' : 'rgba(255,255,255,0.04)',
+                      }}
+                      disabled={disabled}
+                      whileTap={!disabled ? { scale: 0.96 } : undefined}
+                      onClick={() => void handleTopUp(pkg.id)}
+                    >
+                      <span className="flex items-center justify-center gap-1 text-sm font-black text-gold leading-none">
+                        <StarIcon size={13} />
+                        {pkg.starsAmount}
+                      </span>
+                      <span className="text-[11px] font-bold text-text-primary leading-tight">
+                        {pkg.elmAmount.toLocaleString()} ELM
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+              {topUpState.message ? (
+                <div
+                  role="status"
+                  className={`mt-3 text-xs font-semibold leading-tight ${topUpStatusClass(topUpState.status)}`}
+                >
+                  {topUpState.message}
+                </div>
+              ) : null}
+
+              <div className="mt-4 pt-4 border-t border-bg-border">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    data-nav
+                    className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-bold text-text-primary disabled:opacity-60"
+                    style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+                    disabled={refundState.status === 'loading'}
+                    onClick={() => void handleRefundQuote()}
+                  >
+                    Refund eligible ELM
+                  </button>
+                  {refundState.quote?.nextLot ? (
+                    <button
+                      data-nav
+                      className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-black text-gold disabled:opacity-60"
+                      style={{ background: 'rgba(255, 215, 0, 0.1)', borderColor: 'rgba(255,215,0,0.25)' }}
+                      disabled={refundState.status === 'loading'}
+                      onClick={() => void handleRefundNextLot()}
+                    >
+                      {refundState.quote.nextLot.starsAmount}★ / {refundState.quote.nextLot.elmAmount} ELM
+                    </button>
+                  ) : null}
+                </div>
+                {refundState.message ? (
+                  <div
+                    role="status"
+                    className={`mt-3 text-xs font-semibold leading-tight ${refundStatusClass(refundState.status)}`}
+                  >
+                    {refundState.message}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </motion.div>
 
         {/* Game Mode selector */}
@@ -289,13 +468,13 @@ export function HomeScreen() {
                 PLAY NOW
               </span>
             ) : (
-              'NOT ENOUGH ELM'
+              `NOT ENOUGH ${currency}`
             )}
           </motion.button>
           <div className="text-xs text-text-muted">
             {canAffordMatch
-              ? `Stake: ${stakeRequired} ELM • ${gameMode} mode`
-              : `Need ${stakeRequired} ELM (have ${elmBalance})`}
+              ? `Stake: ${formatCurrencyAmount(stakeRequired, currency)} • ${gameMode} mode`
+              : `Need ${formatCurrencyAmount(stakeRequired, currency)} (have ${formatCurrencyAmount(elmBalance, currency)})`}
           </div>
         </motion.div>
 
@@ -309,4 +488,66 @@ export function HomeScreen() {
       </div>
     </div>
   );
+}
+
+function topUpStateForInvoiceStatus(status: TelegramInvoiceStatus): TopUpState {
+  switch (status) {
+    case 'paid':
+      return { status, message: 'Paid. Waiting for server balance.' };
+    case 'cancelled':
+      return { status, message: 'Payment canceled.' };
+    case 'pending':
+      return { status, message: 'Payment pending.' };
+    case 'failed':
+      return { status, message: 'Payment failed.' };
+    case 'unknown':
+      return { status, message: 'Payment status unknown.' };
+  }
+}
+
+function notifyInvoiceStatus(status: TelegramInvoiceStatus): void {
+  if (status === 'paid') {
+    haptic.success();
+  } else if (status === 'failed' || status === 'unknown') {
+    haptic.error();
+  } else {
+    haptic.selection();
+  }
+}
+
+function topUpStatusClass(status: TopUpStatus): string {
+  switch (status) {
+    case 'paid':
+      return 'text-energy-high';
+    case 'failed':
+    case 'unknown':
+      return 'text-energy-low';
+    case 'pending':
+      return 'text-water-light';
+    case 'cancelled':
+      return 'text-text-muted';
+    case 'loading':
+    case 'idle':
+      return 'text-text-secondary';
+  }
+}
+
+function refundQuoteMessage(quote: StarsRefundQuote): string {
+  if (quote.nextLot) {
+    return `Next refundable lot: ${quote.nextLot.starsAmount} Stars for ${quote.nextLot.elmAmount} unused ELM.`;
+  }
+  return quote.note ?? 'No refundable unused purchase lots.';
+}
+
+function refundStatusClass(status: RefundState['status']): string {
+  switch (status) {
+    case 'ready':
+    case 'refunded':
+      return 'text-energy-high';
+    case 'failed':
+      return 'text-energy-low';
+    case 'loading':
+    case 'idle':
+      return 'text-text-secondary';
+  }
 }

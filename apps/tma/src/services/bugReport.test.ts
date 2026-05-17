@@ -40,15 +40,25 @@ describe('bug report issue builder', () => {
   });
 
   it('formats the report as JSON inside markdown', () => {
-    const body = formatBugReportBody(snapshot([]));
+    const body = formatBugReportBody(snapshot([], {
+      economy: {
+        currency: 'tELM',
+        balanceKind: 'demo_teml',
+        matchBalanceKind: 'demo_teml',
+        balance: 1000,
+      },
+    }));
 
     expect(body).toContain('## Session report');
     expect(body).toContain('```json');
     expect(body).toContain('"database": "elmental-v2"');
+    expect(body).toContain('"currency": "tELM"');
+    expect(body).toContain('"balanceKind": "demo_teml"');
+    expect(body).toContain('"matchBalanceKind": "demo_teml"');
   });
 });
 
-function snapshot(logs: BugReportSnapshot['logs']): BugReportSnapshot {
+function snapshot(logs: BugReportSnapshot['logs'], game: Record<string, unknown> = {}): BugReportSnapshot {
   return {
     generatedAt: '2026-05-16T12:00:00.000Z',
     app: {
@@ -65,6 +75,7 @@ function snapshot(logs: BugReportSnapshot['logs']): BugReportSnapshot {
       matchStatus: 'playing',
       currentRound: 2,
       roundPhase: 'select',
+      ...game,
     },
     logs,
   };

@@ -16,7 +16,7 @@ References:
 ## Goals
 
 - Allow Telegram users to buy gameplay `ELM` using Telegram Stars.
-- Provide starter conversion at `1 Star = 100 ELM`, with larger packages granting bonus ELM.
+- Provide a stable conversion rate of `1 Star = 100 ELM` for every package.
 - Allow Telegram users to convert eligible paid `ELM` back to Stars through a ledger-backed refund flow.
 - Keep web/browser users on clearly labeled `tELM` demo coins with no Telegram Stars payment controls.
 - Keep paid `ELM` usable in PvP stakes for Telegram users.
@@ -49,7 +49,7 @@ References:
 **Description:** As a Telegram user, I want to tap a package and complete payment inside Telegram so my ELM balance can increase.
 
 **Acceptance Criteria:**
-- [ ] Wallet/top-up UI shows package options: `1 Star -> 100 ELM`, `5 Stars -> 600 ELM`, `10 Stars -> 1300 ELM`.
+- [ ] Wallet/top-up UI shows package options: `1 Star -> 100 ELM`, `5 Stars -> 500 ELM`, `10 Stars -> 1000 ELM`.
 - [ ] Tapping a package requests an invoice link from the payment service.
 - [ ] TMA opens the invoice with Telegram WebApp `openInvoice`.
 - [ ] UI shows pending, successful, canceled, and failed states.
@@ -131,8 +131,8 @@ References:
 - FR-1: The system must offer Telegram users paid `ELM` packages priced in Telegram Stars.
 - FR-2: The MVP packages must be:
   - `1 Star -> 100 ELM`
-  - `5 Stars -> 600 ELM`
-  - `10 Stars -> 1300 ELM`
+  - `5 Stars -> 500 ELM`
+  - `10 Stars -> 1000 ELM`
 - FR-3: The system must use Telegram Stars currency `XTR` for all Telegram Mini App digital goods purchases.
 - FR-4: The TMA must request invoice links from a backend payment service and open them with Telegram WebApp invoice APIs.
 - FR-5: The frontend must never credit paid ELM directly after payment UI closes.

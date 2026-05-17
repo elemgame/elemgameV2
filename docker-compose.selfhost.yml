@@ -1,0 +1,138 @@
+services:
+  spacetimedb-init:
+    image: ${SPACETIME_IMAGE:-clockworklabs/spacetime:latest}
+    user: root
+    entrypoint:
+      - /bin/sh
+    command:
+      - -c
+      - mkdir -p /stdb/data && chown -R 1000:1000 /stdb/data
+    restart: "no"
+    volumes:
+      - spacetimedb-data:/stdb/data
+
+  spacetimedb:
+    image: ${SPACETIME_IMAGE:-clockworklabs/spacetime:latest}
+    user: root
+    depends_on:
+      spacetimedb-init:
+        condition: service_completed_successfully
+    command:
+      - start
+      - --listen-addr
+      - 0.0.0.0:3000
+      - --data-dir
+      - /stdb/data
+      - --non-interactive
+    restart: unless-stopped
+    volumes:
+      - spacetimedb-data:/stdb/data
+    ports:
+      - "127.0.0.1:${SPACETIME_LOCAL_PORT:-3000}:3000"
+
+  spacetime-publish:
+    image: ${SPACETIME_IMAGE:-clockworklabs/spacetime:latest}
+    profiles:
+      - bootstrap
+    depends_on:
+      - spacetimedb
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace:ro
+    command:
+      - publish
+      - --server
+      - http://spacetimedb:3000
+      - --module-path
+      - /workspace/apps/spacetime/spacetimedb
+      - -y
+      - ${SPACETIME_DB:-elmental-v2}
+
+  payments:
+    build:
+      context: .
+      dockerfile: apps/payments/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - spacetimedb
+    environment:
+      NODE_ENV: production
+      PAYMENTS_PORT: "3002"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL:-${PUBLIC_ORIGIN:-}}
+      PAYMENT_PAYLOAD_SECRET: ${PAYMENT_PAYLOAD_SECRET:?PAYMENT_PAYLOAD_SECRET is required}
+      PAYMENTS_WEBHOOK_SECRET: ${PAYMENTS_WEBHOOK_SECRET:-}
+      PAYMENTS_ALLOWED_ORIGINS: ${PAYMENTS_ALLOWED_ORIGINS:-${PUBLIC_ORIGIN:-*}}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
+      ADMIN_AUDIT_LOG_PATH: /data/admin-audit-events.jsonl
+      PAYMENTS_FALLBACK_LEDGER_PATH: /data/payment-fallback-ledger.jsonl
+      PAYMENTS_SPACETIME_URI: http://spacetimedb:3000
+      PAYMENTS_SPACETIME_DB: ${SPACETIME_DB:-elmental-v2}
+      PAYMENTS_SPACETIME_TOKEN: ${PAYMENTS_SPACETIME_TOKEN:-}
+      PAYMENTS_SQL_TOKEN: ${PAYMENTS_SQL_TOKEN:-}
+    volumes:
+      - payments-data:/data
+    expose:
+      - "3002"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3002/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  tma:
+    build:
+      context: .
+      dockerfile: apps/tma/Dockerfile
+      args:
+        VITE_GAME_TRANSPORT: spacetime
+        VITE_GAME_TRACE: "true"
+        VITE_SPACETIME_URI: ${PUBLIC_ORIGIN:-http://localhost}
+        VITE_SPACETIME_DB: ${SPACETIME_DB:-elmental-v2}
+        VITE_BOT_FALLBACK_SECONDS: ${VITE_BOT_FALLBACK_SECONDS:-0}
+        VITE_PAYMENTS_URL: ${PUBLIC_ORIGIN:-http://localhost}
+        VITE_BASE_PATH: /
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  edge:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - tma
+      - payments
+      - spacetimedb
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./infra/selfhost/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}
+    profiles:
+      - tunnel
+    restart: unless-stopped
+    depends_on:
+      - edge
+    command:
+      - tunnel
+      - --url
+      - http://edge:80
+      - --no-autoupdate
+
+volumes:
+  spacetimedb-data:
+  payments-data:
+  caddy-data:
+  caddy-config:

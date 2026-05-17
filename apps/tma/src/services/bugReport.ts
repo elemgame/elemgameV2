@@ -1,4 +1,5 @@
 import { useGameStore } from '../stores/gameStore';
+import { balanceKindForUser, currencyForUser } from './economy';
 import { getDatabaseName, getMatchRoom, getSpacetimeUri } from './gameProvider/spacetimeProvider';
 
 const ISSUE_URL = 'https://github.com/elemgame/elemgameV2/issues/new';
@@ -167,10 +168,13 @@ function compactLogs(logs: BugReportLogEntry[]): BugReportLogEntry[] {
 
 function gameSnapshot(): Record<string, unknown> {
   const state = useGameStore.getState();
+  const currency = currencyForUser(state.telegramUser);
+  const balanceKind = balanceKindForUser(state.telegramUser);
   return {
     currentScreen: state.currentScreen,
     matchStatus: state.matchStatus,
     matchId: state.matchId,
+    matchBalanceKind: state.matchBalanceKind,
     isPlayer1: state.isPlayer1,
     opponentName: state.opponentName,
     opponentRating: state.opponentRating,
@@ -191,6 +195,25 @@ function gameSnapshot(): Record<string, unknown> {
     opponentStats: state.opponentStats,
     rating: state.rating,
     elmBalance: state.elmBalance,
+    economy: {
+      currency,
+      balanceKind,
+      matchBalanceKind: state.matchBalanceKind,
+      balance: state.elmBalance,
+      walletHistory: {
+        status: state.walletHistoryStatus,
+        summary: state.walletHistorySummary,
+        recent: state.walletHistory.slice(0, 8).map(entry => ({
+          kind: entry.kind,
+          status: entry.status,
+          elmAmount: entry.elmAmount,
+          starsAmount: entry.starsAmount,
+          paymentId: entry.paymentId,
+          matchId: entry.matchId,
+          occurredAt: entry.occurredAt,
+        })),
+      },
+    },
     user: state.telegramUser
       ? {
           id: state.telegramUser.id,

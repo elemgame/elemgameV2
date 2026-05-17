@@ -12,6 +12,31 @@ importers:
         specifier: ^1.60.0
         version: 1.60.0
 
+  apps/payments:
+    dependencies:
+      spacetimedb:
+        specifier: ^2.2.0
+        version: 2.2.0(react@18.3.1)(undici@6.25.0)
+      undici:
+        specifier: ^6.19.2
+        version: 6.25.0
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.37
+      esbuild:
+        specifier: 0.21.5
+        version: 0.21.5
+      tsx:
+        specifier: ^4.16.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.5.0
+        version: 5.6.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@20.19.37)
+
   apps/server:
     dependencies:
       '@elmental/shared':
@@ -68,7 +93,7 @@ importers:
     dependencies:
       spacetimedb:
         specifier: ^2.2.0
-        version: 2.2.0(react@18.3.1)
+        version: 2.2.0(react@18.3.1)(undici@6.25.0)
     devDependencies:
       typescript:
         specifier: ~5.6.2
@@ -108,7 +133,7 @@ importers:
         version: 4.8.3
       spacetimedb:
         specifier: ^2.2.0
-        version: 2.2.0(react@18.3.1)
+        version: 2.2.0(react@18.3.1)(undici@6.25.0)
       zustand:
         specifier: ^4.5.0
         version: 4.5.7(@types/react@18.3.28)(react@18.3.1)
@@ -2306,6 +2331,10 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  undici@6.25.0:
+    resolution: {integrity: sha512-ZgpWDC5gmNiuY9CnLVXEH8rl50xhRCuLNA97fAUnKi8RRuV4E6KG31pDTsLVUKnohJE0I3XDrTeEydAXRw47xg==}
+    engines: {node: '>=18.17'}
+
   universalify@0.2.0:
     resolution: {integrity: sha512-CJ1QgKmNg3CwvAv/kOFmtnEN05f0D/cn9QntgNOQlQF9dgvVTHj3t+8JPdjqawCHk7V/KA+fbUqzZ9XWhcqPUg==}
     engines: {node: '>= 4.0.0'}
@@ -2348,6 +2377,7 @@ packages:
 
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   vary@1.1.2:
@@ -4558,7 +4588,7 @@ snapshots:
 
   source-map-js@1.2.1: {}
 
-  spacetimedb@2.2.0(react@18.3.1):
+  spacetimedb@2.2.0(react@18.3.1)(undici@6.25.0):
     dependencies:
       base64-js: 1.5.1
       headers-polyfill: 4.0.3
@@ -4570,6 +4600,7 @@ snapshots:
       url-polyfill: 1.1.14
     optionalDependencies:
       react: 18.3.1
+      undici: 6.25.0
 
   split2@4.2.0: {}
 
@@ -4785,6 +4816,8 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   undici-types@6.21.0: {}
+
+  undici@6.25.0: {}
 
   universalify@0.2.0: {}
 

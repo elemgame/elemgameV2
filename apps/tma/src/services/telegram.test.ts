@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getMockUser,
+  getTelegramInitData,
   getTelegramUser,
   installTelegramViewportSync,
   sanitizeWebUserName,
@@ -108,6 +109,32 @@ describe('web user profile helpers', () => {
       username: 'tg_user',
       photo_url: 'https://example.test/avatar.png',
       language_code: 'en',
+    });
+  });
+
+  it('reads Telegram initData from Mini App hash when WebApp initData is empty', () => {
+    const initData = new URLSearchParams({
+      user: JSON.stringify({
+        id: 307857822,
+        first_name: 'Hash',
+        username: 'hash_user',
+      }),
+      auth_date: '1710000000',
+      hash: 'signed',
+    }).toString();
+    setMockWindow('', `#tgWebAppData=${encodeURIComponent(initData)}&tgWebAppVersion=7.10`);
+    window.Telegram = {
+      WebApp: {
+        initData: '',
+        initDataUnsafe: {},
+      } as never,
+    };
+
+    expect(getTelegramInitData()).toBe(initData);
+    expect(getTelegramUser()).toMatchObject({
+      id: 307857822,
+      first_name: 'Hash',
+      username: 'hash_user',
     });
   });
 
@@ -221,13 +248,13 @@ describe('web user profile helpers', () => {
   });
 });
 
-function setMockWindow(search: string) {
+function setMockWindow(search: string, hash = '') {
   const localStorage = createStorage();
   const sessionStorage = createStorage();
 
   Object.defineProperty(globalThis, 'window', {
     value: {
-      location: { search },
+      location: { search, hash },
       localStorage,
       sessionStorage,
       innerHeight: 680,

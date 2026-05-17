@@ -5,6 +5,7 @@ import { RAKE_PERCENT, getMoveInfo } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { applyResults } from '../services/gameService';
 import { playSound } from '../services/audio';
+import { currencyForBalanceKind, formatCurrencyAmount } from '../services/economy';
 import { TrophyIcon } from '../components/icons/TrophyIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { HandshakeIcon } from '../components/icons/HandshakeIcon';
@@ -90,6 +91,7 @@ export function ResultScreen() {
   const isWin = matchResult.winner === 'me';
   const isDraw = matchResult.winner === 'draw';
   const isLose = matchResult.winner === 'opponent';
+  const currency = currencyForBalanceKind(matchResult.balanceKind);
 
   const resultConfig = isWin
     ? {
@@ -199,7 +201,7 @@ export function ResultScreen() {
           </div>
         </motion.div>
 
-        {/* ELM + Rating changes */}
+        {/* Economy + Rating changes */}
         <motion.div
           className="glass-card p-4 w-full"
           initial={{ opacity: 0, y: 20 }}
@@ -209,7 +211,7 @@ export function ResultScreen() {
           <div className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-2">
               <CoinsIcon size={18} className="text-gold" />
-              <span className="text-sm text-text-secondary">ELM Change</span>
+              <span className="text-sm text-text-secondary">{currency} Change</span>
             </div>
             <span
               className="text-lg font-black"
@@ -217,7 +219,7 @@ export function ResultScreen() {
                 color: matchResult.elmEarned >= 0 ? '#22c55e' : '#ef4444',
               }}
             >
-              {matchResult.elmEarned >= 0 ? '+' : ''}{matchResult.elmEarned}
+              {formatCurrencyAmount(matchResult.elmEarned, currency, { signed: true })}
             </span>
           </div>
           <div
@@ -254,20 +256,20 @@ export function ResultScreen() {
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-text-secondary">Stake</span>
-                <span className="text-text-primary">{matchResult.stake} ELM</span>
+                <span className="text-text-primary">{formatCurrencyAmount(matchResult.stake, currency)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-text-secondary">Total Pool</span>
-                <span className="text-text-primary">{matchResult.totalPool} ELM</span>
+                <span className="text-text-primary">{formatCurrencyAmount(matchResult.totalPool, currency)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-secondary">Rake ({RAKE_PERCENT}%)</span>
-                <span className="text-energy-low">-{matchResult.rake} ELM</span>
+                <span className="text-text-secondary">{isDraw ? 'Your Rake' : 'Rake'} ({RAKE_PERCENT}%)</span>
+                <span className="text-energy-low">{formatCurrencyAmount(-matchResult.rake, currency)}</span>
               </div>
               {isWin && (
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Winner Payout</span>
-                  <span className="text-energy-high font-bold">+{matchResult.winnerPayout} ELM</span>
+                  <span className="text-energy-high font-bold">{formatCurrencyAmount(matchResult.winnerPayout, currency, { signed: true })}</span>
                 </div>
               )}
               {matchResult.boostStake > 0 && (
@@ -275,7 +277,7 @@ export function ResultScreen() {
                   <div className="my-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
                   <div className="flex justify-between">
                     <span className="text-text-secondary">Boost Stake</span>
-                    <span className="text-text-primary">{matchResult.boostStake} ELM</span>
+                    <span className="text-text-primary">{formatCurrencyAmount(matchResult.boostStake, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-text-secondary">Boost Status</span>
@@ -293,7 +295,7 @@ export function ResultScreen() {
               <div className="flex justify-between text-base font-bold">
                 <span className="text-text-primary">Net Result</span>
                 <span style={{ color: matchResult.elmEarned >= 0 ? '#22c55e' : '#ef4444' }}>
-                  {matchResult.elmEarned >= 0 ? '+' : ''}{matchResult.elmEarned} ELM
+                  {formatCurrencyAmount(matchResult.elmEarned, currency, { signed: true })}
                 </span>
               </div>
             </div>

@@ -25,6 +25,7 @@ export interface MatchmakingRequest {
 export interface MatchFoundEvent {
   type: 'matchFound';
   matchId: string;
+  balanceKind: string;
   opponentName: string;
   opponentRating: number;
   isPlayer1: boolean;
@@ -40,6 +41,7 @@ export interface MatchFoundEvent {
 export interface MatchUpdateEvent {
   type: 'matchUpdate';
   matchId: string;
+  balanceKind: string;
   phase: ProviderRoundPhase;
   status: 'active' | 'settled';
   currentRound: number;
@@ -53,6 +55,7 @@ export interface MatchUpdateEvent {
 export interface RoundResultEvent {
   type: 'roundResult';
   matchId: string;
+  balanceKind: string;
   round: number;
   myMove: MoveId;
   opponentMove: MoveId;
@@ -68,6 +71,7 @@ export interface RoundResultEvent {
 export interface MatchSettledEvent {
   type: 'matchSettled';
   matchId: string;
+  balanceKind: string;
   winner: 'me' | 'opponent' | 'draw';
   myScore: number;
   opponentScore: number;
@@ -79,9 +83,9 @@ export interface MatchSettledEvent {
 export type GameplayProviderEvent =
   | { type: 'trace'; event: string; data: Record<string, unknown> }
   | { type: 'error'; code: string; message: string; source: string; metadata?: Record<string, unknown> }
-  | { type: 'playerStats'; name: string; elmBalance: number; rating: number; wins: number; losses: number }
-  | { type: 'queueActive'; name: string; room: string; mode: string; stake: number }
-  | { type: 'queueRemoved'; name: string; room: string; mode: string; stake: number }
+  | { type: 'playerStats'; name: string; elmBalance: number; balanceKind: string; rating: number; wins: number; losses: number }
+  | { type: 'queueActive'; name: string; room: string; mode: string; stake: number; balanceKind: string }
+  | { type: 'queueRemoved'; name: string; room: string; mode: string; stake: number; balanceKind: string }
   | MatchFoundEvent
   | MatchUpdateEvent
   | RoundResultEvent

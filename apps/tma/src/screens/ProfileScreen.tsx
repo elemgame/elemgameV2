@@ -5,6 +5,14 @@ import { updatePlayerProfile } from '../services/gameService';
 import { haptic, sanitizeWebUserName, saveWebUser } from '../services/telegram';
 import { playerDisplayName, playerFullName } from '../services/playerProfile';
 import { opponentWinRate } from '../services/opponentStats';
+import { currencyForUser, formatCurrencyAmount, type EconomyCurrency } from '../services/economy';
+import {
+  requestWalletHistory,
+  type WalletHistoryEntry,
+  type WalletHistoryEntryKind,
+  type WalletHistoryStatus,
+} from '../services/payments';
+import type { EconomyTransaction } from '../stores/gameStore';
 import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
 import { StarIcon } from '../components/icons/StarIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
@@ -15,7 +23,19 @@ import { FlameIcon } from '../components/icons/FlameIcon';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 
 export function ProfileScreen() {
-  const { telegramUser, rating, stats, opponentStats, elmBalance, setScreen, setTelegramUser, transactions } = useGameStore();
+  const {
+    telegramUser,
+    rating,
+    stats,
+    opponentStats,
+    elmBalance,
+    setScreen,
+    setTelegramUser,
+    transactions,
+    walletHistory,
+    walletHistoryStatus,
+    setWalletHistory,
+  } = useGameStore();
 
   const displayName = playerDisplayName(telegramUser);
   const profileSubtitle = telegramUser?.source === 'telegram' && telegramUser.username
@@ -24,16 +44,48 @@ export function ProfileScreen() {
       ? `@${telegramUser.username}`
       : '';
   const isWebUser = telegramUser?.source === 'web';
+  const currency = currencyForUser(telegramUser);
   const [draftName, setDraftName] = useState(displayName);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const cleanDraftName = useMemo(() => sanitizeWebUserName(draftName), [draftName]);
   const canSaveWebName =
     isWebUser && cleanDraftName.length > 0 && cleanDraftName !== displayName && saveStatus !== 'saving';
+  const historyItems = useMemo(
+    () => buildHistoryItems(walletHistory, transactions),
+    [walletHistory, transactions],
+  );
 
   useEffect(() => {
     setDraftName(displayName);
     setSaveStatus('idle');
   }, [displayName]);
+
+  useEffect(() => {
+    if (telegramUser?.source !== 'telegram') {
+      setWalletHistory([], null, 'idle');
+      return;
+    }
+
+    const initData = telegramUser.initData ?? '';
+    if (!initData) {
+      setWalletHistory([], null, 'failed');
+      return;
+    }
+
+    let cancelled = false;
+    setWalletHistory([], null, 'loading');
+    void requestWalletHistory({ initData }).then((history) => {
+      if (cancelled) return;
+      setWalletHistory(history.entries, history.summary, 'ready');
+    }).catch(() => {
+      if (cancelled) return;
+      setWalletHistory([], null, 'failed');
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [telegramUser?.id, telegramUser?.initData, telegramUser?.source, setWalletHistory]);
 
   const winRate =
     stats.wins + stats.losses > 0
@@ -175,14 +227,14 @@ export function ProfileScreen() {
           </div>
         </motion.div>
 
-        {/* ELM Balance */}
+        {/* Balance */}
         <motion.div
           className="glass-card p-4 text-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">ELM Balance</div>
+          <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">{currency} Balance</div>
           <div className="glow-text-gold text-4xl font-black">{elmBalance.toLocaleString()}</div>
           <div className="text-xs text-text-muted mt-1">tokens</div>
         </motion.div>
@@ -312,47 +364,56 @@ export function ProfileScreen() {
           )}
         </motion.div>
 
-        {/* Transaction History */}
+        {/* Wallet History */}
         <motion.div
           className="glass-card p-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
         >
-          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
-            Transaction History
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase">
+              Wallet History
+            </div>
+            {walletHistoryStatus === 'loading' ? (
+              <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Syncing</div>
+            ) : walletHistoryStatus === 'failed' && telegramUser?.source === 'telegram' ? (
+              <div className="text-[10px] font-bold uppercase tracking-widest text-energy-low">Offline</div>
+            ) : null}
           </div>
-          {transactions.length === 0 ? (
+          {historyItems.length === 0 ? (
             <div className="text-center py-6">
               <div className="flex justify-center mb-2">
                 <ControllerIcon size={32} className="text-text-muted" />
               </div>
-              <div className="text-sm text-text-muted">No transactions yet</div>
+              <div className="text-sm text-text-muted">No wallet activity yet</div>
               <div className="text-xs text-text-muted mt-1">Play your first match!</div>
             </div>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              {transactions.slice(0, 20).map((tx) => {
-                const icon = tx.type === 'win' ? <CoinsIcon size={16} className="text-energy-high" /> :
-                             tx.type === 'loss' ? <CoinsIcon size={16} className="text-energy-low" /> :
-                             tx.type === 'stake' ? <CrossIcon size={16} className="text-text-secondary" /> :
-                             tx.type === 'boost_burn' ? <FlameIcon size={16} className="text-energy-low" /> :
-                             tx.type === 'boost_return' ? <CheckIcon size={16} className="text-energy-high" /> :
-                             tx.type === 'rake' ? <CoinsIcon size={16} className="text-gold" /> :
-                             <CoinsIcon size={16} className="text-text-muted" />;
-                const color = tx.amount > 0 ? '#22c55e' : tx.amount < 0 ? '#ef4444' : '#8b949e';
+            <div className="flex flex-col gap-2">
+              {historyItems.slice(0, 30).map((item) => {
+                const color = item.elmAmount > 0 ? '#22c55e' : item.elmAmount < 0 ? '#ef4444' : '#8b949e';
                 return (
                   <div
-                    key={tx.id}
-                    className="flex items-center justify-between py-2 px-3 rounded-xl text-sm"
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl text-sm"
                     style={{ background: 'rgba(255,255,255,0.03)' }}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="flex-shrink-0">{icon}</span>
-                      <span className="text-text-secondary text-xs truncate">{tx.description}</span>
+                      <span className="flex-shrink-0">{historyIcon(item)}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-text-primary text-xs font-bold truncate">{item.title}</span>
+                          <span className={`text-[9px] font-black uppercase tracking-widest ${historyStatusClass(item.status)}`}>
+                            {item.status}
+                          </span>
+                        </div>
+                        <div className="text-text-secondary text-[11px] truncate">{item.description}</div>
+                        <div className="text-text-muted text-[10px]">{formatHistoryTime(item.occurredAt)}</div>
+                      </div>
                     </div>
                     <span className="font-bold text-xs ml-2 flex-shrink-0" style={{ color }}>
-                      {tx.amount > 0 ? '+' : ''}{tx.amount !== 0 ? tx.amount : '—'}
+                      {historyAmountLabel(item, currency)}
                     </span>
                   </div>
                 );
@@ -378,4 +439,120 @@ export function ProfileScreen() {
       </div>
     </div>
   );
+}
+
+interface HistoryDisplayItem {
+  id: string;
+  kind: WalletHistoryEntryKind | EconomyTransaction['type'];
+  status: WalletHistoryStatus;
+  title: string;
+  description: string;
+  occurredAt: string;
+  elmAmount: number;
+  starsAmount?: number;
+  matchId?: string;
+}
+
+function buildHistoryItems(
+  walletHistory: WalletHistoryEntry[],
+  transactions: EconomyTransaction[],
+): HistoryDisplayItem[] {
+  const walletMatchIds = new Set(
+    walletHistory
+      .filter(entry => entry.matchId && entry.kind.startsWith('pvp_'))
+      .map(entry => entry.matchId),
+  );
+  const localItems = transactions
+    .filter(tx => !walletMatchIds.has(tx.matchId))
+    .map(transactionToHistoryItem);
+
+  return [
+    ...walletHistory.map(walletEntryToHistoryItem),
+    ...localItems,
+  ].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+}
+
+function walletEntryToHistoryItem(entry: WalletHistoryEntry): HistoryDisplayItem {
+  return {
+    id: entry.id,
+    kind: entry.kind,
+    status: entry.status,
+    title: entry.title,
+    description: entry.description,
+    occurredAt: entry.occurredAt,
+    elmAmount: entry.elmAmount,
+    starsAmount: entry.starsAmount,
+    matchId: entry.matchId,
+  };
+}
+
+function transactionToHistoryItem(tx: EconomyTransaction): HistoryDisplayItem {
+  return {
+    id: tx.id,
+    kind: tx.type,
+    status: 'settled',
+    title: transactionTitle(tx.type),
+    description: tx.description,
+    occurredAt: new Date(tx.timestamp).toISOString(),
+    elmAmount: tx.amount,
+    matchId: tx.matchId,
+  };
+}
+
+function transactionTitle(type: EconomyTransaction['type']): string {
+  switch (type) {
+    case 'stake':
+      return 'PvP stake';
+    case 'win':
+      return 'PvP result';
+    case 'loss':
+      return 'PvP loss';
+    case 'boost_burn':
+      return 'Energy Boost burned';
+    case 'boost_return':
+      return 'Energy Boost returned';
+    case 'rake':
+      return 'Rake';
+  }
+}
+
+function historyIcon(item: HistoryDisplayItem): React.ReactNode {
+  if (item.kind === 'stars_purchase') return <StarIcon size={16} className="text-gold" />;
+  if (item.kind === 'stars_refund') return <StarIcon size={16} className={item.status === 'pending' ? 'text-text-muted' : 'text-energy-high'} />;
+  if (item.kind === 'elm_credit' || item.kind === 'pvp_win' || item.kind === 'pvp_draw_refund') {
+    return <CoinsIcon size={16} className="text-energy-high" />;
+  }
+  if (item.kind === 'pvp_boost_stake' || item.kind === 'boost_burn') return <FlameIcon size={16} className="text-energy-low" />;
+  if (item.kind === 'pvp_boost_return' || item.kind === 'boost_return') return <CheckIcon size={16} className="text-energy-high" />;
+  if (item.elmAmount < 0) return <CrossIcon size={16} className="text-energy-low" />;
+  return <CoinsIcon size={16} className="text-text-muted" />;
+}
+
+function historyStatusClass(status: WalletHistoryStatus): string {
+  switch (status) {
+    case 'settled':
+      return 'text-energy-high';
+    case 'pending':
+      return 'text-gold';
+    case 'failed':
+      return 'text-energy-low';
+  }
+}
+
+function historyAmountLabel(item: HistoryDisplayItem, currency: EconomyCurrency): string {
+  if (item.kind === 'stars_purchase') return `${item.starsAmount ?? 0}★`;
+  if (item.kind === 'stars_refund') return `+${item.starsAmount ?? 0}★`;
+  if (item.elmAmount === 0) return '—';
+  return formatCurrencyAmount(item.elmAmount, currency, { signed: true });
+}
+
+function formatHistoryTime(value: string): string {
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) return '';
+  return time.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }

@@ -68,6 +68,7 @@ export interface TelegramWebApp {
   offEvent(eventType: string, cb: (event?: unknown) => void): void;
   sendData(data: string): void;
   openLink(url: string): void;
+  openInvoice?(url: string, cb?: (status: string) => void): void;
   openTelegramLink(url: string): void;
   showPopup(params: unknown, cb?: (button_id: string) => void): void;
   showAlert(message: string, cb?: () => void): void;
@@ -101,7 +102,7 @@ declare global {
 export function getTelegramWebApp(): TelegramWebApp | null {
   const app = getTelegramRuntime();
   if (!app) return null;
-  if (!app.initData && !app.initDataUnsafe?.user) return null;
+  if (!app.initData && !app.initDataUnsafe?.user && !getTelegramInitDataFromHash()) return null;
   return app;
 }
 
@@ -172,14 +173,24 @@ function toInset(value: unknown): number {
 export function getTelegramUser() {
   const twa = getTelegramWebApp();
   if (!twa) return null;
-  return twa.initDataUnsafe?.user ?? parseTelegramUserFromInitData(twa.initData);
+  return twa.initDataUnsafe?.user ?? parseTelegramUserFromInitData(twa.initData || getTelegramInitDataFromHash());
 }
 
 /**
  * Raw signed Telegram initData used by the backend auth endpoint.
  */
 export function getTelegramInitData(): string {
-  return getTelegramWebApp()?.initData ?? '';
+  const twa = getTelegramWebApp();
+  if (!twa) return '';
+  return twa.initData || getTelegramInitDataFromHash();
+}
+
+function getTelegramInitDataFromHash(): string {
+  if (typeof window === 'undefined') return '';
+  const hash = window.location.hash?.replace(/^#/, '') ?? '';
+  if (!hash) return '';
+  const params = new URLSearchParams(hash);
+  return params.get('tgWebAppData') ?? '';
 }
 
 function parseTelegramUserFromInitData(initData: string): WebUserProfile | null {

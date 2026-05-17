@@ -1,4 +1,4 @@
-import { Identity, ScheduleAt } from 'spacetimedb';
+import { ScheduleAt } from 'spacetimedb';
 import { SenderError, schema, table, t } from 'spacetimedb/server';
 
 const STARTING_ENERGY = 100;
@@ -26,6 +26,19 @@ const NEXT_ROUND_JITTER_MAX_MICROS = 500_000;
 const INITIAL_BALANCE = 1000;
 const RAKE_PERCENT = 5;
 const BOOST_STAKE_PERCENT = 10;
+const PAYMENT_JWT_ISSUER = 'elmental-payments';
+const PAYMENT_JWT_AUDIENCE = 'elmental-v2-payments';
+const PAYMENT_JWT_SUBJECT = 'payments-service';
+const PAID_ELM_BALANCE_KIND = 'paid_elm';
+const DEMO_TELM_BALANCE_KIND = 'demo_teml';
+const PAYMENT_STATUS_CREDITED = 'credited';
+const PAYMENT_STATUS_REFUND_PENDING = 'refund_pending';
+const PAYMENT_STATUS_REFUNDED = 'refunded';
+const ELM_STARS_PACKAGES = [
+  { starsAmount: 1, elmAmount: 100 },
+  { starsAmount: 5, elmAmount: 500 },
+  { starsAmount: 10, elmAmount: 1000 },
+] as const;
 
 const account = table(
   { name: 'account', public: true },
@@ -36,6 +49,7 @@ const account = table(
     wins: t.u32(),
     losses: t.u32(),
     balance: t.i32().default(INITIAL_BALANCE),
+    balanceKind: t.string().default('demo_teml'),
   }
 );
 
@@ -49,6 +63,7 @@ const player = table(
     wins: t.u32(),
     losses: t.u32(),
     balance: t.i32().default(INITIAL_BALANCE),
+    balanceKind: t.string().default('demo_teml'),
     accountId: t.string().default(''),
   }
 );
@@ -66,6 +81,7 @@ const queueEntry = table(
     joinedAtMicros: t.u64(),
     botFallbackAtMicros: t.u64().optional().default(undefined),
     accountId: t.string().default(''),
+    balanceKind: t.string().default('demo_teml'),
   }
 );
 
@@ -91,6 +107,56 @@ const botMoveCommit = table(
   }
 );
 
+// Private: contains Telegram payment identifiers and must not be exposed to client subscriptions.
+const paymentLedger = table(
+  {
+    name: 'payment_ledger',
+    indexes: [
+      { accessor: 'payment_ledger_account_id', algorithm: 'btree', columns: ['accountId'] },
+      { accessor: 'payment_ledger_telegram_user_id', algorithm: 'btree', columns: ['telegramUserId'] },
+      { accessor: 'payment_ledger_charge_id', algorithm: 'btree', columns: ['telegramPaymentChargeId'] },
+      { accessor: 'payment_ledger_status', algorithm: 'btree', columns: ['status'] },
+    ],
+  },
+  {
+    paymentId: t.string().primaryKey(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+    starsAmount: t.u32(),
+    elmAmount: t.u32(),
+    refundableElmAmount: t.u32().default(0),
+    refundedStarsAmount: t.u32().default(0),
+    refundedElmAmount: t.u32().default(0),
+    telegramPaymentChargeId: t.string().default(''),
+    invoicePayload: t.string(),
+    balanceKind: t.string().default('paid_elm'),
+    status: t.string(),
+    createdAtMicros: t.u64(),
+    paidAtMicros: t.u64().optional().default(undefined),
+    creditedAtMicros: t.u64().optional().default(undefined),
+    refundRequestedAtMicros: t.u64().optional().default(undefined),
+    refundedAtMicros: t.u64().optional().default(undefined),
+    updatedAtMicros: t.u64(),
+  }
+);
+
+// Private: immutable operator audit trail for admin balance adjustments.
+const adminAuditEvent = table(
+  { name: 'admin_audit_event' },
+  {
+    requestId: t.string().primaryKey(),
+    adminTelegramId: t.string(),
+    targetAccountId: t.string(),
+    balanceKind: t.string(),
+    operation: t.string(),
+    previousBalance: t.i32(),
+    newBalance: t.i32(),
+    delta: t.i32(),
+    reason: t.string(),
+    createdAtMicros: t.u64(),
+  }
+);
+
 const matchState = table(
   { name: 'match_state', public: true },
   {
@@ -102,6 +168,7 @@ const matchState = table(
     p1Rating: t.i32(),
     p2Rating: t.i32(),
     stake: t.u32(),
+    balanceKind: t.string().default('demo_teml'),
     mode: t.string(),
     room: t.string(),
     phase: t.string(),
@@ -184,6 +251,8 @@ const spacetimedb = schema({
   queueEntry,
   automationGuard,
   botMoveCommit,
+  paymentLedger,
+  adminAuditEvent,
   matchState,
   roundResult,
   gameEvent,
@@ -203,6 +272,11 @@ export const init = spacetimedb.init(ctx => {
 });
 
 export const onConnect = spacetimedb.clientConnected(ctx => {
+  if (isPaymentService(ctx)) {
+    logEvent(ctx, 'payment_service.connected', undefined, 'Payment service connected', identityHex(ctx.sender));
+    return;
+  }
+
   const existing = ctx.db.player.identity.find(ctx.sender);
   if (existing) {
     const accountRow = ensureAccount(ctx, playerAccountId(existing), existing.name, existing);
@@ -222,11 +296,17 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
     wins: accountRow.wins,
     losses: accountRow.losses,
     balance: accountRow.balance,
+    balanceKind: accountBalanceKind(accountRow),
   });
   logEvent(ctx, 'player.connected', undefined, `Player connected ${shortIdentity(ctx.sender)}`, identityHex(ctx.sender));
 });
 
 export const onDisconnect = spacetimedb.clientDisconnected(ctx => {
+  if (isPaymentService(ctx)) {
+    logEvent(ctx, 'payment_service.disconnected', undefined, 'Payment service disconnected', identityHex(ctx.sender));
+    return;
+  }
+
   const existing = ctx.db.player.identity.find(ctx.sender);
   if (existing) {
     ctx.db.player.identity.update({ ...existing, online: false });
@@ -299,6 +379,7 @@ export const join_queue = spacetimedb.reducer(
       boostEnabled,
       joinedAtMicros: now,
       botFallbackAtMicros: undefined,
+      balanceKind: accountBalanceKind(accountRow),
     };
 
     const opponent = findOpponentForEntry(ctx, currentEntry, now);
@@ -462,6 +543,210 @@ export const forfeit_match = spacetimedb.reducer(
     const p2Score = side === 'p2' ? match.p2Score : Math.max(match.p2Score, ROUNDS_TO_WIN);
 
     finishMatch(ctx, { ...match, p1Score, p2Score }, winner, { loserRatingPenaltyMultiplier: penaltyMultiplier });
+  }
+);
+
+export const record_stars_payment = spacetimedb.reducer(
+  {
+    paymentId: t.string(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+    starsAmount: t.u32(),
+    elmAmount: t.u32(),
+    telegramPaymentChargeId: t.string(),
+    invoicePayload: t.string(),
+  },
+  (ctx, {
+    paymentId,
+    accountId,
+    telegramUserId,
+    starsAmount,
+    elmAmount,
+    telegramPaymentChargeId,
+    invoicePayload,
+  }) => {
+    requirePaymentService(ctx);
+    const validatedPaymentId = validatePaymentId(paymentId);
+    const validatedTelegramUserId = validateTelegramUserId(telegramUserId);
+    const validatedAccountId = validateTelegramAccountId(accountId, validatedTelegramUserId);
+    const validatedChargeId = validateTelegramChargeId(telegramPaymentChargeId);
+    const validatedInvoicePayload = validateInvoicePayload(invoicePayload);
+    validateStarsPackage(starsAmount, elmAmount);
+
+    const existingByPaymentId = ctx.db.paymentLedger.paymentId.find(validatedPaymentId);
+    const existingByChargeId = findPaymentLedgerByChargeId(ctx, validatedChargeId);
+    const existing = existingByPaymentId ?? existingByChargeId;
+    if (existingByPaymentId && existingByChargeId && existingByPaymentId.paymentId !== existingByChargeId.paymentId) {
+      throw new SenderError('Telegram charge ID is already linked to another payment');
+    }
+    if (existing) {
+      assertSamePaymentLedger(existing, {
+        paymentId: validatedPaymentId,
+        accountId: validatedAccountId,
+        telegramUserId: validatedTelegramUserId,
+        starsAmount,
+        elmAmount,
+        telegramPaymentChargeId: validatedChargeId,
+      });
+      if (existing.status === PAYMENT_STATUS_CREDITED && existing.creditedAtMicros !== undefined) {
+        logEvent(
+          ctx,
+          'payment.duplicate_ignored',
+          undefined,
+          `Duplicate Stars payment ignored for ${validatedAccountId}`,
+          `paymentId=${validatedPaymentId} charge=${validatedChargeId}`
+        );
+        return;
+      }
+    }
+
+    const now = nowMicros(ctx);
+    const accountRow = ensureAccount(ctx, validatedAccountId, validatedAccountId);
+    updateAccount(ctx, {
+      ...accountRow,
+      balance: accountBalance(accountRow) + elmAmount,
+    });
+
+    const ledgerRow = {
+      paymentId: validatedPaymentId,
+      accountId: validatedAccountId,
+      telegramUserId: validatedTelegramUserId,
+      starsAmount,
+      elmAmount,
+      refundableElmAmount: existing?.refundableElmAmount ?? elmAmount,
+      refundedStarsAmount: existing?.refundedStarsAmount ?? 0,
+      refundedElmAmount: existing?.refundedElmAmount ?? 0,
+      telegramPaymentChargeId: validatedChargeId,
+      invoicePayload: validatedInvoicePayload,
+      balanceKind: PAID_ELM_BALANCE_KIND,
+      status: PAYMENT_STATUS_CREDITED,
+      createdAtMicros: existing?.createdAtMicros ?? now,
+      paidAtMicros: existing?.paidAtMicros ?? now,
+      creditedAtMicros: now,
+      refundRequestedAtMicros: existing?.refundRequestedAtMicros,
+      refundedAtMicros: existing?.refundedAtMicros,
+      updatedAtMicros: now,
+    };
+    if (existing) {
+      ctx.db.paymentLedger.paymentId.update({ ...existing, ...ledgerRow });
+    } else {
+      ctx.db.paymentLedger.insert(ledgerRow);
+    }
+    logEvent(
+      ctx,
+      'payment.credited',
+      undefined,
+      `Credited ${elmAmount} paid ELM for ${validatedAccountId}`,
+      `paymentId=${validatedPaymentId} stars=${starsAmount} charge=${validatedChargeId}`
+    );
+  }
+);
+
+export const reserve_stars_refund = spacetimedb.reducer(
+  {
+    paymentId: t.string(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+  },
+  (ctx, { paymentId, accountId, telegramUserId }) => {
+    requirePaymentService(ctx);
+    const ledger = requireRefundableLedger(ctx, paymentId, accountId, telegramUserId);
+    if (ledger.status === PAYMENT_STATUS_REFUND_PENDING) return;
+
+    const accountRow = ensureAccount(ctx, ledger.accountId, ledger.accountId);
+    if (accountBalance(accountRow) < ledger.elmAmount) {
+      throw new SenderError(`Insufficient refundable ELM balance: need ${ledger.elmAmount}, have ${accountBalance(accountRow)}`);
+    }
+
+    const now = nowMicros(ctx);
+    updateAccount(ctx, {
+      ...accountRow,
+      balance: accountBalance(accountRow) - ledger.elmAmount,
+    });
+    ctx.db.paymentLedger.paymentId.update({
+      ...ledger,
+      status: PAYMENT_STATUS_REFUND_PENDING,
+      refundRequestedAtMicros: ledger.refundRequestedAtMicros ?? now,
+      updatedAtMicros: now,
+    });
+    logEvent(
+      ctx,
+      'payment.refund_reserved',
+      undefined,
+      `Reserved ${ledger.elmAmount} ELM for Stars refund ${ledger.accountId}`,
+      `paymentId=${ledger.paymentId} stars=${ledger.starsAmount}`
+    );
+  }
+);
+
+export const record_stars_refund = spacetimedb.reducer(
+  {
+    paymentId: t.string(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+    telegramPaymentChargeId: t.string(),
+  },
+  (ctx, { paymentId, accountId, telegramUserId, telegramPaymentChargeId }) => {
+    requirePaymentService(ctx);
+    const ledger = requirePaymentLedger(ctx, paymentId, accountId, telegramUserId);
+    const validatedChargeId = validateTelegramChargeId(telegramPaymentChargeId);
+    if (ledger.telegramPaymentChargeId !== validatedChargeId) {
+      throw new SenderError('Refund charge ID does not match payment ledger');
+    }
+    if (ledger.status === PAYMENT_STATUS_REFUNDED && ledger.refundedAtMicros !== undefined) return;
+    if (ledger.status !== PAYMENT_STATUS_REFUND_PENDING) {
+      throw new SenderError('Stars refund must be reserved before recording success');
+    }
+
+    const now = nowMicros(ctx);
+    ctx.db.paymentLedger.paymentId.update({
+      ...ledger,
+      refundableElmAmount: 0,
+      refundedStarsAmount: ledger.starsAmount,
+      refundedElmAmount: ledger.elmAmount,
+      status: PAYMENT_STATUS_REFUNDED,
+      refundedAtMicros: now,
+      updatedAtMicros: now,
+    });
+    logEvent(
+      ctx,
+      'payment.refunded',
+      undefined,
+      `Recorded Stars refund for ${ledger.accountId}`,
+      `paymentId=${ledger.paymentId} stars=${ledger.starsAmount} charge=${validatedChargeId}`
+    );
+  }
+);
+
+export const cancel_stars_refund = spacetimedb.reducer(
+  {
+    paymentId: t.string(),
+    accountId: t.string(),
+    telegramUserId: t.string(),
+  },
+  (ctx, { paymentId, accountId, telegramUserId }) => {
+    requirePaymentService(ctx);
+    const ledger = requirePaymentLedger(ctx, paymentId, accountId, telegramUserId);
+    if (ledger.status !== PAYMENT_STATUS_REFUND_PENDING) return;
+
+    const accountRow = ensureAccount(ctx, ledger.accountId, ledger.accountId);
+    const now = nowMicros(ctx);
+    updateAccount(ctx, {
+      ...accountRow,
+      balance: accountBalance(accountRow) + ledger.elmAmount,
+    });
+    ctx.db.paymentLedger.paymentId.update({
+      ...ledger,
+      status: PAYMENT_STATUS_CREDITED,
+      updatedAtMicros: now,
+    });
+    logEvent(
+      ctx,
+      'payment.refund_cancelled',
+      undefined,
+      `Released reserved refund ELM for ${ledger.accountId}`,
+      `paymentId=${ledger.paymentId} stars=${ledger.starsAmount}`
+    );
   }
 );
 
@@ -801,6 +1086,7 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
   const p1Player = ctx.db.player.identity.find(p1Entry.identity);
   const p2Player = ctx.db.player.identity.find(p2Entry.identity);
   if (!p1Player || !p2Player) throw new SenderError('Player not found');
+  const balanceKind = assertSameEntryBalanceKind(p1Entry, p2Entry);
   const p1Account = reserveStake(ctx, p1Player, totalStake(p1Entry.stake, p1Entry.boostEnabled));
   const p2Account = reserveStake(ctx, p2Player, totalStake(p2Entry.stake, p2Entry.boostEnabled));
   const inserted = ctx.db.matchState.insert({
@@ -812,6 +1098,7 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     p1Rating: p1Account.rating,
     p2Rating: p2Account.rating,
     stake: p1Entry.stake,
+    balanceKind,
     mode: p1Entry.mode,
     room: p1Entry.room,
     phase: 'select',
@@ -841,12 +1128,19 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     'match.created',
     inserted,
     `Match ${inserted.id} created: ${p1Entry.name} vs ${p2Entry.name}`,
-    `room=${p1Entry.room} mode=${p1Entry.mode} stake=${p1Entry.stake}`
+    `room=${p1Entry.room} mode=${p1Entry.mode} stake=${p1Entry.stake} balanceKind=${balanceKind}`
   );
   return inserted;
 }
 
-function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: string, now: bigint) {
+function findOpponent(
+  ctx: ReducerContext,
+  stake: number,
+  mode: string,
+  room: string,
+  now: bigint,
+  balanceKind = DEMO_TELM_BALANCE_KIND
+) {
   let candidate: MatchRow | undefined = undefined;
   for (const entry of ctx.db.queueEntry.iter()) {
     if (identityEquals(entry.identity, ctx.sender)) continue;
@@ -875,6 +1169,7 @@ function findOpponent(ctx: ReducerContext, stake: number, mode: string, room: st
     }
     if (entry.room !== room) continue;
     if (entry.stake !== stake || entry.mode !== mode) continue;
+    if (entryBalanceKind(entry) !== balanceKind) continue;
     if (!candidate || entry.joinedAtMicros < candidate.joinedAtMicros) candidate = entry;
   }
   return candidate;
@@ -910,6 +1205,7 @@ function findOpponentForEntry(ctx: ReducerContext, target: QueueEntryRow, now: b
     }
     if (entry.room !== target.room) continue;
     if (entry.stake !== target.stake || entry.mode !== target.mode) continue;
+    if (entryBalanceKind(entry) !== entryBalanceKind(target)) continue;
     if (!candidate || entry.joinedAtMicros < candidate.joinedAtMicros) candidate = entry;
   }
   return candidate;
@@ -917,6 +1213,10 @@ function findOpponentForEntry(ctx: ReducerContext, target: QueueEntryRow, now: b
 
 function entryAccountId(entry: QueueEntryRow) {
   return normalizeAccountId(entry.accountId, defaultAccountId(entry.identity));
+}
+
+function entryBalanceKind(entry: QueueEntryRow) {
+  return normalizeBalanceKind(entry.balanceKind, balanceKindForAccountId(entryAccountId(entry)));
 }
 
 function findLatestActiveMatchForAccount(ctx: ReducerContext, accountId: string) {
@@ -949,9 +1249,9 @@ function requirePlayer(ctx: ReducerContext) {
 function linkPlayerAccount(ctx: ReducerContext, playerRow: MatchRow, requestedAccountId: string | undefined, name: string) {
   const previousAccountId = playerAccountId(playerRow);
   const accountId = normalizeAccountId(requestedAccountId, previousAccountId);
-  const existingAccount = ctx.db.account.id.find(accountId);
-  const accountRow = existingAccount ?? ensureAccount(ctx, accountId, name, playerRow);
-  const namedAccount = previousAccountId !== accountId && existingAccount && hasLegacyProgress(playerRow)
+  const accountRow = ensureAccount(ctx, accountId, name, playerRow);
+  const previousBalanceKind = balanceKindForAccountId(previousAccountId);
+  const namedAccount = previousAccountId !== accountId && previousBalanceKind === accountBalanceKind(accountRow) && hasLegacyProgress(playerRow)
     ? mergeLegacyPlayerIntoAccount(ctx, accountRow, playerRow, name)
     : accountRow.name === name ? accountRow : updateAccount(ctx, { ...accountRow, name });
   ctx.db.player.identity.update(playerFromAccount(playerRow, namedAccount, name, true));
@@ -960,8 +1260,17 @@ function linkPlayerAccount(ctx: ReducerContext, playerRow: MatchRow, requestedAc
 
 function ensureAccount(ctx: ReducerContext, accountId: string, name: string, seed?: Partial<AccountRow>) {
   const normalizedId = normalizeAccountId(accountId, undefined);
+  const balanceKind = balanceKindForAccountId(normalizedId);
   const existing = ctx.db.account.id.find(normalizedId);
-  if (existing) return existing;
+  if (existing) {
+    return accountBalanceKind(existing) === balanceKind
+      ? existing
+      : updateAccount(ctx, {
+          ...existing,
+          balance: migratedBalanceForBalanceKind(ctx, normalizedId, balanceKind),
+          balanceKind,
+        });
+  }
 
   return ctx.db.account.insert({
     id: normalizedId,
@@ -969,14 +1278,21 @@ function ensureAccount(ctx: ReducerContext, accountId: string, name: string, see
     rating: seed?.rating ?? INITIAL_RATING,
     wins: seed?.wins ?? 0,
     losses: seed?.losses ?? 0,
-    balance: seed?.balance ?? INITIAL_BALANCE,
+    balance: seed?.balance ?? initialBalanceForBalanceKind(balanceKind),
+    balanceKind,
   });
 }
 
 function updateAccount(ctx: ReducerContext, accountRow: AccountRow) {
-  ctx.db.account.id.update(accountRow);
-  syncAccountToPlayers(ctx, accountRow);
-  return accountRow;
+  const normalizedId = normalizeAccountId(accountRow.id, undefined);
+  const normalized = {
+    ...accountRow,
+    id: normalizedId,
+    balanceKind: balanceKindForAccountId(normalizedId),
+  };
+  ctx.db.account.id.update(normalized);
+  syncAccountToPlayers(ctx, normalized);
+  return normalized;
 }
 
 function mergeLegacyPlayerIntoAccount(ctx: ReducerContext, accountRow: AccountRow, playerRow: MatchRow, name: string) {
@@ -987,6 +1303,7 @@ function mergeLegacyPlayerIntoAccount(ctx: ReducerContext, accountRow: AccountRo
     wins: accountRow.wins + (playerRow.wins ?? 0),
     losses: accountRow.losses + (playerRow.losses ?? 0),
     balance: Math.max(accountBalance(accountRow), playerRow.balance ?? INITIAL_BALANCE),
+    balanceKind: accountBalanceKind(accountRow),
   });
 }
 
@@ -1016,6 +1333,7 @@ function playerFromAccount(playerRow: MatchRow, accountRow: AccountRow, name = a
     wins: accountRow.wins,
     losses: accountRow.losses,
     balance: accountBalance(accountRow),
+    balanceKind: accountBalanceKind(accountRow),
   };
 }
 
@@ -1040,6 +1358,7 @@ function normalizeAccountId(accountId: string | undefined, fallback: string | un
 function reserveStake(ctx: ReducerContext, playerRow: MatchRow, amount: number) {
   const accountRow = accountForPlayer(ctx, playerRow);
   assertCanStakeAccount(accountRow, amount);
+  consumeRefundableElm(ctx, accountRow, amount);
   return updateAccount(ctx, {
     ...accountRow,
     balance: accountBalance(accountRow) - amount,
@@ -1048,27 +1367,181 @@ function reserveStake(ctx: ReducerContext, playerRow: MatchRow, amount: number) 
 
 function assertCanStakeAccount(accountRow: AccountRow, amount: number) {
   if (accountBalance(accountRow) < amount) {
-    throw new SenderError(`Insufficient ELM balance: need ${amount}, have ${accountBalance(accountRow)}`);
+    throw new SenderError(`Insufficient ${currencyLabelForBalanceKind(accountBalanceKind(accountRow))} balance: need ${amount}, have ${accountBalance(accountRow)}`);
+  }
+}
+
+function requirePaymentService(ctx: ReducerContext) {
+  if (!isPaymentService(ctx)) {
+    throw new SenderError('Payment service is not authorized');
+  }
+}
+
+function isPaymentService(ctx: ReducerContext) {
+  const jwt = ctx.senderAuth?.jwt;
+  if (!ctx.senderAuth?.hasJWT || !jwt) {
+    return false;
+  }
+  const audience = Array.isArray(jwt.audience) ? jwt.audience : [];
+  return (
+    jwt.issuer === PAYMENT_JWT_ISSUER &&
+    jwt.subject === PAYMENT_JWT_SUBJECT &&
+    audience.includes(PAYMENT_JWT_AUDIENCE)
+  );
+}
+
+function findPaymentLedgerByChargeId(ctx: ReducerContext, chargeId: string) {
+  for (const row of ctx.db.paymentLedger.iter()) {
+    if (row.telegramPaymentChargeId === chargeId) return row;
+  }
+  return undefined;
+}
+
+function requirePaymentLedger(ctx: ReducerContext, paymentId: string, accountId: string, telegramUserId: string) {
+  const validatedPaymentId = validatePaymentId(paymentId);
+  const validatedTelegramUserId = validateTelegramUserId(telegramUserId);
+  const validatedAccountId = validateTelegramAccountId(accountId, validatedTelegramUserId);
+  const ledger = ctx.db.paymentLedger.paymentId.find(validatedPaymentId);
+  if (!ledger) throw new SenderError('Payment ledger row not found');
+  if (ledger.accountId !== validatedAccountId || ledger.telegramUserId !== validatedTelegramUserId) {
+    throw new SenderError('Payment ledger account mismatch');
+  }
+  return ledger;
+}
+
+function requireRefundableLedger(ctx: ReducerContext, paymentId: string, accountId: string, telegramUserId: string) {
+  const ledger = requirePaymentLedger(ctx, paymentId, accountId, telegramUserId);
+  if (ledger.status !== PAYMENT_STATUS_CREDITED && ledger.status !== PAYMENT_STATUS_REFUND_PENDING) {
+    throw new SenderError('Payment is not refundable');
+  }
+  if (ledger.refundedStarsAmount !== 0 || ledger.refundedElmAmount !== 0 || ledger.refundedAtMicros !== undefined) {
+    throw new SenderError('Payment is already refunded');
+  }
+  if (ledger.refundableElmAmount < ledger.elmAmount) {
+    throw new SenderError('Payment ELM has already been used in gameplay');
+  }
+  return ledger;
+}
+
+function assertSamePaymentLedger(
+  row: MatchRow,
+  expected: {
+    paymentId: string;
+    accountId: string;
+    telegramUserId: string;
+    starsAmount: number;
+    elmAmount: number;
+    telegramPaymentChargeId: string;
+  }
+) {
+  if (
+    row.paymentId !== expected.paymentId ||
+    row.accountId !== expected.accountId ||
+    row.telegramUserId !== expected.telegramUserId ||
+    row.starsAmount !== expected.starsAmount ||
+    row.elmAmount !== expected.elmAmount ||
+    (row.telegramPaymentChargeId !== '' && row.telegramPaymentChargeId !== expected.telegramPaymentChargeId)
+  ) {
+    throw new SenderError('Payment ledger conflict');
+  }
+}
+
+function validatePaymentId(value: string) {
+  const trimmed = value.trim();
+  if (!/^[a-zA-Z0-9:_-]{8,128}$/.test(trimmed)) throw new SenderError('Invalid payment id');
+  return trimmed;
+}
+
+function validateTelegramUserId(value: string) {
+  const trimmed = value.trim();
+  if (!/^[0-9]{1,20}$/.test(trimmed)) throw new SenderError('Invalid Telegram user id');
+  return trimmed;
+}
+
+function validateTelegramAccountId(value: string, telegramUserId: string) {
+  const normalized = normalizeAccountId(value, undefined);
+  const expected = `telegram:${telegramUserId}`;
+  if (normalized !== expected) throw new SenderError('Payment account must match Telegram user');
+  return normalized;
+}
+
+function validateTelegramChargeId(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length < 4 || trimmed.length > 256 || !/^[\x20-\x7e]+$/.test(trimmed)) {
+    throw new SenderError('Invalid Telegram payment charge id');
+  }
+  return trimmed;
+}
+
+function validateInvoicePayload(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length < 8 || trimmed.length > 128 || !/^[\x20-\x7e]+$/.test(trimmed)) {
+    throw new SenderError('Invalid invoice payload');
+  }
+  return trimmed;
+}
+
+function validateStarsPackage(starsAmount: number, elmAmount: number) {
+  const supported = ELM_STARS_PACKAGES.some(pkg => (
+    pkg.starsAmount === starsAmount &&
+    pkg.elmAmount === elmAmount
+  ));
+  if (!supported) throw new SenderError('Unsupported Stars to ELM package');
+}
+
+function consumeRefundableElm(ctx: ReducerContext, accountRow: AccountRow, amount: number) {
+  if (accountBalanceKind(accountRow) !== PAID_ELM_BALANCE_KIND || amount <= 0) return;
+  let remaining = amount;
+  const rows = [...ctx.db.paymentLedger.iter()]
+    .filter(row => (
+      row.accountId === accountRow.id &&
+      row.status === PAYMENT_STATUS_CREDITED &&
+      row.balanceKind === PAID_ELM_BALANCE_KIND &&
+      row.refundableElmAmount > 0
+    ))
+    .sort((a, b) => {
+      const aTime = a.paidAtMicros ?? a.createdAtMicros;
+      const bTime = b.paidAtMicros ?? b.createdAtMicros;
+      return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
+    });
+
+  for (const row of rows) {
+    if (remaining <= 0) break;
+    const consumed = Math.min(row.refundableElmAmount, remaining);
+    ctx.db.paymentLedger.paymentId.update({
+      ...row,
+      refundableElmAmount: row.refundableElmAmount - consumed,
+      updatedAtMicros: nowMicros(ctx),
+    });
+    remaining -= consumed;
   }
 }
 
 function refundDrawBalances(ctx: ReducerContext, match: MatchRow) {
   const p1Player = ctx.db.player.identity.find(match.p1);
   const p2Player = ctx.db.player.identity.find(match.p2);
+  const drawRefund = calculateDrawRefund(match.stake);
   if (p1Player) {
     const p1Account = accountForPlayer(ctx, p1Player);
     updateAccount(ctx, {
       ...p1Account,
-      balance: accountBalance(p1Account) + match.stake + playerBoostStake(match, 'p1'),
+      balance: accountBalance(p1Account) + drawRefund + playerBoostStake(match, 'p1'),
     });
   }
   if (p2Player) {
     const p2Account = accountForPlayer(ctx, p2Player);
     updateAccount(ctx, {
       ...p2Account,
-      balance: accountBalance(p2Account) + match.stake + playerBoostStake(match, 'p2'),
+      balance: accountBalance(p2Account) + drawRefund + playerBoostStake(match, 'p2'),
     });
   }
+  logEvent(
+    ctx,
+    'match.draw_rake',
+    match,
+    `Applied draw rake for match ${match.id}`,
+    `stake=${match.stake} refund=${drawRefund} rakePerPlayer=${match.stake - drawRefund}`
+  );
 }
 
 function totalStake(stake: number, boostEnabled: boolean) {
@@ -1091,8 +1564,57 @@ function calculateWinnerPayout(stake: number) {
   return pool - rake;
 }
 
+function calculateDrawRefund(stake: number) {
+  const rake = Math.floor((stake * RAKE_PERCENT) / 100);
+  return stake - rake;
+}
+
 function accountBalance(accountRow: AccountRow) {
   return accountRow.balance ?? INITIAL_BALANCE;
+}
+
+function accountBalanceKind(accountRow: AccountRow) {
+  return normalizeBalanceKind(accountRow.balanceKind, balanceKindForAccountId(accountRow.id));
+}
+
+function balanceKindForAccountId(accountId: string) {
+  const normalized = normalizeAccountId(accountId, undefined);
+  if (normalized.startsWith('telegram:')) return PAID_ELM_BALANCE_KIND;
+  return DEMO_TELM_BALANCE_KIND;
+}
+
+function normalizeBalanceKind(value: unknown, fallback = DEMO_TELM_BALANCE_KIND) {
+  return value === PAID_ELM_BALANCE_KIND || value === DEMO_TELM_BALANCE_KIND ? value : fallback;
+}
+
+function initialBalanceForBalanceKind(balanceKind: string) {
+  return normalizeBalanceKind(balanceKind) === PAID_ELM_BALANCE_KIND ? 0 : INITIAL_BALANCE;
+}
+
+function migratedBalanceForBalanceKind(ctx: ReducerContext, accountId: string, balanceKind: string) {
+  if (normalizeBalanceKind(balanceKind) !== PAID_ELM_BALANCE_KIND) {
+    return initialBalanceForBalanceKind(balanceKind);
+  }
+
+  let credited = 0;
+  for (const row of ctx.db.paymentLedger.iter()) {
+    if (row.accountId !== accountId || row.status !== PAYMENT_STATUS_CREDITED) continue;
+    credited += Math.max(0, (row.elmAmount ?? 0) - (row.refundedElmAmount ?? 0));
+  }
+  return credited;
+}
+
+function assertSameEntryBalanceKind(p1Entry: QueueEntryRow, p2Entry: QueueEntryRow) {
+  const p1Kind = entryBalanceKind(p1Entry);
+  const p2Kind = entryBalanceKind(p2Entry);
+  if (p1Kind !== p2Kind) {
+    throw new SenderError('Cannot match paid ELM and demo tELM accounts');
+  }
+  return p1Kind;
+}
+
+function currencyLabelForBalanceKind(balanceKind: string) {
+  return normalizeBalanceKind(balanceKind) === PAID_ELM_BALANCE_KIND ? 'ELM' : 'tELM';
 }
 
 function enforceJoinQueueRateLimit(ctx: ReducerContext, now: bigint) {
