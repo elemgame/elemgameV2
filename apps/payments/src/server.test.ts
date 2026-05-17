@@ -7,6 +7,7 @@ import { createPaymentsServer } from './server.js';
 import type { StarsRefundService } from './starsRefunds.js';
 import type { TelegramBotApi } from './telegramBotApi.js';
 import type { PaymentEventRecorder } from './telegramUpdates.js';
+import type { WalletHistoryService } from './walletHistory.js';
 
 const botToken = '123456:test_bot_token';
 const config = loadConfig({
@@ -199,14 +200,64 @@ describe('payments server', () => {
       starsAmount: 1,
     });
   });
+
+  it('returns sanitized wallet history for Telegram users', async () => {
+    const telegram = createTelegramMock();
+    const walletHistoryService: WalletHistoryService = {
+      history: vi.fn(async () => ({
+        accountId: 'telegram:99',
+        telegramUserId: '99',
+        entries: [{
+          id: 'payment:purchase_1:credit',
+          kind: 'elm_credit' as const,
+          status: 'settled' as const,
+          title: 'ELM credited',
+          description: '100 ELM credited from Stars purchase',
+          occurredAt: '2026-05-17T00:00:00.000Z',
+          balanceKind: 'paid_elm',
+          elmAmount: 100,
+          starsAmount: 1,
+          paymentId: 'purchase_1',
+        }],
+        summary: {
+          totalStarsPurchased: 1,
+          totalElmCredited: 100,
+          totalStarsRefunded: 0,
+          totalElmRefunded: 0,
+          pendingRefundStars: 0,
+          pvpNetElm: 0,
+        },
+      })),
+    };
+    const baseUrl = await listen(telegram, undefined, undefined, walletHistoryService);
+
+    const response = await fetch(`${baseUrl}/payments/wallet/history`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ initData: signedInitData({ id: 99, first_name: 'Buyer' }) }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as Record<string, unknown>;
+    expect(body['entries']).toEqual([expect.objectContaining({
+      kind: 'elm_credit',
+      paymentId: 'purchase_1',
+    })]);
+    expect(JSON.stringify(body)).not.toContain('telegramPaymentChargeId');
+    expect(walletHistoryService.history).toHaveBeenCalledWith({
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+    });
+  });
 });
 
 async function listen(
   telegram: TelegramBotApi,
   paymentRecorder?: PaymentEventRecorder,
   refundService?: StarsRefundService,
+  walletHistoryService?: WalletHistoryService,
 ): Promise<string> {
-  server = createPaymentsServer({ config, telegram, paymentRecorder, refundService });
+  server = createPaymentsServer({ config, telegram, paymentRecorder, refundService, walletHistoryService });
   await new Promise<void>(resolve => server?.listen(0, resolve));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Server did not listen on a TCP port');

@@ -8,6 +8,7 @@ import {
   type OpponentMatchOutcome,
   type OpponentStats,
 } from '../services/opponentStats';
+import type { WalletHistoryEntry, WalletHistorySummary } from '../services/payments';
 
 export type Screen =
   | 'home'
@@ -109,9 +110,17 @@ interface GameStore {
 
   // Economy
   transactions: EconomyTransaction[];
+  walletHistory: WalletHistoryEntry[];
+  walletHistorySummary: WalletHistorySummary | null;
+  walletHistoryStatus: 'idle' | 'loading' | 'ready' | 'failed';
   matchStake: number;
   matchBoostStake: number;
   addTransaction: (tx: EconomyTransaction) => void;
+  setWalletHistory: (
+    entries: WalletHistoryEntry[],
+    summary: WalletHistorySummary | null,
+    status: 'idle' | 'loading' | 'ready' | 'failed',
+  ) => void;
 
   // Match state
   matchId: string | null;
@@ -194,9 +203,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // Economy
   transactions: [],
+  walletHistory: [],
+  walletHistorySummary: null,
+  walletHistoryStatus: 'idle',
   matchStake: 0,
   matchBoostStake: 0,
   addTransaction: (tx) => set((state) => ({ transactions: [tx, ...state.transactions].slice(0, 50) })),
+  setWalletHistory: (entries, summary, status) => set({
+    walletHistory: entries.slice(0, 80),
+    walletHistorySummary: summary,
+    walletHistoryStatus: status,
+  }),
 
   // Match state
   matchId: null,

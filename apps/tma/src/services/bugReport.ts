@@ -202,6 +202,19 @@ function gameSnapshot(): Record<string, unknown> {
       balanceKind,
       matchBalanceKind: state.matchBalanceKind,
       balance: state.elmBalance,
+      walletHistory: {
+        status: state.walletHistoryStatus,
+        summary: state.walletHistorySummary,
+        recent: state.walletHistory.slice(0, 8).map(entry => ({
+          kind: entry.kind,
+          status: entry.status,
+          elmAmount: entry.elmAmount,
+          starsAmount: entry.starsAmount,
+          paymentId: entry.paymentId,
+          matchId: entry.matchId,
+          occurredAt: entry.occurredAt,
+        })),
+      },
     },
     user: state.telegramUser
       ? {

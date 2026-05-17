@@ -7,12 +7,14 @@ import type { PaymentsConfig } from './config.js';
 import type { StarsRefundService } from './starsRefunds.js';
 import type { TelegramBotApi } from './telegramBotApi.js';
 import type { PaymentEventRecorder } from './telegramUpdates.js';
+import type { WalletHistoryService } from './walletHistory.js';
 
 interface ServerDeps {
   config: PaymentsConfig;
   telegram: TelegramBotApi;
   paymentRecorder?: PaymentEventRecorder;
   refundService?: StarsRefundService;
+  walletHistoryService?: WalletHistoryService;
 }
 
 interface InvoiceRequestBody {
@@ -30,9 +32,10 @@ export function createPaymentsServer({
   telegram,
   paymentRecorder = noopPaymentEventRecorder,
   refundService,
+  walletHistoryService,
 }: ServerDeps): http.Server {
   return http.createServer((req, res) => {
-    void handleRequest(req, res, config, telegram, paymentRecorder, refundService).catch(err => {
+    void handleRequest(req, res, config, telegram, paymentRecorder, refundService, walletHistoryService).catch(err => {
       console.error('[payments] Request failed:', err);
       sendJson(res, 500, { error: 'Internal server error' });
     });
@@ -46,6 +49,7 @@ async function handleRequest(
   telegram: TelegramBotApi,
   paymentRecorder: PaymentEventRecorder,
   refundService?: StarsRefundService,
+  walletHistoryService?: WalletHistoryService,
 ): Promise<void> {
   setCors(req, res, config);
 
@@ -79,6 +83,11 @@ async function handleRequest(
 
   if (req.method === 'POST' && url.pathname === '/payments/stars/refund') {
     await handleRefund(req, res, config, refundService);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/payments/wallet/history') {
+    await handleWalletHistory(req, res, config, walletHistoryService);
     return;
   }
 
@@ -136,11 +145,42 @@ async function handleRefund(
   const starsAmount = typeof body.starsAmount === 'number' ? body.starsAmount : 0;
   const telegramUserId = String(user.id);
   const accountId = `telegram:${telegramUserId}`;
+  console.log(`[payments] Stars refund requested account=${accountId} stars=${starsAmount}`);
   try {
     const result = await refundService.refund({ accountId, telegramUserId, starsAmount });
+    console.log(
+      `[payments] Stars refund completed account=${accountId} stars=${result.refundedStarsAmount} lots=${result.refundedLots.length}`,
+    );
     sendJson(res, 200, result);
   } catch (err) {
+    console.warn(
+      `[payments] Stars refund failed account=${accountId} stars=${starsAmount} error=${err instanceof Error ? err.message : String(err)}`,
+    );
     sendJson(res, 400, { error: err instanceof Error ? err.message : 'Refund failed' });
+  }
+}
+
+async function handleWalletHistory(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  config: PaymentsConfig,
+  walletHistoryService?: WalletHistoryService,
+): Promise<void> {
+  if (!walletHistoryService) {
+    sendJson(res, 503, { error: 'Wallet history service is not configured' });
+    return;
+  }
+
+  const user = await readTelegramUser(req, res, config);
+  if (!user) return;
+
+  const telegramUserId = String(user.id);
+  const accountId = `telegram:${telegramUserId}`;
+  try {
+    const history = await walletHistoryService.history({ accountId, telegramUserId });
+    sendJson(res, 200, history);
+  } catch (err) {
+    sendJson(res, 400, { error: err instanceof Error ? err.message : 'Wallet history failed' });
   }
 }
 

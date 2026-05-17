@@ -9,6 +9,7 @@ Small Telegram Stars payment service for the Telegram Mini App. It is separate f
 - `POST /payments/stars/invoice`
 - `POST /payments/stars/refund/quote`
 - `POST /payments/stars/refund`
+- `POST /payments/wallet/history`
 - `POST /telegram/webhook`
 
 ## Required Environment
@@ -36,3 +37,18 @@ Without `PAYMENTS_SPACETIME_TOKEN`, successful payments are validated and logged
 Refunds are intentionally whole-lot only. Telegram's Bot API refunds by original
 `telegram_payment_charge_id`, not by arbitrary partial Star amount, so a partially
 spent purchase lot is not refundable.
+
+## Operator Ledger Queries
+
+`payment_ledger` is private to SpacetimeDB clients, but operators can query it through
+SpacetimeDB SQL when debugging payments:
+
+```bash
+spacetime sql --server maincloud elmental-v2 "SELECT payment_id, account_id, telegram_user_id, stars_amount, elm_amount, status, created_at_micros, updated_at_micros FROM payment_ledger WHERE telegram_user_id = '123456789'"
+spacetime sql --server maincloud elmental-v2 "SELECT payment_id, account_id, telegram_user_id, stars_amount, elm_amount, status, created_at_micros, updated_at_micros FROM payment_ledger WHERE account_id = 'telegram:123456789'"
+spacetime sql --server maincloud elmental-v2 "SELECT payment_id, account_id, telegram_user_id, stars_amount, elm_amount, status, created_at_micros, updated_at_micros FROM payment_ledger WHERE payment_id = 'purchase_id'"
+spacetime sql --server maincloud elmental-v2 "SELECT payment_id, account_id, telegram_user_id, stars_amount, elm_amount, status, created_at_micros, updated_at_micros FROM payment_ledger WHERE telegram_payment_charge_id = 'telegram_charge_id'"
+```
+
+Do not paste bot tokens, raw WebApp init data, invoice payloads, or charge IDs into
+client-side bug reports.

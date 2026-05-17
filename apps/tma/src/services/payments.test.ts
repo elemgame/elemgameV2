@@ -4,6 +4,7 @@ import {
   requestStarsRefund,
   requestStarsRefundQuote,
   requestStarsInvoice,
+  requestWalletHistory,
 } from './payments';
 
 describe('TMA Stars payments', () => {
@@ -131,6 +132,50 @@ describe('TMA Stars payments', () => {
     expect(fetchImpl).toHaveBeenCalledWith('https://payments.example.test/payments/stars/refund', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ initData: 'signed-init-data', starsAmount: 1 }),
+    }));
+  });
+
+  it('requests sanitized wallet history from the payment service', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      accountId: 'telegram:123',
+      telegramUserId: '123',
+      entries: [{
+        id: 'payment:purchase_1:credit',
+        kind: 'elm_credit',
+        status: 'settled',
+        title: 'ELM credited',
+        description: '100 ELM credited from Stars purchase',
+        occurredAt: '2026-05-17T00:00:00.000Z',
+        balanceKind: 'paid_elm',
+        elmAmount: 100,
+        starsAmount: 1,
+        paymentId: 'purchase_1',
+      }],
+      summary: {
+        totalStarsPurchased: 1,
+        totalElmCredited: 100,
+        totalStarsRefunded: 0,
+        totalElmRefunded: 0,
+        pendingRefundStars: 0,
+        pvpNetElm: 0,
+      },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })) as unknown as typeof fetch;
+
+    await expect(requestWalletHistory({
+      initData: 'signed-init-data',
+      paymentsUrl: 'https://payments.example.test',
+      fetchImpl,
+    })).resolves.toMatchObject({
+      summary: { totalElmCredited: 100 },
+      entries: [expect.objectContaining({ kind: 'elm_credit' })],
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith('https://payments.example.test/payments/wallet/history', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ initData: 'signed-init-data' }),
     }));
   });
 });

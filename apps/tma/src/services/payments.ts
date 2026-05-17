@@ -41,6 +41,48 @@ export interface StarsRefundResult {
   refundedLots: StarsRefundLot[];
 }
 
+export type WalletHistoryEntryKind =
+  | 'stars_purchase'
+  | 'elm_credit'
+  | 'stars_refund'
+  | 'pvp_stake'
+  | 'pvp_boost_stake'
+  | 'pvp_win'
+  | 'pvp_draw_refund'
+  | 'pvp_boost_return';
+
+export type WalletHistoryStatus = 'settled' | 'pending' | 'failed';
+
+export interface WalletHistoryEntry {
+  id: string;
+  kind: WalletHistoryEntryKind;
+  status: WalletHistoryStatus;
+  title: string;
+  description: string;
+  occurredAt: string;
+  balanceKind: string;
+  elmAmount: number;
+  starsAmount?: number;
+  paymentId?: string;
+  matchId?: string;
+}
+
+export interface WalletHistorySummary {
+  totalStarsPurchased: number;
+  totalElmCredited: number;
+  totalStarsRefunded: number;
+  totalElmRefunded: number;
+  pendingRefundStars: number;
+  pvpNetElm: number;
+}
+
+export interface WalletHistoryResponse {
+  accountId: string;
+  telegramUserId: string;
+  entries: WalletHistoryEntry[];
+  summary: WalletHistorySummary;
+}
+
 export type TelegramInvoiceStatus = 'paid' | 'cancelled' | 'failed' | 'pending' | 'unknown';
 
 interface RequestStarsInvoiceInput {
@@ -123,6 +165,15 @@ export async function requestStarsRefund(input: RequestStarsRefundInput): Promis
     paymentsUrl: input.paymentsUrl,
     fetchImpl: input.fetchImpl,
     body: { starsAmount: input.starsAmount },
+  });
+}
+
+export async function requestWalletHistory(input: Omit<RequestStarsRefundInput, 'starsAmount'>): Promise<WalletHistoryResponse> {
+  return requestPaymentsJson<WalletHistoryResponse>({
+    path: '/payments/wallet/history',
+    initData: input.initData,
+    paymentsUrl: input.paymentsUrl,
+    fetchImpl: input.fetchImpl,
   });
 }
 
