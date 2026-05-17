@@ -2,6 +2,7 @@ import {
   MATCH_STAKE,
   MoveId,
   RAKE_PERCENT,
+  calculateDrawRefund,
   calculateElo,
   calculatePayout,
   getEnergyLevel,
@@ -318,6 +319,8 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
   const won = event.winner === 'me';
   const isDraw = event.winner === 'draw';
   const { winnerPayout, rake } = calculatePayout(event.stake, RAKE_PERCENT);
+  const draw = calculateDrawRefund(event.stake, RAKE_PERCENT);
+  const appliedRake = isDraw ? draw.rake : rake;
   const boostStake = store.matchBoostStake;
   const currency = currencyForBalanceKind(event.balanceKind);
 
@@ -329,8 +332,8 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
 
   let balanceDelta = 0;
   if (isDraw) {
-    balanceDelta = event.stake + boostStake;
-    addTx('win', event.stake, event.matchId, `Draw. Stake refunded: ${formatCurrencyAmount(event.stake, currency)}`);
+    balanceDelta = draw.refund + boostStake;
+    addTx('win', draw.refund, event.matchId, `Draw. Stake refund after rake: ${formatCurrencyAmount(draw.refund, currency)}`);
     if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost refunded: ${formatCurrencyAmount(boostStake, currency)}`);
   } else if (won) {
     balanceDelta = winnerPayout + boostStake;
@@ -361,11 +364,11 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
     balanceKind: event.balanceKind,
     myScore: event.myScore,
     opponentScore: event.opponentScore,
-    elmEarned: isDraw ? 0 : won ? winnerPayout - event.stake + boostStake : -event.stake - boostStake,
+    elmEarned: isDraw ? -draw.rake : won ? winnerPayout - event.stake + boostStake : -event.stake - boostStake,
     ratingChange: ratingDelta,
     rounds: store.roundHistory,
     stake: event.stake,
-    rake,
+    rake: appliedRake,
     boostStake,
     boostBurned: !won && !isDraw && boostStake > 0,
     boostReturned: (won || isDraw) && boostStake > 0,

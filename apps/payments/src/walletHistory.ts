@@ -230,7 +230,7 @@ function pvpEntries(conn: HistoryConnection, accountId: string): WalletHistoryEn
         description: `Match vs ${opponentName}`,
         occurredAt: settledAt,
         balanceKind: row.balanceKind,
-        elmAmount: row.stake,
+        elmAmount: drawRefund(row.stake),
         matchId,
       });
       if (boostStake > 0) entries.push(boostReturnEntry(matchId, opponentName, boostStake, settledAt, row.balanceKind));
@@ -308,6 +308,10 @@ function isCreditedStatus(status: string): boolean {
 function winnerPayout(stake: number): number {
   const pool = stake * 2;
   return pool - Math.floor((pool * RAKE_PERCENT) / 100);
+}
+
+function drawRefund(stake: number): number {
+  return stake - Math.floor((stake * RAKE_PERCENT) / 100);
 }
 
 function identityHex(identity: { toHexString(): string }): string {

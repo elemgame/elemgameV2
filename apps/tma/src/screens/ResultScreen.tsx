@@ -263,7 +263,7 @@ export function ResultScreen() {
                 <span className="text-text-primary">{formatCurrencyAmount(matchResult.totalPool, currency)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-secondary">Rake ({RAKE_PERCENT}%)</span>
+                <span className="text-text-secondary">{isDraw ? 'Your Rake' : 'Rake'} ({RAKE_PERCENT}%)</span>
                 <span className="text-energy-low">{formatCurrencyAmount(-matchResult.rake, currency)}</span>
               </div>
               {isWin && (

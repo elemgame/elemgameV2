@@ -64,6 +64,31 @@ describe('wallet history service', () => {
     ]));
     expect(history.summary.pvpNetElm).toBe(90);
   });
+
+  it('charges draw rake in paid ELM PvP history', async () => {
+    const service = createWalletHistoryService(config, async () => fakeConnection({
+      players: [player({ identity: identity('p1'), accountId: 'telegram:99' })],
+      matches: [match({
+        p1: identity('p1'),
+        p2: identity('p2'),
+        stake: 50,
+        p1Score: 0,
+        p2Score: 0,
+        winner: undefined,
+      })],
+    }));
+
+    const history = await service.history({
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+    });
+
+    expect(history.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'pvp_stake', elmAmount: -50, matchId: '7' }),
+      expect.objectContaining({ kind: 'pvp_draw_refund', elmAmount: 48, matchId: '7' }),
+    ]));
+    expect(history.summary.pvpNetElm).toBe(-2);
+  });
 });
 
 function fakeConnection(input: {

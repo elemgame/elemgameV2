@@ -202,3 +202,12 @@ export function calculatePayout(
   const winnerPayout = pool - rake;
   return { winnerPayout, rake };
 }
+
+export function calculateDrawRefund(
+  stake: number,
+  rakePercent: number = RAKE_PERCENT,
+): { refund: number; rake: number } {
+  const rake = Math.floor((stake * rakePercent) / 100);
+  const refund = stake - rake;
+  return { refund, rake };
+}

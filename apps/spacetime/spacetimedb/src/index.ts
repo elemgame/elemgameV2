@@ -1752,20 +1752,28 @@ function consumeRefundableElm(ctx: ReducerContext, accountRow: AccountRow, amoun
 function refundDrawBalances(ctx: ReducerContext, match: MatchRow) {
   const p1Player = ctx.db.player.identity.find(match.p1);
   const p2Player = ctx.db.player.identity.find(match.p2);
+  const drawRefund = calculateDrawRefund(match.stake);
   if (p1Player) {
     const p1Account = accountForPlayer(ctx, p1Player);
     updateAccount(ctx, {
       ...p1Account,
-      balance: accountBalance(p1Account) + match.stake + playerBoostStake(match, 'p1'),
+      balance: accountBalance(p1Account) + drawRefund + playerBoostStake(match, 'p1'),
     });
   }
   if (p2Player) {
     const p2Account = accountForPlayer(ctx, p2Player);
     updateAccount(ctx, {
       ...p2Account,
-      balance: accountBalance(p2Account) + match.stake + playerBoostStake(match, 'p2'),
+      balance: accountBalance(p2Account) + drawRefund + playerBoostStake(match, 'p2'),
     });
   }
+  logEvent(
+    ctx,
+    'match.draw_rake',
+    match,
+    `Applied draw rake for match ${match.id}`,
+    `stake=${match.stake} refund=${drawRefund} rakePerPlayer=${match.stake - drawRefund}`
+  );
 }
 
 function totalStake(stake: number, boostEnabled: boolean) {
@@ -1786,6 +1794,11 @@ function calculateWinnerPayout(stake: number) {
   const pool = stake * 2;
   const rake = Math.floor((pool * RAKE_PERCENT) / 100);
   return pool - rake;
+}
+
+function calculateDrawRefund(stake: number) {
+  const rake = Math.floor((stake * RAKE_PERCENT) / 100);
+  return stake - rake;
 }
 
 function accountBalance(accountRow: AccountRow) {
