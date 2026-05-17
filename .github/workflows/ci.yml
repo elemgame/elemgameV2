@@ -53,11 +53,20 @@ jobs:
       - name: Test Telegram Mini App
         run: pnpm --filter @elmental/tma test -- --run
 
+      - name: Test payments service
+        run: pnpm --filter @elmental/payments test
+
+      - name: Build payments service
+        run: pnpm --filter @elmental/payments build
+
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run local mock smoke
         run: pnpm smoke:local-mock
+
+      - name: Run payments UI smoke
+        run: pnpm smoke:payments-ui
 
       - name: Build SpacetimeDB module
         run: spacetime build --module-path apps/spacetime/spacetimedb

@@ -146,6 +146,19 @@ describe('Stars refund service', () => {
       starsAmount: 5,
     })).rejects.toThrow('Refund amount must match whole refundable purchase lots in FIFO order');
   });
+
+  it('rejects refund amounts above the refundable lot total', async () => {
+    const service = createStarsRefundService(config, telegramMock(), async () => fakeConnection({
+      accountBalance: 100,
+      ledgerRows: [ledger({ paymentId: 'p1', starsAmount: 1, elmAmount: 100, createdAtMicros: 1n })],
+    }));
+
+    await expect(service.refund({
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+      starsAmount: 10,
+    })).rejects.toThrow('Refund amount must match whole refundable purchase lots in FIFO order');
+  });
 });
 
 function telegramMock(): TelegramBotApi {

@@ -25,6 +25,7 @@ export function createSpacetimePaymentRecorder(
 ): PaymentEventRecorder {
   let connectionPromise: Promise<SpacetimePaymentConnection> | null = null;
   let connection: SpacetimePaymentConnection | null = null;
+  const recordedPaymentKeys = new Set<string>();
 
   async function getConnection(): Promise<SpacetimePaymentConnection> {
     if (connection) return connection;
@@ -40,6 +41,12 @@ export function createSpacetimePaymentRecorder(
 
   return {
     async recordSuccessfulPayment(event: SuccessfulStarsPaymentEvent): Promise<void> {
+      const paymentKey = `${event.purchaseId}:${event.telegramPaymentChargeId}`;
+      if (recordedPaymentKeys.has(paymentKey)) {
+        console.log(`[payments] Duplicate Stars payment replay ignored purchase=${event.purchaseId} account=${event.accountId}`);
+        return;
+      }
+
       const conn = await getConnection();
       await conn.reducers.recordStarsPayment({
         paymentId: event.purchaseId,
@@ -50,6 +57,7 @@ export function createSpacetimePaymentRecorder(
         telegramPaymentChargeId: event.telegramPaymentChargeId,
         invoicePayload: event.invoicePayload,
       });
+      recordedPaymentKeys.add(paymentKey);
       console.log(
         `[payments] Credited Stars payment purchase=${event.purchaseId} account=${event.accountId} charge=${event.telegramPaymentChargeId}`,
       );

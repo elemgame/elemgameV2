@@ -37,4 +37,34 @@ describe('SpacetimeDB payment recorder', () => {
       invoicePayload: 'payload',
     });
   });
+
+  it('does not replay exact duplicate successful payment credits in one process', async () => {
+    const recordStarsPayment = vi.fn(async () => undefined);
+    const recorder = createSpacetimePaymentRecorder(
+      {
+        uri: 'http://localhost:3000',
+        database: 'elmental-test',
+        token: 'test-token',
+      },
+      async () => ({
+        reducers: { recordStarsPayment },
+        disconnect: vi.fn(),
+      }),
+    );
+    const event = {
+      purchaseId: '0123456789abcdef',
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+      packageId: 'stars_1',
+      starsAmount: 1,
+      elmAmount: 100,
+      telegramPaymentChargeId: 'charge_123',
+      invoicePayload: 'payload',
+    };
+
+    await recorder.recordSuccessfulPayment(event);
+    await recorder.recordSuccessfulPayment(event);
+
+    expect(recordStarsPayment).toHaveBeenCalledTimes(1);
+  });
 });
