@@ -1,6 +1,6 @@
 import { useGameStore } from '../stores/gameStore';
 import { balanceKindForUser, currencyForUser } from './economy';
-import { getBotFallbackSeconds, getDatabaseName, getMatchRoom, getSpacetimeUri } from './gameProvider/spacetimeProvider';
+import { getDatabaseName, getMatchRoom, getSpacetimeUri } from './gameProvider/spacetimeProvider';
 
 const ISSUE_URL = 'https://github.com/elemgame/elemgameV2/issues/new';
 const LOG_STORAGE_KEY = 'elmental.bugReport.logs';
@@ -24,7 +24,6 @@ export interface BugReportSnapshot {
     spacetimeUri: string;
     database: string;
     room: string;
-    botFallbackSeconds: number;
     location: string;
     userAgent: string;
   };
@@ -122,7 +121,6 @@ export function createBugReportSnapshot(): BugReportSnapshot {
       spacetimeUri: getSpacetimeUri(),
       database: getDatabaseName(),
       room: getMatchRoom(),
-      botFallbackSeconds: getBotFallbackSeconds(),
       location: sanitizedLocation(),
       userAgent: typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent,
     },

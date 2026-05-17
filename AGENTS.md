@@ -30,10 +30,10 @@ Use SpacetimeDB as the server-authoritative backend:
 - Player balance is server-authoritative in the `player.balance` column. The frontend must render subscribed balance updates and must not locally reset, debit, or credit ELM outside explicit mock transport.
 - Cross-device player identity is account-based: Telegram users must use `telegram:<WebApp user.id>` from TMA APIs, web users use `web:<id>`. Do not use SpacetimeDB connection identity as the durable user account.
 - Matchmaking happens through `join_queue` with a room key. Players only match inside the same room.
-- If no real opponent appears, `join_queue` can create an `AI Practice Bot` match after `VITE_BOT_FALLBACK_SECONDS` seconds. `0` disables the fallback, and real players always have priority over the bot.
+- Matchmaking is real-player only. If no compatible real opponent appears, the player stays in queue until another player joins, they cancel, or the queue timeout expires.
 - Moves use mandatory `commit_move` then `reveal_move`. The legacy `submit_move` reducer is disabled on the SpacetimeDB path.
 - `reveal_move` is rejected until both players have committed and the server-side minimum reveal delay has elapsed.
-- The scheduler expires stale rounds/matches and may reveal the bot opponent's precommitted move after the real player reveals. It must not auto-pick moves for real users or auto-advance active gameplay.
+- The scheduler expires stale queues/rounds/matches. It must not auto-pick moves for real users or auto-advance active gameplay.
 - Use `game_event` rows plus console logs for traceability.
 
 When editing SpacetimeDB code, also follow `apps/spacetime/AGENTS.md`.
@@ -130,7 +130,6 @@ VITE_GAME_TRANSPORT=spacetime \
 VITE_GAME_TRACE=true \
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com \
 VITE_SPACETIME_DB=elmental-v2 \
-VITE_BOT_FALLBACK_SECONDS=0 \
 pnpm --filter @elmental/tma dev
 ```
 
@@ -143,7 +142,6 @@ VITE_GAME_TRANSPORT=spacetime \
 VITE_GAME_TRACE=true \
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com \
 VITE_SPACETIME_DB=elmental-v2 \
-VITE_BOT_FALLBACK_SECONDS=0 \
 pnpm --filter @elmental/tma build
 ```
 
@@ -198,7 +196,6 @@ GitHub Pages deployment is handled by `.github/workflows/deploy-pages.yml` on pu
 - `VITE_GAME_TRANSPORT=spacetime`
 - `VITE_SPACETIME_URI=https://maincloud.spacetimedb.com`
 - `VITE_SPACETIME_DB=elmental-v2`
-- `VITE_BOT_FALLBACK_SECONDS=0`
 
 Vite uses `/elemgameV2/` as the base path when `GITHUB_PAGES=true`.
 

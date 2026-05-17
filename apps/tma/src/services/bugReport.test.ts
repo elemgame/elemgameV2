@@ -67,7 +67,6 @@ function snapshot(logs: BugReportSnapshot['logs'], game: Record<string, unknown>
       spacetimeUri: 'https://maincloud.spacetimedb.com',
       database: 'elmental-v2',
       room: 'public',
-      botFallbackSeconds: 0,
       location: 'https://elemgame.github.io/elemgameV2/',
       userAgent: 'vitest',
     },
