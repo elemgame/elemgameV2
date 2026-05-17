@@ -19,9 +19,11 @@ import { MatchScreen } from './screens/MatchScreen';
 import { ResultScreen } from './screens/ResultScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { AdminScreen } from './screens/AdminScreen';
 
 export default function App() {
   const { currentScreen, setTelegramUser } = useGameStore();
+  const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
 
   // Enable spatial keyboard navigation (Tab + Arrow keys)
   useSpatialNavigation();
@@ -31,6 +33,10 @@ export default function App() {
     installBugReportCapture();
     initTelegram();
     const uninstallViewportSync = installTelegramViewportSync();
+
+    if (isAdminRoute) {
+      return uninstallViewportSync;
+    }
 
     const tgUser = getTelegramUser();
     const user = tgUser ?? getMockUser();
@@ -49,7 +55,11 @@ export default function App() {
 
     void initializeGameSession(profileUser);
     return uninstallViewportSync;
-  }, [setTelegramUser]);
+  }, [isAdminRoute, setTelegramUser]);
+
+  if (isAdminRoute) {
+    return <AdminScreen />;
+  }
 
   const renderScreen = () => {
     switch (currentScreen) {

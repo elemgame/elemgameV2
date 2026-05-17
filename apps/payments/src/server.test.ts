@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import type http from 'http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AdminStore } from './adminStore.js';
 import { loadConfig } from './config.js';
 import { createSignedInvoicePayload } from './invoicePayload.js';
 import { createPaymentsServer } from './server.js';
@@ -13,8 +14,10 @@ const botToken = '123456:test_bot_token';
 const config = loadConfig({
   NODE_ENV: 'test',
   TELEGRAM_BOT_TOKEN: botToken,
+  TELEGRAM_WEBAPP_URL: 'https://game.example/',
   PAYMENT_PAYLOAD_SECRET: 'test_payment_secret',
   PAYMENTS_PORT: '3002',
+  ADMIN_TELEGRAM_IDS: '99',
 });
 
 let server: http.Server | null = null;
@@ -30,6 +33,7 @@ describe('payments server', () => {
     const telegram: TelegramBotApi = {
       createInvoiceLink: vi.fn(async () => 'https://t.me/$invoice/test'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
+      sendWebAppMessage: vi.fn(async () => undefined),
       refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
@@ -50,7 +54,7 @@ describe('payments server', () => {
     expect(body['invoiceLink']).toBe('https://t.me/$invoice/test');
     expect(telegram.createInvoiceLink).toHaveBeenCalledWith(expect.objectContaining({
       starsAmount: 10,
-      elmAmount: 1300,
+      elmAmount: 1000,
     }));
   });
 
@@ -58,6 +62,7 @@ describe('payments server', () => {
     const telegram: TelegramBotApi = {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
+      sendWebAppMessage: vi.fn(async () => undefined),
       refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
@@ -76,6 +81,7 @@ describe('payments server', () => {
     const telegram: TelegramBotApi = {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
+      sendWebAppMessage: vi.fn(async () => undefined),
       refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
@@ -106,6 +112,7 @@ describe('payments server', () => {
     const telegram: TelegramBotApi = {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
+      sendWebAppMessage: vi.fn(async () => undefined),
       refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const recorder: PaymentEventRecorder = {
@@ -135,9 +142,33 @@ describe('payments server', () => {
       accountId: 'telegram:99',
       packageId: 'stars_10',
       starsAmount: 10,
-      elmAmount: 1300,
+      elmAmount: 1000,
       telegramPaymentChargeId: 'charge_123',
     }));
+  });
+
+  it('sends the configured WebApp link for /play commands', async () => {
+    const telegram = createTelegramMock();
+    const baseUrl = await listen(telegram);
+
+    const response = await fetch(`${baseUrl}/telegram/webhook`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        message: {
+          chat: { id: 99 },
+          from: { id: 99 },
+          text: '/play',
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(telegram.sendWebAppMessage).toHaveBeenCalledWith({
+      chatId: 99,
+      text: 'Open Elmental from this button to use your Telegram account balance.',
+      webAppUrl: 'https://game.example/',
+    });
   });
 
   it('returns refund quotes for Telegram users', async () => {
@@ -249,6 +280,85 @@ describe('payments server', () => {
       telegramUserId: '99',
     });
   });
+
+  it('authenticates configured admin users', async () => {
+    const telegram = createTelegramMock();
+    const adminStore = createAdminStoreMock();
+    const baseUrl = await listen(telegram, undefined, undefined, undefined, adminStore);
+
+    const response = await fetch(`${baseUrl}/admin/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ initData: signedInitData({ id: 99, first_name: 'Admin' }) }),
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as Record<string, unknown>;
+    expect(body['admin']).toEqual(expect.objectContaining({ telegramId: 99 }));
+  });
+
+  it('rejects non-admin Telegram users from admin endpoints', async () => {
+    const telegram = createTelegramMock();
+    const adminStore = createAdminStoreMock();
+    const baseUrl = await listen(telegram, undefined, undefined, undefined, adminStore);
+
+    const response = await fetch(`${baseUrl}/admin/stats`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ initData: signedInitData({ id: 100, first_name: 'NotAdmin' }) }),
+    });
+
+    expect(response.status).toBe(403);
+    const body = await response.json() as Record<string, unknown>;
+    expect(body['error']).toEqual(expect.objectContaining({ code: 'admin_forbidden' }));
+    expect(adminStore.getStats).not.toHaveBeenCalled();
+  });
+
+  it('returns admin stats for authorized admins', async () => {
+    const telegram = createTelegramMock();
+    const adminStore = createAdminStoreMock();
+    const baseUrl = await listen(telegram, undefined, undefined, undefined, adminStore);
+
+    const response = await fetch(`${baseUrl}/admin/stats`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ initData: signedInitData({ id: 99, first_name: 'Admin' }), window: '7d' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(adminStore.getStats).toHaveBeenCalledWith('7d');
+    const body = await response.json() as Record<string, unknown>;
+    expect(body['window']).toBe('7d');
+  });
+
+  it('submits admin balance adjustments through the admin store', async () => {
+    const telegram = createTelegramMock();
+    const adminStore = createAdminStoreMock();
+    const baseUrl = await listen(telegram, undefined, undefined, undefined, adminStore);
+
+    const response = await fetch(`${baseUrl}/admin/balance/adjust`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        initData: signedInitData({ id: 99, first_name: 'Admin' }),
+        accountId: 'telegram:99',
+        balanceKind: 'paid_elm',
+        operation: 'credit',
+        amount: 100,
+        reason: 'support correction',
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(adminStore.adjustBalance).toHaveBeenCalledWith({
+      admin: { telegramId: 99 },
+      accountId: 'telegram:99',
+      balanceKind: 'paid_elm',
+      operation: 'credit',
+      amount: 100,
+      reason: 'support correction',
+    });
+  });
 });
 
 async function listen(
@@ -256,18 +366,71 @@ async function listen(
   paymentRecorder?: PaymentEventRecorder,
   refundService?: StarsRefundService,
   walletHistoryService?: WalletHistoryService,
+  adminStore?: AdminStore,
 ): Promise<string> {
-  server = createPaymentsServer({ config, telegram, paymentRecorder, refundService, walletHistoryService });
+  server = createPaymentsServer({ config, telegram, paymentRecorder, refundService, walletHistoryService, adminStore });
   await new Promise<void>(resolve => server?.listen(0, resolve));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Server did not listen on a TCP port');
   return `http://127.0.0.1:${address.port}`;
 }
 
+function createAdminStoreMock(): AdminStore {
+  return {
+    getStats: vi.fn(async window => ({
+      window,
+      generatedAt: '2026-05-17T00:00:00.000Z',
+      users: { dau: 1, wau: 1, totalAccounts: 1, totalPlayers: 1, newUsers: 1, onlinePlayers: 1 },
+      matches: { total: 0, active: 0, completed: 0, queued: 0, botFallback: 0 },
+      payments: { count: 0, starsAmount: 0, creditedElm: 0, refunds: 0, failed: 0 },
+      balances: { paidElm: 0, demoTeml: 0 },
+      recentEvents: [],
+    })),
+    searchUsers: vi.fn(async () => []),
+    getUser: vi.fn(async () => null),
+    adjustBalance: vi.fn(async () => ({
+      account: {
+        id: 'telegram:99',
+        name: 'Admin',
+        rating: 1200,
+        wins: 0,
+        losses: 0,
+        balance: 100,
+        balanceKind: 'paid_elm',
+      },
+      user: {
+        accountId: 'telegram:99',
+        name: 'Admin',
+        balanceKind: 'paid_elm',
+        balance: 100,
+        rating: 1200,
+        wins: 0,
+        losses: 0,
+        online: false,
+        queued: false,
+      },
+      audit: {
+        requestId: 'req_1',
+        adminTelegramId: '99',
+        targetAccountId: 'telegram:99',
+        balanceKind: 'paid_elm',
+        operation: 'credit',
+        previousBalance: 0,
+        newBalance: 100,
+        delta: 100,
+        reason: 'support correction',
+        createdAt: '2026-05-17T00:00:00.000Z',
+      },
+    })),
+    getAuditEvents: vi.fn(async () => []),
+  };
+}
+
 function createTelegramMock(): TelegramBotApi {
   return {
     createInvoiceLink: vi.fn(async () => 'unused'),
     answerPreCheckoutQuery: vi.fn(async () => undefined),
+    sendWebAppMessage: vi.fn(async () => undefined),
     refundStarPayment: vi.fn(async () => 'refunded' as const),
   };
 }

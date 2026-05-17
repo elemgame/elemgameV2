@@ -16,8 +16,8 @@ describe('Stars refund service', () => {
       accountBalance: 650,
       ledgerRows: [
         ledger({ paymentId: 'p1', starsAmount: 1, elmAmount: 100, createdAtMicros: 1n }),
-        ledger({ paymentId: 'p2', starsAmount: 5, elmAmount: 600, createdAtMicros: 2n }),
-        ledger({ paymentId: 'p3', starsAmount: 10, elmAmount: 1300, createdAtMicros: 3n }),
+        ledger({ paymentId: 'p2', starsAmount: 5, elmAmount: 500, createdAtMicros: 2n }),
+        ledger({ paymentId: 'p3', starsAmount: 10, elmAmount: 1000, createdAtMicros: 3n }),
       ],
     }));
 
@@ -136,7 +136,7 @@ describe('Stars refund service', () => {
       accountBalance: 700,
       ledgerRows: [
         ledger({ paymentId: 'p1', starsAmount: 1, elmAmount: 100, createdAtMicros: 1n }),
-        ledger({ paymentId: 'p2', starsAmount: 5, elmAmount: 600, createdAtMicros: 2n }),
+        ledger({ paymentId: 'p2', starsAmount: 5, elmAmount: 500, createdAtMicros: 2n }),
       ],
     }));
 
@@ -165,6 +165,7 @@ function telegramMock(): TelegramBotApi {
   return {
     createInvoiceLink: vi.fn(),
     answerPreCheckoutQuery: vi.fn(),
+    sendWebAppMessage: vi.fn(),
     refundStarPayment: vi.fn(async () => 'refunded' as const),
   };
 }

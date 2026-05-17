@@ -41,7 +41,9 @@ interface TelegramPreCheckoutQuery {
 }
 
 interface TelegramMessage {
+  chat?: { id?: number };
   from?: { id?: number };
+  text?: string;
   successful_payment?: TelegramSuccessfulPayment;
 }
 
@@ -54,6 +56,7 @@ interface TelegramSuccessfulPayment {
 
 interface HandleUpdateDeps {
   payloadSecret: string;
+  webAppUrl?: string;
   telegram: TelegramBotApi;
   recorder: PaymentEventRecorder;
 }
@@ -66,7 +69,37 @@ export async function handleTelegramUpdate(update: unknown, deps: HandleUpdateDe
   if (typedUpdate.message?.successful_payment) {
     return handleSuccessfulPayment(typedUpdate.message, typedUpdate.message.successful_payment, deps);
   }
+  if (typedUpdate.message?.text) {
+    return handleCommandMessage(typedUpdate.message, deps);
+  }
   return 'ignored';
+}
+
+async function handleCommandMessage(message: TelegramMessage, deps: HandleUpdateDeps): Promise<string> {
+  const command = parseBotCommand(message.text);
+  if (command !== 'start' && command !== 'play') return 'ignored';
+  if (!deps.webAppUrl) {
+    console.warn(`[payments] Ignoring /${command} because TELEGRAM_WEBAPP_URL is not configured`);
+    return 'webapp_url_missing';
+  }
+
+  const chatId = message.chat?.id;
+  if (typeof chatId !== 'number') return 'invalid_command_message';
+
+  await deps.telegram.sendWebAppMessage({
+    chatId,
+    text: 'Open Elmental from this button to use your Telegram account balance.',
+    webAppUrl: deps.webAppUrl,
+  });
+
+  return 'webapp_link_sent';
+}
+
+function parseBotCommand(text?: string): string | undefined {
+  if (typeof text !== 'string') return undefined;
+  const firstToken = text.trim().split(/\s+/, 1)[0] ?? '';
+  const match = /^\/([a-zA-Z0-9_]+)(?:@[\w_]+)?$/.exec(firstToken);
+  return match?.[1]?.toLowerCase();
 }
 
 async function handlePreCheckoutQuery(query: TelegramPreCheckoutQuery, deps: HandleUpdateDeps): Promise<string> {

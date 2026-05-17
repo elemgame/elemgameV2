@@ -50,4 +50,35 @@ describe('Telegram Bot API client', () => {
       confirmedFailure: true,
     } satisfies Partial<TelegramBotApiError>);
   });
+
+  it('sends WebApp launch messages with an inline app button', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      ok: true,
+      result: { message_id: 1 },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })) as unknown as typeof fetch;
+    const telegram = createTelegramBotApi('123:test', 'https://api.telegram.test', fetchImpl);
+
+    await expect(telegram.sendWebAppMessage({
+      chatId: 99,
+      text: 'Open Elmental',
+      webAppUrl: 'https://game.example/',
+    })).resolves.toBeUndefined();
+
+    expect(fetchImpl).toHaveBeenCalledWith('https://api.telegram.test/bot123:test/sendMessage', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        chat_id: 99,
+        text: 'Open Elmental',
+        reply_markup: {
+          inline_keyboard: [[{
+            text: 'Play Elmental',
+            web_app: { url: 'https://game.example/' },
+          }]],
+        },
+      }),
+    }));
+  });
 });

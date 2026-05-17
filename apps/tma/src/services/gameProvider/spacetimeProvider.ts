@@ -3,6 +3,7 @@ import { BOOST_EXTRA_ENERGY, MoveId, STARTING_ENERGY } from '@elmental/shared';
 import { DbConnection } from '../../module_bindings';
 import { playerAccountId, playerDisplayName } from '../playerProfile';
 import type {
+  Account,
   GameEvent,
   MatchState,
   Player,
@@ -235,6 +236,8 @@ export function createSpacetimeProvider(
     if (wiredConnection === connection) return;
     wiredConnection = connection;
 
+    connection.db.account.onInsert((_ctx, row) => handleAccount(row));
+    connection.db.account.onUpdate((_ctx, _oldRow, row) => handleAccount(row));
     connection.db.player.onInsert((_ctx, row) => handlePlayer(row));
     connection.db.player.onUpdate((_ctx, _oldRow, row) => handlePlayer(row));
     connection.db.queueEntry.onInsert((_ctx, row) => handleQueueEntry(row));
@@ -245,8 +248,41 @@ export function createSpacetimeProvider(
     connection.db.gameEvent.onInsert((_ctx, row) => handleGameEvent(row));
   }
 
+  function handleAccount(row: Account): void {
+    if (row.id !== currentAccountId()) return;
+    trace('spacetime.account.update', {
+      accountId: row.id,
+      name: row.name,
+      balance: row.balance,
+      balanceKind: row.balanceKind,
+      rating: row.rating,
+      wins: row.wins,
+      losses: row.losses,
+    });
+    context.emit({
+      type: 'playerStats',
+      name: row.name,
+      elmBalance: row.balance,
+      balanceKind: row.balanceKind,
+      rating: row.rating,
+      wins: row.wins,
+      losses: row.losses,
+    });
+  }
+
   function handlePlayer(row: Player): void {
     if (!currentIdentity || !identityEquals(row.identity, currentIdentity)) return;
+    const accountId = currentAccountId();
+    if (accountId && accountIdForPlayerRow(row) !== accountId) {
+      trace('spacetime.player.ignored_account_mismatch', {
+        rowAccountId: accountIdForPlayerRow(row),
+        currentAccountId: accountId,
+        balance: row.balance,
+        balanceKind: row.balanceKind,
+      });
+      return;
+    }
+    if (currentAccountRow()) return;
     trace('spacetime.player.update', {
       name: row.name,
       balance: row.balance,
@@ -636,6 +672,11 @@ export function createSpacetimeProvider(
 
   function syncPlayerStats(): void {
     if (!conn || !currentIdentity) return;
+    const account = currentAccountRow();
+    if (account) {
+      handleAccount(account);
+      return;
+    }
     for (const player of conn.db.player.iter()) handlePlayer(player);
   }
 
@@ -708,6 +749,16 @@ export function createSpacetimeProvider(
 
   function accountIdForPlayerRow(row: Player): string {
     return row.accountId || `identity:${row.identity.toHexString()}`;
+  }
+
+  function currentAccountId(): string | null {
+    return currentUser ? playerAccountId(currentUser) : null;
+  }
+
+  function currentAccountRow(): Account | null {
+    const accountId = currentAccountId();
+    if (!conn || !accountId) return null;
+    return conn.db.account.id.find(accountId) ?? null;
   }
 
   function trace(event: string, data: Record<string, unknown>): void {

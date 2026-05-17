@@ -9,6 +9,7 @@ export interface CreateInvoiceLinkInput {
 export interface TelegramBotApi {
   createInvoiceLink(input: CreateInvoiceLinkInput): Promise<string>;
   answerPreCheckoutQuery(input: AnswerPreCheckoutQueryInput): Promise<void>;
+  sendWebAppMessage(input: SendWebAppMessageInput): Promise<void>;
   refundStarPayment(input: RefundStarPaymentInput): Promise<'refunded' | 'already_refunded'>;
 }
 
@@ -21,6 +22,12 @@ export interface AnswerPreCheckoutQueryInput {
 export interface RefundStarPaymentInput {
   telegramUserId: string;
   telegramPaymentChargeId: string;
+}
+
+export interface SendWebAppMessageInput {
+  chatId: number;
+  text: string;
+  webAppUrl: string;
 }
 
 export class TelegramBotApiError extends Error {
@@ -85,6 +92,28 @@ export function createTelegramBotApi(
       });
 
       const parsed = await response.json() as BotApiResponse<boolean>;
+      if (!response.ok || !parsed.ok) {
+        throw new Error(parsed.description || `Telegram Bot API failed with HTTP ${response.status}`);
+      }
+    },
+
+    async sendWebAppMessage(input: SendWebAppMessageInput): Promise<void> {
+      const response = await fetchImpl(`${baseUrl}/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: input.chatId,
+          text: input.text,
+          reply_markup: {
+            inline_keyboard: [[{
+              text: 'Play Elmental',
+              web_app: { url: input.webAppUrl },
+            }]],
+          },
+        }),
+      });
+
+      const parsed = await response.json() as BotApiResponse<object>;
       if (!response.ok || !parsed.ok) {
         throw new Error(parsed.description || `Telegram Bot API failed with HTTP ${response.status}`);
       }

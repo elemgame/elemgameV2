@@ -2,8 +2,8 @@ import { getTelegramWebApp } from './telegram';
 
 export const ELM_STARS_PACKAGES = [
   { id: 'stars_1', starsAmount: 1, elmAmount: 100 },
-  { id: 'stars_5', starsAmount: 5, elmAmount: 600 },
-  { id: 'stars_10', starsAmount: 10, elmAmount: 1300 },
+  { id: 'stars_5', starsAmount: 5, elmAmount: 500 },
+  { id: 'stars_10', starsAmount: 10, elmAmount: 1000 },
 ] as const;
 
 export type ElmStarsPackage = (typeof ELM_STARS_PACKAGES)[number];

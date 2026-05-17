@@ -21,6 +21,20 @@ export const Account = __t.object("Account", {
 });
 export type Account = __Infer<typeof Account>;
 
+export const AdminAuditEvent = __t.object("AdminAuditEvent", {
+  requestId: __t.string(),
+  adminTelegramId: __t.string(),
+  targetAccountId: __t.string(),
+  balanceKind: __t.string(),
+  operation: __t.string(),
+  previousBalance: __t.i32(),
+  newBalance: __t.i32(),
+  delta: __t.i32(),
+  reason: __t.string(),
+  createdAtMicros: __t.u64(),
+});
+export type AdminAuditEvent = __Infer<typeof AdminAuditEvent>;
+
 export const AutomationGuard = __t.object("AutomationGuard", {
   identity: __t.identity(),
   joinWindowStartMicros: __t.u64(),

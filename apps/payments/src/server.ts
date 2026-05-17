@@ -1,4 +1,6 @@
 import http from 'http';
+import { authenticateAdmin, type AdminIdentity } from './adminAuth.js';
+import { AdminStoreError, type AdminStore, type AdminTimeWindow, type BalanceKind, type BalanceOperation } from './adminStore.js';
 import { createPurchaseId, createSignedInvoicePayload } from './invoicePayload.js';
 import { ELM_STARS_PACKAGES, findElmStarsPackage } from './packages.js';
 import { validateTelegramInitData } from './telegramInitData.js';
@@ -15,6 +17,7 @@ interface ServerDeps {
   paymentRecorder?: PaymentEventRecorder;
   refundService?: StarsRefundService;
   walletHistoryService?: WalletHistoryService;
+  adminStore?: AdminStore;
 }
 
 interface InvoiceRequestBody {
@@ -27,15 +30,28 @@ interface RefundRequestBody {
   starsAmount?: unknown;
 }
 
+interface AdminRequestBody {
+  initData?: unknown;
+  window?: unknown;
+  query?: unknown;
+  accountId?: unknown;
+  balanceKind?: unknown;
+  operation?: unknown;
+  amount?: unknown;
+  reason?: unknown;
+  adminTelegramId?: unknown;
+}
+
 export function createPaymentsServer({
   config,
   telegram,
   paymentRecorder = noopPaymentEventRecorder,
   refundService,
   walletHistoryService,
+  adminStore,
 }: ServerDeps): http.Server {
   return http.createServer((req, res) => {
-    void handleRequest(req, res, config, telegram, paymentRecorder, refundService, walletHistoryService).catch(err => {
+    void handleRequest(req, res, config, telegram, paymentRecorder, refundService, walletHistoryService, adminStore).catch(err => {
       console.error('[payments] Request failed:', err);
       sendJson(res, 500, { error: 'Internal server error' });
     });
@@ -50,6 +66,7 @@ async function handleRequest(
   paymentRecorder: PaymentEventRecorder,
   refundService?: StarsRefundService,
   walletHistoryService?: WalletHistoryService,
+  adminStore?: AdminStore,
 ): Promise<void> {
   setCors(req, res, config);
 
@@ -96,7 +113,125 @@ async function handleRequest(
     return;
   }
 
+  if (url.pathname.startsWith('/admin/')) {
+    await handleAdminRequest(req, res, url.pathname, config, adminStore);
+    return;
+  }
+
   sendJson(res, 404, { error: 'Not found' });
+}
+
+async function handleAdminRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pathname: string,
+  config: PaymentsConfig,
+  adminStore?: AdminStore,
+): Promise<void> {
+  if (req.method !== 'POST') {
+    sendAdminError(res, 405, 'method_not_allowed', 'Method not allowed');
+    return;
+  }
+  if (!adminStore) {
+    sendAdminError(res, 503, 'admin_backend_unavailable', 'Admin backend is unavailable');
+    return;
+  }
+
+  const auth = await readAdminRequest(req, res, config);
+  if (!auth) return;
+  const { admin, body } = auth;
+
+  try {
+    if (pathname === '/admin/session') {
+      sendJson(res, 200, {
+        admin: {
+          telegramId: admin.telegramId,
+          firstName: admin.user.first_name,
+          username: admin.user.username,
+        },
+      });
+      return;
+    }
+
+    if (pathname === '/admin/stats') {
+      const window = parseAdminWindow(body.window);
+      sendJson(res, 200, await adminStore.getStats(window));
+      return;
+    }
+
+    if (pathname === '/admin/users/search') {
+      const query = typeof body.query === 'string' ? body.query : '';
+      sendJson(res, 200, { users: await adminStore.searchUsers(query) });
+      return;
+    }
+
+    if (pathname === '/admin/users/detail') {
+      const accountId = typeof body.accountId === 'string' ? body.accountId : '';
+      if (!accountId) {
+        sendAdminError(res, 400, 'invalid_input', 'accountId is required');
+        return;
+      }
+      const user = await adminStore.getUser(accountId);
+      if (!user) {
+        sendAdminError(res, 404, 'not_found', 'User not found');
+        return;
+      }
+      sendJson(res, 200, { user });
+      return;
+    }
+
+    if (pathname === '/admin/balance/adjust') {
+      const accountId = typeof body.accountId === 'string' ? body.accountId : '';
+      const balanceKind = parseBalanceKind(body.balanceKind);
+      const operation = parseBalanceOperation(body.operation);
+      const amount = typeof body.amount === 'number' ? body.amount : Number(body.amount);
+      const reason = typeof body.reason === 'string' ? body.reason : undefined;
+      const result = await adminStore.adjustBalance({
+        admin: { telegramId: admin.telegramId },
+        accountId,
+        balanceKind,
+        operation,
+        amount,
+        reason,
+      });
+      sendJson(res, 200, result);
+      return;
+    }
+
+    if (pathname === '/admin/audit') {
+      const window = parseOptionalAdminWindow(body.window);
+      const accountId = typeof body.accountId === 'string' && body.accountId ? body.accountId : undefined;
+      const adminTelegramId = typeof body.adminTelegramId === 'string' && body.adminTelegramId ? body.adminTelegramId : undefined;
+      const operation = body.operation === undefined || body.operation === '' ? undefined : parseBalanceOperation(body.operation);
+      sendJson(res, 200, {
+        events: await adminStore.getAuditEvents({ accountId, adminTelegramId, operation, window }),
+      });
+      return;
+    }
+
+    sendAdminError(res, 404, 'not_found', 'Not found');
+  } catch (err) {
+    if (err instanceof AdminStoreError) {
+      const status = err.code === 'not_found' ? 404 : err.code === 'conflict' ? 409 : 400;
+      sendAdminError(res, status, err.code, err.message);
+      return;
+    }
+    throw err;
+  }
+}
+
+async function readAdminRequest(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  config: PaymentsConfig,
+): Promise<{ admin: AdminIdentity; body: AdminRequestBody } | null> {
+  const body = await readJsonBody<AdminRequestBody>(req);
+  const auth = authenticateAdmin(body.initData, config);
+  if (!auth.ok) {
+    sendAdminError(res, auth.status, auth.code, auth.message);
+    return null;
+  }
+  return { admin: auth.admin, body };
 }
 
 async function handleRefundQuote(
@@ -207,6 +342,7 @@ async function handleTelegramWebhook(
   paymentRecorder: PaymentEventRecorder,
 ): Promise<void> {
   if (config.webhookSecret && req.headers['x-telegram-bot-api-secret-token'] !== config.webhookSecret) {
+    console.warn('[payments] Rejected Telegram webhook with invalid secret');
     sendJson(res, 401, { error: 'Invalid webhook secret' });
     return;
   }
@@ -214,9 +350,11 @@ async function handleTelegramWebhook(
   const update = await readJsonBody<unknown>(req);
   const result = await handleTelegramUpdate(update, {
     payloadSecret: config.payloadSecret,
+    webAppUrl: config.telegramWebAppUrl,
     telegram,
     recorder: paymentRecorder,
   });
+  console.log(`[payments] Telegram webhook handled type=${telegramUpdateType(update)} result=${result}`);
   sendJson(res, 200, { ok: true, result });
 }
 
@@ -288,6 +426,26 @@ function setCors(req: http.IncomingMessage, res: http.ServerResponse, config: Pa
   res.setHeader('access-control-allow-headers', 'content-type');
 }
 
+function parseAdminWindow(value: unknown): AdminTimeWindow {
+  if (value === '7d' || value === '30d' || value === '24h' || value === undefined) return value ?? '24h';
+  throw new AdminStoreError('invalid_input', 'Invalid time window');
+}
+
+function parseOptionalAdminWindow(value: unknown): AdminTimeWindow | undefined {
+  if (value === undefined || value === '') return undefined;
+  return parseAdminWindow(value);
+}
+
+function parseBalanceKind(value: unknown): BalanceKind {
+  if (value === 'paid_elm' || value === 'demo_teml') return value;
+  throw new AdminStoreError('invalid_input', 'Invalid balance kind');
+}
+
+function parseBalanceOperation(value: unknown): BalanceOperation {
+  if (value === 'credit' || value === 'debit' || value === 'set') return value;
+  throw new AdminStoreError('invalid_input', 'Invalid balance operation');
+}
+
 async function readJsonBody<T>(req: http.IncomingMessage): Promise<T> {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -307,4 +465,21 @@ async function readJsonBody<T>(req: http.IncomingMessage): Promise<T> {
 function sendJson(res: http.ServerResponse, statusCode: number, body: unknown): void {
   res.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(body));
+}
+
+function sendAdminError(res: http.ServerResponse, statusCode: number, code: string, message: string): void {
+  sendJson(res, statusCode, { error: { code, message } });
+}
+
+function telegramUpdateType(update: unknown): string {
+  if (!update || typeof update !== 'object' || Array.isArray(update)) return 'invalid';
+  const record = update as Record<string, unknown>;
+  if (record['pre_checkout_query']) return 'pre_checkout_query';
+  const message = record['message'];
+  if (message && typeof message === 'object' && !Array.isArray(message)) {
+    const messageRecord = message as Record<string, unknown>;
+    if (messageRecord['successful_payment']) return 'successful_payment';
+    return 'message';
+  }
+  return 'unknown';
 }

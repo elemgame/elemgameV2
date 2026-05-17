@@ -1,4 +1,5 @@
 import {
+  MATCH_STAKE,
   MoveId,
   RAKE_PERCENT,
   calculateElo,
@@ -25,7 +26,6 @@ import type {
   PlayerProfileInput,
 } from './gameProvider/types';
 
-const MATCH_STAKE = 100;
 const ROUND_SECONDS = 15;
 
 const TRANSPORT = (import.meta.env.VITE_GAME_TRANSPORT ?? 'spacetime').toLowerCase();

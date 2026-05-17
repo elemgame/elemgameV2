@@ -17,7 +17,7 @@ describe('TMA Stars payments', () => {
       package: {
         id: 'stars_5',
         starsAmount: 5,
-        elmAmount: 600,
+        elmAmount: 500,
       },
     }), {
       status: 200,
@@ -44,7 +44,7 @@ describe('TMA Stars payments', () => {
       accountId: 'telegram:123',
       currency: 'XTR',
       invoiceLink: 'https://t.me/$invoice/test',
-      package: { id: 'stars_5', starsAmount: 5, elmAmount: 600 },
+      package: { id: 'stars_5', starsAmount: 5, elmAmount: 500 },
     });
   });
 

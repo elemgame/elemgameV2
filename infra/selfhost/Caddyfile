@@ -1,0 +1,14 @@
+http://{$PUBLIC_HOST:localhost} {
+  encode zstd gzip
+
+  @payments path /payments/* /admin/* /telegram/webhook /health
+  reverse_proxy @payments payments:3002
+
+  @spacetimeClient path_regexp spacetime_client ^/v1/database/[^/]+(/identity|/subscribe)?$
+  reverse_proxy @spacetimeClient spacetimedb:3000
+
+  @spacetimeIdentity path /v1/identity/*
+  reverse_proxy @spacetimeIdentity spacetimedb:3000
+
+  reverse_proxy tma:80
+}

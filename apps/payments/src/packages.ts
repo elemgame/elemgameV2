@@ -17,16 +17,16 @@ export const ELM_STARS_PACKAGES = [
   {
     id: 'stars_5',
     starsAmount: 5,
-    elmAmount: 600,
-    title: '600 ELM',
-    description: '600 paid ELM for Elmental PvP',
+    elmAmount: 500,
+    title: '500 ELM',
+    description: '500 paid ELM for Elmental PvP',
   },
   {
     id: 'stars_10',
     starsAmount: 10,
-    elmAmount: 1300,
-    title: '1300 ELM',
-    description: '1300 paid ELM for Elmental PvP',
+    elmAmount: 1000,
+    title: '1000 ELM',
+    description: '1000 paid ELM for Elmental PvP',
   },
 ] as const satisfies readonly ElmStarsPackage[];
 

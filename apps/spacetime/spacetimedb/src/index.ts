@@ -28,7 +28,7 @@ const BOT_FALLBACK_MAX_SECONDS = 120;
 const BOT_NAME = 'AI Practice Bot';
 const DEMO_BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000001');
 const PAID_BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000002');
-const INITIAL_BALANCE = 1000;
+const INITIAL_BALANCE = 0;
 const BOT_BALANCE = 1_000_000;
 const RAKE_PERCENT = 5;
 const BOOST_STAKE_PERCENT = 10;
@@ -44,8 +44,8 @@ const PAYMENT_STATUS_REFUNDED = 'refunded';
 const ALL_MOVES = [0, 1, 2, 3, 4, 5] as const;
 const ELM_STARS_PACKAGES = [
   { starsAmount: 1, elmAmount: 100 },
-  { starsAmount: 5, elmAmount: 600 },
-  { starsAmount: 10, elmAmount: 1300 },
+  { starsAmount: 5, elmAmount: 500 },
+  { starsAmount: 10, elmAmount: 1000 },
 ] as const;
 
 const account = table(
@@ -148,6 +148,23 @@ const paymentLedger = table(
   }
 );
 
+// Private: immutable operator audit trail for admin balance adjustments.
+const adminAuditEvent = table(
+  { name: 'admin_audit_event' },
+  {
+    requestId: t.string().primaryKey(),
+    adminTelegramId: t.string(),
+    targetAccountId: t.string(),
+    balanceKind: t.string(),
+    operation: t.string(),
+    previousBalance: t.i32(),
+    newBalance: t.i32(),
+    delta: t.i32(),
+    reason: t.string(),
+    createdAtMicros: t.u64(),
+  }
+);
+
 const matchState = table(
   { name: 'match_state', public: true },
   {
@@ -243,6 +260,7 @@ const spacetimedb = schema({
   automationGuard,
   botMoveCommit,
   paymentLedger,
+  adminAuditEvent,
   matchState,
   roundResult,
   gameEvent,

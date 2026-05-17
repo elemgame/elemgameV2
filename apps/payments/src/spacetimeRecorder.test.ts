@@ -22,7 +22,7 @@ describe('SpacetimeDB payment recorder', () => {
       telegramUserId: '99',
       packageId: 'stars_10',
       starsAmount: 10,
-      elmAmount: 1300,
+      elmAmount: 1000,
       telegramPaymentChargeId: 'charge_123',
       invoicePayload: 'payload',
     });
@@ -32,7 +32,7 @@ describe('SpacetimeDB payment recorder', () => {
       accountId: 'telegram:99',
       telegramUserId: '99',
       starsAmount: 10,
-      elmAmount: 1300,
+      elmAmount: 1000,
       telegramPaymentChargeId: 'charge_123',
       invoicePayload: 'payload',
     });
