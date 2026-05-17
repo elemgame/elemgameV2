@@ -93,7 +93,7 @@ services:
         VITE_GAME_TRACE: "true"
         VITE_SPACETIME_URI: ${PUBLIC_ORIGIN:-http://localhost}
         VITE_SPACETIME_DB: ${SPACETIME_DB:-elmental-v2}
-        VITE_BOT_FALLBACK_SECONDS: ${VITE_BOT_FALLBACK_SECONDS:-30}
+        VITE_BOT_FALLBACK_SECONDS: ${VITE_BOT_FALLBACK_SECONDS:-0}
         VITE_PAYMENTS_URL: ${PUBLIC_ORIGIN:-http://localhost}
         VITE_BASE_PATH: /
     restart: unless-stopped

@@ -130,7 +130,7 @@ VITE_GAME_TRANSPORT=spacetime \
 VITE_GAME_TRACE=true \
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com \
 VITE_SPACETIME_DB=elmental-v2 \
-VITE_BOT_FALLBACK_SECONDS=30 \
+VITE_BOT_FALLBACK_SECONDS=0 \
 pnpm --filter @elmental/tma dev
 ```
 
@@ -143,7 +143,7 @@ VITE_GAME_TRANSPORT=spacetime \
 VITE_GAME_TRACE=true \
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com \
 VITE_SPACETIME_DB=elmental-v2 \
-VITE_BOT_FALLBACK_SECONDS=30 \
+VITE_BOT_FALLBACK_SECONDS=0 \
 pnpm --filter @elmental/tma build
 ```
 
@@ -198,7 +198,7 @@ GitHub Pages deployment is handled by `.github/workflows/deploy-pages.yml` on pu
 - `VITE_GAME_TRANSPORT=spacetime`
 - `VITE_SPACETIME_URI=https://maincloud.spacetimedb.com`
 - `VITE_SPACETIME_DB=elmental-v2`
-- `VITE_BOT_FALLBACK_SECONDS=30`
+- `VITE_BOT_FALLBACK_SECONDS=0`
 
 Vite uses `/elemgameV2/` as the base path when `GITHUB_PAGES=true`.
 

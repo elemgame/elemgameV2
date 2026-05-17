@@ -206,7 +206,7 @@ GITHUB_PAGES=true
 VITE_GAME_TRANSPORT=spacetime
 VITE_SPACETIME_URI=https://maincloud.spacetimedb.com
 VITE_SPACETIME_DB=elmental-v2
-VITE_BOT_FALLBACK_SECONDS=30
+VITE_BOT_FALLBACK_SECONDS=0
 VITE_PAYMENTS_URL=<Telegram Stars payment service URL>
 ```
 

@@ -922,9 +922,9 @@ export function getBotFallbackSeconds(): number {
   const raw = params.get('botFallbackSeconds')
     ?? params.get('bot_fallback_seconds')
     ?? import.meta.env.VITE_BOT_FALLBACK_SECONDS
-    ?? '30';
+    ?? '0';
   const seconds = Number(raw);
-  if (!Number.isFinite(seconds)) return 30;
+  if (!Number.isFinite(seconds)) return 0;
   return Math.max(0, Math.min(120, Math.floor(seconds)));
 }
 

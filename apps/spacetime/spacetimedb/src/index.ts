@@ -23,8 +23,8 @@ const JOIN_RATE_LIMIT_MAX = 3;
 const FORFEIT_PENALTY_WINDOW_MICROS = 3_600_000_000n;
 const REPEAT_FORFEIT_RATING_MULTIPLIER = 2;
 const NEXT_ROUND_JITTER_MAX_MICROS = 500_000;
-const BOT_FALLBACK_DEFAULT_SECONDS = 30;
-const BOT_FALLBACK_MAX_SECONDS = 120;
+const BOT_FALLBACK_DEFAULT_SECONDS = 0;
+const BOT_FALLBACK_MAX_SECONDS = 0;
 const BOT_NAME = 'AI Practice Bot';
 const DEMO_BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000001');
 const PAID_BOT_IDENTITY = new Identity('b000000000000000000000000000000000000000000000000000000000000002');
@@ -1361,6 +1361,7 @@ function botFallbackDeadline(now: bigint, requestedSeconds?: number) {
   const seconds = requestedSeconds ?? BOT_FALLBACK_DEFAULT_SECONDS;
   if (seconds <= 0) return undefined;
   const clamped = Math.min(Math.floor(seconds), BOT_FALLBACK_MAX_SECONDS);
+  if (clamped <= 0) return undefined;
   return now + BigInt(clamped) * 1_000_000n;
 }
 
