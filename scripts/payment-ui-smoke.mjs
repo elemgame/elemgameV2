@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import net from 'node:net';
 import { chromium } from '@playwright/test';
 
 const port = await getFreePort();
 const baseUrl = `http://127.0.0.1:${port}/`;
 const paymentsUrl = 'https://payments.example.test';
+const matchStake = readSharedMatchStake();
 const headless = process.env.SMOKE_HEADLESS !== 'false';
 const errors = [];
 const events = [];
@@ -72,7 +74,8 @@ try {
 async function verifyWebDemoControls(page) {
   await page.waitForFunction(() => /tELM Balance/i.test(document.body.innerText), undefined, { timeout: 10_000 });
   const text = await compactBody(page, 1200);
-  if (!/Stake: 100 tELM/i.test(text)) throw new Error('Web demo stake is not labelled tELM');
+  const expectedStakeText = `Stake: ${matchStake} tELM`;
+  if (!text.includes(expectedStakeText)) throw new Error(`Web demo stake is not labelled tELM: expected "${expectedStakeText}"`);
   if (/Top up/i.test(text)) throw new Error('Web demo rendered Stars top-up controls');
   if (/Refund eligible ELM/i.test(text)) throw new Error('Web demo rendered Stars refund controls');
 }
@@ -392,4 +395,11 @@ async function getFreePort() {
       });
     });
   });
+}
+
+function readSharedMatchStake() {
+  const constants = readFileSync(new URL('../packages/shared/src/constants.ts', import.meta.url), 'utf8');
+  const match = constants.match(/\bMATCH_STAKE\s*=\s*(\d+)/);
+  if (!match) throw new Error('Unable to read MATCH_STAKE from shared constants');
+  return Number(match[1]);
 }
