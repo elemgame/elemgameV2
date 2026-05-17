@@ -166,6 +166,7 @@ function telegramMock(): TelegramBotApi {
     createInvoiceLink: vi.fn(),
     answerPreCheckoutQuery: vi.fn(),
     sendWebAppMessage: vi.fn(),
+    getStarTransactions: vi.fn(async () => []),
     refundStarPayment: vi.fn(async () => 'refunded' as const),
   };
 }

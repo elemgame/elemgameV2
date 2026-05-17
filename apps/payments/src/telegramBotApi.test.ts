@@ -51,6 +51,38 @@ describe('Telegram Bot API client', () => {
     } satisfies Partial<TelegramBotApiError>);
   });
 
+  it('reads bot Star transactions with pagination parameters', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      ok: true,
+      result: {
+        transactions: [{
+          id: 'charge_123',
+          amount: 1,
+          date: 1779051781,
+          source: {
+            type: 'user',
+            transaction_type: 'invoice_payment',
+            user: { id: 99 },
+          },
+        }],
+      },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })) as unknown as typeof fetch;
+    const telegram = createTelegramBotApi('123:test', 'https://api.telegram.test', fetchImpl);
+
+    await expect(telegram.getStarTransactions({ offset: 100, limit: 50 })).resolves.toEqual([expect.objectContaining({
+      id: 'charge_123',
+      amount: 1,
+    })]);
+
+    expect(fetchImpl).toHaveBeenCalledWith('https://api.telegram.test/bot123:test/getStarTransactions', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ offset: 100, limit: 50 }),
+    }));
+  });
+
   it('sends WebApp launch messages with an inline app button', async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
       ok: true,

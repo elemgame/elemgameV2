@@ -32,7 +32,7 @@ The SpacetimeDB module accepts `record_stars_payment` only when the caller has a
 - subject: `payments-service`
 - audience containing: `elmental-v2-payments`
 
-Without `PAYMENTS_SPACETIME_TOKEN`, successful payments are validated and logged but not credited, and refunds are disabled.
+Without `PAYMENTS_SPACETIME_TOKEN`, the self-host stack can use the SQL fallback path. Set `PAYMENTS_SQL_TOKEN` to a local SpacetimeDB bearer token so the payments service can credit/debit `account` and `player` balances and write admin audit rows. In this mode, refund eligibility is reconstructed from Telegram `getStarTransactions`, so only whole paid ELM lots still covered by the current balance can be refunded.
 
 Refunds are intentionally whole-lot only. Telegram's Bot API refunds by original
 `telegram_payment_charge_id`, not by arbitrary partial Star amount, so a partially

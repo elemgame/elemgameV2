@@ -34,6 +34,7 @@ describe('payments server', () => {
       createInvoiceLink: vi.fn(async () => 'https://t.me/$invoice/test'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
       sendWebAppMessage: vi.fn(async () => undefined),
+      getStarTransactions: vi.fn(async () => []),
       refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
@@ -63,6 +64,7 @@ describe('payments server', () => {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
       sendWebAppMessage: vi.fn(async () => undefined),
+      getStarTransactions: vi.fn(async () => []),
       refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
@@ -82,6 +84,7 @@ describe('payments server', () => {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
       sendWebAppMessage: vi.fn(async () => undefined),
+      getStarTransactions: vi.fn(async () => []),
       refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const baseUrl = await listen(telegram);
@@ -113,6 +116,7 @@ describe('payments server', () => {
       createInvoiceLink: vi.fn(async () => 'unused'),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
       sendWebAppMessage: vi.fn(async () => undefined),
+      getStarTransactions: vi.fn(async () => []),
       refundStarPayment: vi.fn(async () => 'refunded' as const),
     };
     const recorder: PaymentEventRecorder = {
@@ -431,6 +435,7 @@ function createTelegramMock(): TelegramBotApi {
     createInvoiceLink: vi.fn(async () => 'unused'),
     answerPreCheckoutQuery: vi.fn(async () => undefined),
     sendWebAppMessage: vi.fn(async () => undefined),
+    getStarTransactions: vi.fn(async () => []),
     refundStarPayment: vi.fn(async () => 'refunded' as const),
   };
 }

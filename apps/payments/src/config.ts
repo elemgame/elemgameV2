@@ -17,6 +17,7 @@ export interface PaymentsConfig {
 export interface SpacetimeAdminConfig {
   uri: string;
   database: string;
+  token?: string;
 }
 
 export interface SpacetimeCreditConfig {
@@ -48,6 +49,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PaymentsConfig
     adminSpacetime: {
       uri: env['PAYMENTS_SPACETIME_URI'] ?? 'https://maincloud.spacetimedb.com',
       database: env['PAYMENTS_SPACETIME_DB'] ?? 'elmental-v2',
+      ...(env['PAYMENTS_SQL_TOKEN'] ? { token: env['PAYMENTS_SQL_TOKEN'] } : {}),
     },
     ...(env['ADMIN_AUDIT_LOG_PATH'] ? { adminAuditLogPath: env['ADMIN_AUDIT_LOG_PATH'] } : {}),
     ...(env['PAYMENTS_FALLBACK_LEDGER_PATH'] ? { paymentFallbackLedgerPath: env['PAYMENTS_FALLBACK_LEDGER_PATH'] } : {}),

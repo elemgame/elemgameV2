@@ -11,7 +11,7 @@ The stack contains:
 - `apps/tma` static frontend.
 - Caddy reverse proxy for HTTPS and routing.
 
-This does not migrate Maincloud state by itself. When `PAYMENTS_SPACETIME_TOKEN` is present, Stars payment crediting uses trusted SpacetimeDB reducers and the private payment ledger. Without that token, the payments service falls back to backend SQL crediting and a local JSONL receipt log; this keeps basic Stars-to-ELM crediting working, but wallet history and refunds remain disabled.
+This does not migrate Maincloud state by itself. When `PAYMENTS_SPACETIME_TOKEN` is present, Stars payment crediting, wallet history, and refunds use trusted SpacetimeDB reducers and the private payment ledger. Without that token, the payments service falls back to backend SQL crediting plus Telegram `getStarTransactions` for whole-lot refunds; set `PAYMENTS_SQL_TOKEN` so the service can write balance and audit rows. Wallet history still requires the trusted payment-ledger path.
 
 ## First Deploy
 
@@ -29,7 +29,7 @@ cp .env.selfhost.example .env.selfhost
 - `TELEGRAM_WEBAPP_URL`
 - `PAYMENT_PAYLOAD_SECRET`
 - `PAYMENTS_WEBHOOK_SECRET`
-- `PAYMENTS_SPACETIME_TOKEN`
+- `PAYMENTS_SPACETIME_TOKEN`, or `PAYMENTS_SQL_TOKEN` for the temporary SQL fallback mode
 - `ADMIN_TELEGRAM_IDS` for operators that may open `/admin`
 
 3. Build runtime images:
@@ -87,6 +87,8 @@ Fallback payment receipt check, used only when `PAYMENTS_SPACETIME_TOKEN` is emp
 ```bash
 docker compose --env-file .env.selfhost -f docker-compose.selfhost.yml exec payments sh -c 'tail -20 /data/payment-fallback-ledger.jsonl'
 ```
+
+Fallback refund eligibility uses Telegram's bot Star transaction history. It only offers whole purchase lots whose Star amount matches the configured ELM packages and whose ELM is still present on the paid balance. Example: a 1 Star purchase can only be refunded while the account still has at least 100 paid ELM.
 
 Admin audit log check:
 

@@ -69,6 +69,7 @@ services:
       PAYMENTS_SPACETIME_URI: http://spacetimedb:3000
       PAYMENTS_SPACETIME_DB: ${SPACETIME_DB:-elmental-v2}
       PAYMENTS_SPACETIME_TOKEN: ${PAYMENTS_SPACETIME_TOKEN:-}
+      PAYMENTS_SQL_TOKEN: ${PAYMENTS_SQL_TOKEN:-}
     volumes:
       - payments-data:/data
     expose:

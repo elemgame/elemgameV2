@@ -1,16 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from 'fs/promises';
 import path from 'path';
 import type { SpacetimeAdminConfig } from './config.js';
+import { createSpacetimeSqlQuery, numberValue, sqlString, stringValue } from './spacetimeSql.js';
 import type { PaymentEventRecorder, SuccessfulStarsPaymentEvent } from './telegramUpdates.js';
-
-interface SqlResult {
-  schema?: {
-    elements?: Array<{
-      name?: { some?: string } | string | null;
-    }>;
-  };
-  rows?: unknown[][];
-}
 
 interface FallbackPaymentLedgerRow {
   paymentId: string;
@@ -29,21 +21,7 @@ export function createSqlPaymentRecorder(
 ): PaymentEventRecorder {
   const recordedPaymentKeys = new Set<string>();
   let initialized = false;
-
-  const sql = async (query: string): Promise<Record<string, unknown>[]> => {
-    const response = await fetchImpl(`${trimTrailingSlash(config.uri)}/v1/database/${encodeURIComponent(config.database)}/sql`, {
-      method: 'POST',
-      headers: { 'content-type': 'text/plain; charset=utf-8' },
-      body: query,
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(text || `SpacetimeDB SQL failed with ${response.status}`);
-    }
-    if (!text.trim()) return [];
-    const parsed = JSON.parse(text) as SqlResult[];
-    return sqlRowsToObjects(parsed[0]);
-  };
+  const sql = createSpacetimeSqlQuery(config, fetchImpl);
 
   async function initializeRecordedKeys(): Promise<void> {
     if (initialized || !ledgerPath) {
@@ -164,24 +142,6 @@ function toLedgerRow(value: unknown): FallbackPaymentLedgerRow | null {
   };
 }
 
-function sqlRowsToObjects(result: SqlResult | undefined): Record<string, unknown>[] {
-  if (!result?.schema?.elements || !result.rows) return [];
-  const names = result.schema.elements.map(element => {
-    const name = element.name;
-    return typeof name === 'string' ? name : name?.some ?? '';
-  });
-  return result.rows.map(row => Object.fromEntries(row.map((value, index) => [names[index], unwrapSqlValue(value)])));
-}
-
-function unwrapSqlValue(value: unknown): unknown {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const record = value as Record<string, unknown>;
-    if ('some' in record) return record['some'];
-    if ('none' in record) return undefined;
-  }
-  return value;
-}
-
 function normalizeAccountId(accountId: string): string {
   const normalized = accountId.trim().toLowerCase().replace(/[^a-z0-9:_-]+/g, '_').slice(0, 128);
   if (!normalized.startsWith('telegram:')) {
@@ -192,28 +152,4 @@ function normalizeAccountId(accountId: string): string {
 
 function paymentKey(paymentId: string, chargeId: string): string {
   return `${paymentId}:${chargeId}`;
-}
-
-function sqlString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
-
-function trimTrailingSlash(value: string): string {
-  return value.replace(/\/+$/, '');
-}
-
-function stringValue(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean') return String(value);
-  return '';
-}
-
-function numberValue(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'bigint') return Number(value);
-  if (typeof value === 'string' && value) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
 }
