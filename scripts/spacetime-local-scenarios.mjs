@@ -17,6 +17,7 @@ const dataDir = await mkdtemp(path.join(os.tmpdir(), 'elmental-stdb-'));
 const room = `scenario-${Date.now()}`;
 const isolationRoomA = `${room}-a`;
 const isolationRoomB = `${room}-b`;
+const maxRoundRoom = `${room}-max-round`;
 const errors = [];
 const events = [];
 const snapshots = [];
@@ -79,6 +80,7 @@ try {
   await verifyRoomIsolation();
   await verifySoloQueueWaitsForPlayers();
   await verifyFullMatchAndForfeit();
+  await verifyMaxRoundCurrentScoreSettlement();
   await verifyTimeoutScenarios();
   await verifySqlState();
 
@@ -321,6 +323,75 @@ async function verifyTimeoutScenarios() {
   await Promise.all([p1.close(), p2.close()]);
 }
 
+async function verifyMaxRoundCurrentScoreSettlement() {
+  const p1 = await newLabeledPage('max-round-p1');
+  const p2 = await newLabeledPage('max-round-p2');
+
+  await Promise.all([
+    p1.goto(playerUrl('max_round_a', maxRoundRoom), { waitUntil: 'domcontentloaded', timeout: 30_000 }),
+    p2.goto(playerUrl('max_round_b', maxRoundRoom), { waitUntil: 'domcontentloaded', timeout: 30_000 }),
+  ]);
+
+  await startTwoPlayerMatch(p1, p2);
+  for (let round = 1; round <= 5; round += 1) {
+    const p1Move = /FIRE\s*10/i;
+    const p2Move = round === 1 ? /EARTH\s*10/i : /FIRE\s*10/i;
+    console.log(`[spacetime-local] max-round scenario round ${round}: p1 Fire, p2 ${round === 1 ? 'Earth' : 'Fire'}`);
+    await Promise.all([
+      clickButton(p1, p1Move),
+      clickButton(p2, p2Move),
+    ]);
+
+    if (round === 5) {
+      await Promise.all([
+        waitFinalScore(p1, /VICTORY!/i, 1, 0),
+        waitFinalScore(p2, /DEFEAT/i, 0, 1),
+      ]);
+      break;
+    }
+
+    await Promise.all([
+      waitRoundResult(p1, round === 1 ? /YOU WIN/i : /DRAW/i, '1 : 0'),
+      waitRoundResult(p2, round === 1 ? /YOU LOSE/i : /DRAW/i, '0 : 1'),
+    ]);
+    await Promise.all([
+      clickButton(p1, /CONTINUE/i),
+      clickButton(p2, /CONTINUE/i),
+    ]);
+    await Promise.all([waitRoundOverlayGone(p1), waitRoundOverlayGone(p2)]);
+    await Promise.all([waitReadyForMove(p1, round + 1), waitReadyForMove(p2, round + 1)]);
+  }
+
+  await assertMatchScoreByRoom(maxRoundRoom, 1, 0);
+  snapshots.push({
+    scenario: 'max-round-current-score-settlement',
+    room: maxRoundRoom,
+    p1: await compactBody(p1, 360),
+    p2: await compactBody(p2, 360),
+  });
+  await Promise.all([p1.close(), p2.close()]);
+}
+
+async function assertMatchScoreByRoom(matchRoom, p1Score, p2Score) {
+  const output = await runCommand(
+    'spacetime',
+    [
+      'sql',
+      '--server',
+      stdbUrl,
+      database,
+      `SELECT room, status, p_1_score, p_2_score FROM match_state WHERE room = '${matchRoom}'`,
+    ],
+    { cwd: repoRoot },
+  );
+  const expected = new RegExp(
+    `"${escapeRegex(matchRoom)}"\\s*\\|\\s*"settled"\\s*\\|\\s*${p1Score}\\s*\\|\\s*${p2Score}`,
+  );
+  if (!expected.test(output)) {
+    throw new Error(`Unexpected score for room ${matchRoom}; expected ${p1Score}:${p2Score}\n${output}`);
+  }
+}
+
 async function verifySqlState() {
   const output = await runCommand(
     'spacetime',
@@ -457,6 +528,19 @@ async function waitFinalResult(page, label, timeout = 30_000) {
   );
 }
 
+async function waitFinalScore(page, label, myScore, opponentScore, timeout = 30_000) {
+  await waitFinalResult(page, label, timeout);
+  await page.waitForFunction(
+    ({ myScore, opponentScore }) => {
+      const text = document.body.innerText.replace(/\s+/g, ' ');
+      const scorePattern = new RegExp(`You\\s+${myScore}\\s+vs\\s+\\S+\\s+${opponentScore}(\\s|$)`, 'i');
+      return scorePattern.test(text);
+    },
+    { myScore, opponentScore },
+    { timeout },
+  );
+}
+
 async function waitBalance(page, expectedBalance, timeout = 30_000) {
   await page.waitForFunction(
     ({ expectedBalance }) => {
@@ -541,6 +625,10 @@ async function assertNoText(page, pattern, message) {
 async function compactBody(page, maxLength) {
   const text = await page.locator('body').innerText({ timeout: 10_000 });
   return text.replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function startProcess(command, args, options = {}) {
