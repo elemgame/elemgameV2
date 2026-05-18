@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useGameStore } from '../stores/gameStore';
+import { useGameStore, type TelegramUser } from '../stores/gameStore';
 import { BOOST_PERCENT, GameMode, MATCH_STAKE } from '@elmental/shared';
 import { haptic } from '../services/telegram';
-import { startMatchmaking } from '../services/gameService';
+import { startMatchmaking, updatePlayerProfile } from '../services/gameService';
 import { playerDisplayName } from '../services/playerProfile';
 import {
   ELM_STARS_PACKAGES,
@@ -118,6 +118,9 @@ export function HomeScreen() {
       const invoiceStatus = await openTelegramStarsInvoice(invoice.invoiceLink);
       setTopUpState(topUpStateForInvoiceStatus(invoiceStatus));
       notifyInvoiceStatus(invoiceStatus);
+      if (invoiceStatus === 'paid' && telegramUser) {
+        schedulePaidBalanceSync(telegramUser, elmBalance + invoice.package.elmAmount);
+      }
     } catch {
       haptic.error();
       setTopUpState({ status: 'failed', message: 'Payment failed.' });
@@ -512,6 +515,17 @@ function notifyInvoiceStatus(status: TelegramInvoiceStatus): void {
     haptic.error();
   } else {
     haptic.selection();
+  }
+}
+
+function schedulePaidBalanceSync(user: TelegramUser, expectedBalance: number): void {
+  for (const delayMs of [0, 1_000, 2_500, 5_000, 9_000, 14_000]) {
+    window.setTimeout(() => {
+      const state = useGameStore.getState();
+      if (state.telegramUser?.source !== 'telegram' || state.telegramUser.id !== user.id) return;
+      if (state.elmBalance >= expectedBalance) return;
+      void updatePlayerProfile(state.telegramUser).catch(() => {});
+    }, delayMs);
   }
 }
 

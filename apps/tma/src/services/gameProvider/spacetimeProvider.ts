@@ -93,6 +93,7 @@ export function createSpacetimeProvider(
         name: displayName(user),
         accountId: playerAccountId(user),
       }));
+      syncPlayerStats();
     },
 
     async startMatchmaking(request) {
@@ -284,7 +285,6 @@ export function createSpacetimeProvider(
       });
       return;
     }
-    if (currentAccountRow()) return;
     trace('spacetime.player.update', {
       name: row.name,
       balance: row.balance,
