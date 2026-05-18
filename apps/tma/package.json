@@ -18,10 +18,11 @@
     "@telegram-apps/sdk": "^2.0.0",
     "@telegram-apps/sdk-react": "^2.0.0",
     "framer-motion": "^11.0.0",
+    "lottie-react": "^2.4.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "spacetimedb": "^2.2.0",
     "socket.io-client": "^4.7.0",
+    "spacetimedb": "^2.2.0",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
