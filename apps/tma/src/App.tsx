@@ -1,13 +1,16 @@
 import React, { useEffect } from 'react';
 import { useGameStore } from './stores/gameStore';
 import {
+  cacheTelegramUser,
+  getCachedTelegramUser,
   initTelegram,
   installTelegramViewportSync,
   getTelegramInitData,
   getTelegramUser,
   getMockUser,
 } from './services/telegram';
-import { initializeGameSession, updatePlayerProfile } from './services/gameService';
+import { initializeGameSession, loadCachedPlayerStats, updatePlayerProfile } from './services/gameService';
+import { playerAccountId } from './services/playerProfile';
 import { installBugReportCapture } from './services/bugReport';
 import { useSpatialNavigation } from './hooks/useSpatialNavigation';
 import { ReportBugButton } from './components/ReportBugButton';
@@ -22,7 +25,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { AdminScreen } from './screens/AdminScreen';
 
 export default function App() {
-  const { currentScreen, setTelegramUser } = useGameStore();
+  const { currentScreen, setPlayerStats, setTelegramUser } = useGameStore();
   const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
 
   // Enable spatial keyboard navigation (Tab + Arrow keys)
@@ -42,12 +45,14 @@ export default function App() {
     let disposed = false;
     let initialized = false;
     let appliedProfileKey = '';
-    const fallbackWebUser = getMockUser();
+    let fallbackWebUser: ReturnType<typeof getMockUser> | null = null;
 
     const readProfile = () => {
       const tgUser = getTelegramUser();
-      const user = tgUser ?? fallbackWebUser;
-      const source: 'telegram' | 'web' = tgUser ? 'telegram' : 'web';
+      if (tgUser) cacheTelegramUser(tgUser);
+      const cachedTelegramUser = tgUser ? null : getCachedTelegramUser();
+      const user = tgUser ?? cachedTelegramUser ?? (fallbackWebUser ??= getMockUser());
+      const source: 'telegram' | 'web' = tgUser || cachedTelegramUser ? 'telegram' : 'web';
       return {
         id: user.id,
         first_name: user.first_name,
@@ -65,6 +70,8 @@ export default function App() {
 
       appliedProfileKey = profileKey;
       setTelegramUser(profileUser);
+      const cachedStats = loadCachedPlayerStats(playerAccountId(profileUser));
+      if (cachedStats) setPlayerStats(cachedStats);
 
       if (!initialized) {
         initialized = true;
@@ -93,7 +100,7 @@ export default function App() {
       for (const timer of retryTimers) window.clearTimeout(timer);
       uninstallViewportSync();
     };
-  }, [isAdminRoute, setTelegramUser]);
+  }, [isAdminRoute, setPlayerStats, setTelegramUser]);
 
   if (isAdminRoute) {
     return <AdminScreen />;

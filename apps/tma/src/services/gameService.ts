@@ -32,6 +32,7 @@ const ROUND_SECONDS = 15;
 const TRANSPORT = (import.meta.env.VITE_GAME_TRANSPORT ?? 'spacetime').toLowerCase();
 const FORCE_MOCK = TRANSPORT === 'mock';
 const TRACE_ENABLED = import.meta.env.VITE_GAME_TRACE !== 'false';
+const PLAYER_STATS_CACHE_PREFIX = 'elmental.playerStats.';
 
 let provider: GameplayProvider | null = null;
 let currentUser: PlayerProfileInput | null = null;
@@ -87,14 +88,39 @@ export async function refreshTelegramBalance(user = useGameStore.getState().tele
       balance: balance.balance,
       balanceKind: balance.balanceKind,
     });
-    useGameStore.getState().setPlayerStats({
+    applyPlayerStats({
       elmBalance: balance.balance,
       rating: balance.rating,
       wins: balance.wins,
       losses: balance.losses,
-    });
+    }, accountId);
   } catch (err) {
     trace('payments.balance.sync_failed', { error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+export interface CachedPlayerStats {
+  elmBalance: number;
+  rating: number;
+  wins: number;
+  losses: number;
+}
+
+export function loadCachedPlayerStats(accountId: string): CachedPlayerStats | null {
+  const raw = readCachedStats(accountId);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<CachedPlayerStats>;
+    if (!isFiniteNumber(parsed.elmBalance) || !isFiniteNumber(parsed.rating)) return null;
+    if (!isFiniteNumber(parsed.wins) || !isFiniteNumber(parsed.losses)) return null;
+    return {
+      elmBalance: Math.max(0, Math.trunc(parsed.elmBalance)),
+      rating: Math.max(0, Math.trunc(parsed.rating)),
+      wins: Math.max(0, Math.trunc(parsed.wins)),
+      losses: Math.max(0, Math.trunc(parsed.losses)),
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -204,12 +230,12 @@ function handleProviderEvent(event: GameplayProviderEvent): void {
         balance: event.elmBalance,
         balanceKind: event.balanceKind,
       });
-      useGameStore.getState().setPlayerStats({
+      applyPlayerStats({
         elmBalance: event.elmBalance,
         rating: event.rating,
         wins: event.wins,
         losses: event.losses,
-      });
+      }, currentUser ? playerAccountId(currentUser) : undefined);
       return;
 
     case 'queueActive':
@@ -469,6 +495,49 @@ function matchmakingErrorMessage(message: string): string {
 
 function displayName(user?: PlayerProfileInput | null): string {
   return playerDisplayName(user);
+}
+
+function applyPlayerStats(stats: CachedPlayerStats, accountId?: string): void {
+  useGameStore.getState().setPlayerStats(stats);
+  if (accountId) writeCachedStats(accountId, stats);
+}
+
+function readCachedStats(accountId: string): string | null {
+  const key = cachedStatsKey(accountId);
+  try {
+    const localValue = window.localStorage.getItem(key);
+    if (localValue) return localValue;
+  } catch {
+    // Ignore storage restrictions.
+  }
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedStats(accountId: string, stats: CachedPlayerStats): void {
+  const key = cachedStatsKey(accountId);
+  const payload = JSON.stringify({ ...stats, cachedAt: Date.now() });
+  try {
+    window.localStorage.setItem(key, payload);
+  } catch {
+    // Ignore storage restrictions.
+  }
+  try {
+    window.sessionStorage.setItem(key, payload);
+  } catch {
+    // Ignore storage restrictions.
+  }
+}
+
+function cachedStatsKey(accountId: string): string {
+  return `${PLAYER_STATS_CACHE_PREFIX}${accountId}`;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 function toStoreEnergyLevel(level: string): EnergyLevel {

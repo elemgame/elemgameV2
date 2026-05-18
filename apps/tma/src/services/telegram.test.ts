@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  cacheTelegramUser,
+  getCachedTelegramUser,
   getMockUser,
   getTelegramInitData,
   getTelegramUser,
@@ -155,6 +157,32 @@ describe('web user profile helpers', () => {
       id: 306258014,
       first_name: 'HashOnly',
       username: 'hash_only',
+    });
+  });
+
+  it('caches Telegram users for Mini App refresh recovery', () => {
+    const { localStorage, sessionStorage } = setMockWindow('');
+
+    cacheTelegramUser({
+      id: 360321751,
+      first_name: 'Cached',
+      username: 'cached_user',
+    });
+
+    expect(JSON.parse(localStorage.getItem('elmental.telegramUser') ?? '{}')).toMatchObject({
+      id: 360321751,
+      first_name: 'Cached',
+      username: 'cached_user',
+    });
+    expect(JSON.parse(sessionStorage.getItem('elmental.telegramUser') ?? '{}')).toMatchObject({
+      id: 360321751,
+      first_name: 'Cached',
+      username: 'cached_user',
+    });
+    expect(getCachedTelegramUser()).toMatchObject({
+      id: 360321751,
+      first_name: 'Cached',
+      username: 'cached_user',
     });
   });
 

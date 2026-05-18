@@ -86,6 +86,7 @@ export interface WebUserProfile {
 
 const WEB_USER_STORAGE_KEY = 'elmental.webUser';
 const LEGACY_WEB_USER_STORAGE_KEY = 'elmental.devUser';
+const TELEGRAM_USER_STORAGE_KEY = 'elmental.telegramUser';
 const TELEGRAM_TOP_CHROME_SAFE_AREA = 69;
 
 declare global {
@@ -187,6 +188,24 @@ export function getTelegramInitData(): string {
   return twa.initData || hashInitData;
 }
 
+export function cacheTelegramUser(user: WebUserProfile): void {
+  const cached = normalizeTelegramUser(user);
+  if (!cached) return;
+  writeStorage(TELEGRAM_USER_STORAGE_KEY, JSON.stringify({ ...cached, cachedAt: Date.now() }));
+}
+
+export function getCachedTelegramUser(): WebUserProfile | null {
+  const raw = readStorage(TELEGRAM_USER_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<WebUserProfile>;
+    return normalizeTelegramUser(parsed);
+  } catch {
+    removeStorage(TELEGRAM_USER_STORAGE_KEY);
+    return null;
+  }
+}
+
 function getTelegramInitDataFromHash(): string {
   if (typeof window === 'undefined') return '';
   const hash = window.location.hash?.replace(/^#/, '') ?? '';
@@ -213,6 +232,19 @@ function parseTelegramUserFromInitData(initData: string): WebUserProfile | null 
   } catch {
     return null;
   }
+}
+
+function normalizeTelegramUser(user: Partial<WebUserProfile>): WebUserProfile | null {
+  if (typeof user.id !== 'number' || !Number.isFinite(user.id)) return null;
+  if (typeof user.first_name !== 'string' || !user.first_name.trim()) return null;
+  return {
+    id: user.id,
+    first_name: user.first_name,
+    last_name: typeof user.last_name === 'string' ? user.last_name : undefined,
+    username: typeof user.username === 'string' ? user.username : undefined,
+    photo_url: typeof user.photo_url === 'string' ? user.photo_url : undefined,
+    language_code: typeof user.language_code === 'string' ? user.language_code : undefined,
+  };
 }
 
 /**
