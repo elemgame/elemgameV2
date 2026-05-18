@@ -47,8 +47,8 @@ jobs:
           VITE_BUILD_ID: ${{ github.sha }}
           VITE_GAME_TRANSPORT: spacetime
           VITE_GAME_TRACE: 'true'
-          VITE_SPACETIME_URI: https://maincloud.spacetimedb.com
-          VITE_SPACETIME_DB: elmental-v2
+          VITE_SPACETIME_URI: ${{ vars.VITE_SPACETIME_URI || 'https://maincloud.spacetimedb.com' }}
+          VITE_SPACETIME_DB: ${{ vars.VITE_SPACETIME_DB || 'elmental-v2' }}
           VITE_PAYMENTS_URL: ${{ vars.VITE_PAYMENTS_URL }}
 
       - name: Configure GitHub Pages
@@ -92,4 +92,4 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || vars.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME || 'elemgamebot' }}
-          TELEGRAM_WEBAPP_URL: ${{ needs.deploy.outputs.page_url }}?v=${{ github.sha }}
+          TELEGRAM_WEBAPP_URL: ${{ vars.TELEGRAM_WEBAPP_URL || format('{0}?v={1}', needs.deploy.outputs.page_url, github.sha) }}
