@@ -11,6 +11,16 @@ Public test instance:
 - SpacetimeDB database: `elmental-v2`
 - SpacetimeDB dashboard: `https://spacetimedb.com/elmental-v2`
 
+## Codex Agent Sync Hook
+
+Before starting substantive Codex work in this repository, and again immediately before `git commit` or `git push`, run:
+
+```bash
+bash scripts/codex-agent-sync.sh
+```
+
+The hook fetches `origin/<current-branch>` and fast-forwards only when the worktree is clean. If it reports local changes while behind, or a diverged branch, stop and surface that state instead of rebasing, stashing, or overwriting user work.
+
 ## Architecture
 
 - `apps/tma`: React + Vite Telegram Mini App frontend.

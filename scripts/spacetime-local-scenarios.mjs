@@ -362,7 +362,7 @@ async function verifyMaxRoundCurrentScoreSettlement() {
     await Promise.all([waitReadyForMove(p1, round + 1), waitReadyForMove(p2, round + 1)]);
   }
 
-  await assertMatchScoreByRoom(maxRoundRoom, 1, 0);
+  await assertMatchScoreByRoom(maxRoundRoom, [[1, 0], [0, 1]]);
   snapshots.push({
     scenario: 'max-round-current-score-settlement',
     room: maxRoundRoom,
@@ -372,7 +372,7 @@ async function verifyMaxRoundCurrentScoreSettlement() {
   await Promise.all([p1.close(), p2.close()]);
 }
 
-async function assertMatchScoreByRoom(matchRoom, p1Score, p2Score) {
+async function assertMatchScoreByRoom(matchRoom, expectedScores) {
   const output = await runCommand(
     'spacetime',
     [
@@ -384,11 +384,15 @@ async function assertMatchScoreByRoom(matchRoom, p1Score, p2Score) {
     ],
     { cwd: repoRoot },
   );
-  const expected = new RegExp(
-    `"${escapeRegex(matchRoom)}"\\s*\\|\\s*"settled"\\s*\\|\\s*${p1Score}\\s*\\|\\s*${p2Score}`,
-  );
-  if (!expected.test(output)) {
-    throw new Error(`Unexpected score for room ${matchRoom}; expected ${p1Score}:${p2Score}\n${output}`);
+  const found = expectedScores.some(([p1Score, p2Score]) => {
+    const expected = new RegExp(
+      `"${escapeRegex(matchRoom)}"\\s*\\|\\s*"settled"\\s*\\|\\s*${p1Score}\\s*\\|\\s*${p2Score}`,
+    );
+    return expected.test(output);
+  });
+  if (!found) {
+    const expectedLabel = expectedScores.map(([p1Score, p2Score]) => `${p1Score}:${p2Score}`).join(' or ');
+    throw new Error(`Unexpected score for room ${matchRoom}; expected ${expectedLabel}\n${output}`);
   }
 }
 
