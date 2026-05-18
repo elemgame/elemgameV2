@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore, type TelegramUser } from '../stores/gameStore';
 import { BOOST_PERCENT, GameMode, MATCH_STAKE } from '@elmental/shared';
 import { haptic } from '../services/telegram';
-import { startMatchmaking, updatePlayerProfile } from '../services/gameService';
+import { refreshTelegramBalance, startMatchmaking } from '../services/gameService';
 import { playerDisplayName } from '../services/playerProfile';
 import {
   ELM_STARS_PACKAGES,
@@ -524,7 +524,7 @@ function schedulePaidBalanceSync(user: TelegramUser, expectedBalance: number): v
       const state = useGameStore.getState();
       if (state.telegramUser?.source !== 'telegram' || state.telegramUser.id !== user.id) return;
       if (state.elmBalance >= expectedBalance) return;
-      void updatePlayerProfile(state.telegramUser).catch(() => {});
+      void refreshTelegramBalance(state.telegramUser).catch(() => {});
     }, delayMs);
   }
 }

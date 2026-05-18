@@ -4,6 +4,7 @@ import {
   requestStarsRefund,
   requestStarsRefundQuote,
   requestStarsInvoice,
+  requestWalletBalance,
   requestWalletHistory,
 } from './payments';
 
@@ -174,6 +175,37 @@ describe('TMA Stars payments', () => {
     });
 
     expect(fetchImpl).toHaveBeenCalledWith('https://payments.example.test/payments/wallet/history', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ initData: 'signed-init-data' }),
+    }));
+  });
+
+  it('requests the current wallet balance from the payment service', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      accountId: 'telegram:123',
+      telegramUserId: '123',
+      name: 'Buyer',
+      balance: 450,
+      balanceKind: 'paid_elm',
+      rating: 1210,
+      wins: 2,
+      losses: 1,
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })) as unknown as typeof fetch;
+
+    await expect(requestWalletBalance({
+      initData: 'signed-init-data',
+      paymentsUrl: 'https://payments.example.test',
+      fetchImpl,
+    })).resolves.toMatchObject({
+      accountId: 'telegram:123',
+      balance: 450,
+      balanceKind: 'paid_elm',
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith('https://payments.example.test/payments/wallet/balance', expect.objectContaining({
       method: 'POST',
       body: JSON.stringify({ initData: 'signed-init-data' }),
     }));

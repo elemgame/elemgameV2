@@ -185,6 +185,28 @@ async function mockPaymentService(page) {
       return;
     }
 
+    if (url.pathname === '/payments/wallet/balance') {
+      if (typeof body.initData !== 'string') {
+        throw new Error(`Unexpected balance request: ${JSON.stringify(sanitizePaymentBody(body))}`);
+      }
+      await route.fulfill({
+        status: 200,
+        headers: corsHeaders(),
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: 'telegram:99',
+          telegramUserId: '99',
+          name: 'Buyer',
+          balance: 100,
+          balanceKind: 'paid_elm',
+          rating: 1200,
+          wins: 0,
+          losses: 0,
+        }),
+      });
+      return;
+    }
+
     if (url.pathname === '/payments/wallet/history') {
       await route.fulfill({
         status: 200,

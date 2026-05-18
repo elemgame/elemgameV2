@@ -83,6 +83,17 @@ export interface WalletHistoryResponse {
   summary: WalletHistorySummary;
 }
 
+export interface WalletBalanceResponse {
+  accountId: string;
+  telegramUserId: string;
+  name: string;
+  balance: number;
+  balanceKind: string;
+  rating: number;
+  wins: number;
+  losses: number;
+}
+
 export type TelegramInvoiceStatus = 'paid' | 'cancelled' | 'failed' | 'pending' | 'unknown';
 
 interface RequestStarsInvoiceInput {
@@ -171,6 +182,15 @@ export async function requestStarsRefund(input: RequestStarsRefundInput): Promis
 export async function requestWalletHistory(input: Omit<RequestStarsRefundInput, 'starsAmount'>): Promise<WalletHistoryResponse> {
   return requestPaymentsJson<WalletHistoryResponse>({
     path: '/payments/wallet/history',
+    initData: input.initData,
+    paymentsUrl: input.paymentsUrl,
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+export async function requestWalletBalance(input: Omit<RequestStarsRefundInput, 'starsAmount'>): Promise<WalletBalanceResponse> {
+  return requestPaymentsJson<WalletBalanceResponse>({
+    path: '/payments/wallet/balance',
     initData: input.initData,
     paymentsUrl: input.paymentsUrl,
     fetchImpl: input.fetchImpl,

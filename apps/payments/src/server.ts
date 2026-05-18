@@ -108,6 +108,11 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === 'POST' && url.pathname === '/payments/wallet/balance') {
+    await handleWalletBalance(req, res, config, adminStore);
+    return;
+  }
+
   if (req.method === 'POST' && url.pathname === '/telegram/webhook') {
     await handleTelegramWebhook(req, res, config, telegram, paymentRecorder);
     return;
@@ -317,6 +322,36 @@ async function handleWalletHistory(
   } catch (err) {
     sendJson(res, 400, { error: err instanceof Error ? err.message : 'Wallet history failed' });
   }
+}
+
+async function handleWalletBalance(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  config: PaymentsConfig,
+  adminStore?: AdminStore,
+): Promise<void> {
+  if (!adminStore) {
+    sendJson(res, 503, { error: 'Balance service is not configured' });
+    return;
+  }
+
+  const user = await readTelegramUser(req, res, config);
+  if (!user) return;
+
+  const telegramUserId = String(user.id);
+  const accountId = `telegram:${telegramUserId}`;
+  const detail = await adminStore.getUser(accountId);
+  const account = detail?.account;
+  sendJson(res, 200, {
+    accountId,
+    telegramUserId,
+    name: account?.name ?? accountId,
+    balance: account?.balance ?? 0,
+    balanceKind: account?.balanceKind ?? 'paid_elm',
+    rating: account?.rating ?? 1200,
+    wins: account?.wins ?? 0,
+    losses: account?.losses ?? 0,
+  });
 }
 
 async function readTelegramUser(

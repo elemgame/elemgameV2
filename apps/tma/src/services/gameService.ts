@@ -13,6 +13,7 @@ import { playSound } from './audio';
 import { playerAccountId, playerDisplayName } from './playerProfile';
 import { currencyForBalanceKind, formatCurrencyAmount } from './economy';
 import { createMockProvider } from './gameProvider/mockProvider';
+import { requestWalletBalance } from './payments';
 import { recordGameLog } from './bugReport';
 import {
   createDefaultSpacetimeProvider,
@@ -53,6 +54,7 @@ export async function initializeGameSession(user: PlayerProfileInput): Promise<v
 
   try {
     await getProvider().initialize(user);
+    void refreshTelegramBalance(user);
   } catch (err) {
     console.warn('[game] Provider initialization failed:', err);
     trace('session.initialize.failed', { error: err instanceof Error ? err.message : String(err) });
@@ -63,6 +65,37 @@ export async function updatePlayerProfile(user: PlayerProfileInput): Promise<voi
   currentUser = user;
   trace('session.profile.update', { user: displayName(user), transport: TRANSPORT });
   await getProvider().updateProfile(user);
+  void refreshTelegramBalance(user);
+}
+
+export async function refreshTelegramBalance(user = useGameStore.getState().telegramUser ?? currentUser): Promise<void> {
+  if (!user || user.source !== 'telegram' || !user.initData) return;
+
+  try {
+    const balance = await requestWalletBalance({ initData: user.initData });
+    const accountId = playerAccountId(user);
+    if (balance.accountId !== accountId) {
+      trace('payments.balance.ignored_account_mismatch', {
+        expectedAccountId: accountId,
+        responseAccountId: balance.accountId,
+      });
+      return;
+    }
+
+    trace('payments.balance.sync', {
+      accountId: balance.accountId,
+      balance: balance.balance,
+      balanceKind: balance.balanceKind,
+    });
+    useGameStore.getState().setPlayerStats({
+      elmBalance: balance.balance,
+      rating: balance.rating,
+      wins: balance.wins,
+      losses: balance.losses,
+    });
+  } catch (err) {
+    trace('payments.balance.sync_failed', { error: err instanceof Error ? err.message : String(err) });
+  }
 }
 
 export async function startMatchmaking(): Promise<void> {

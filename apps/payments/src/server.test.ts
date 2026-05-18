@@ -285,6 +285,51 @@ describe('payments server', () => {
     });
   });
 
+  it('returns the current Telegram wallet balance from the account store', async () => {
+    const telegram = createTelegramMock();
+    const adminStore = createAdminStoreMock();
+    vi.mocked(adminStore.getUser).mockResolvedValueOnce({
+      accountId: 'telegram:99',
+      name: 'Buyer',
+      balanceKind: 'paid_elm',
+      balance: 450,
+      rating: 1210,
+      wins: 2,
+      losses: 1,
+      online: false,
+      queued: false,
+      account: {
+        id: 'telegram:99',
+        name: 'Buyer',
+        rating: 1210,
+        wins: 2,
+        losses: 1,
+        balance: 450,
+        balanceKind: 'paid_elm',
+      },
+      player: undefined,
+    });
+    const baseUrl = await listen(telegram, undefined, undefined, undefined, adminStore);
+
+    const response = await fetch(`${baseUrl}/payments/wallet/balance`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ initData: signedInitData({ id: 99, first_name: 'Buyer' }) }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(adminStore.getUser).toHaveBeenCalledWith('telegram:99');
+    await expect(response.json()).resolves.toEqual(expect.objectContaining({
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+      balance: 450,
+      balanceKind: 'paid_elm',
+      rating: 1210,
+      wins: 2,
+      losses: 1,
+    }));
+  });
+
   it('authenticates configured admin users', async () => {
     const telegram = createTelegramMock();
     const adminStore = createAdminStoreMock();
