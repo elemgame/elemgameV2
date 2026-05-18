@@ -13,13 +13,18 @@ Public test instance:
 
 ## Codex Agent Sync Hook
 
-Before starting substantive Codex work in this repository, and again immediately before `git commit` or `git push`, run:
+Codex project hooks are configured in `.codex/hooks.json`:
+
+- `SessionStart` runs `scripts/codex-agent-sync.sh` on startup, resume, and clear.
+- `PreToolUse` runs the same sync before Codex executes `git commit` or `git push`.
+
+Before manual `git commit` or `git push` outside Codex, run:
 
 ```bash
 bash scripts/codex-agent-sync.sh
 ```
 
-The hook fetches `origin/<current-branch>` and fast-forwards only when the worktree is clean. If it reports local changes while behind, or a diverged branch, stop and surface that state instead of rebasing, stashing, or overwriting user work.
+The sync script fetches `origin/<current-branch>` and fast-forwards only when the worktree is clean. If it reports local changes while behind, or a diverged branch, stop and surface that state instead of rebasing, stashing, or overwriting user work.
 
 ## Architecture
 

@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/codex-agent-sync.sh\"",
+            "timeout": 60,
+            "statusMessage": "Syncing repository"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/pre_tool_use_git_sync.mjs\"",
+            "timeout": 60,
+            "statusMessage": "Checking repository freshness"
+          }
+        ]
+      }
+    ]
+  }
+}
