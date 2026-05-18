@@ -171,18 +171,20 @@ function toInset(value: unknown): number {
  * Returns null when running outside Telegram.
  */
 export function getTelegramUser() {
+  const hashInitData = getTelegramInitDataFromHash();
   const twa = getTelegramWebApp();
-  if (!twa) return null;
-  return twa.initDataUnsafe?.user ?? parseTelegramUserFromInitData(twa.initData || getTelegramInitDataFromHash());
+  if (!twa) return parseTelegramUserFromInitData(hashInitData);
+  return twa.initDataUnsafe?.user ?? parseTelegramUserFromInitData(twa.initData || hashInitData);
 }
 
 /**
  * Raw signed Telegram initData used by the backend auth endpoint.
  */
 export function getTelegramInitData(): string {
+  const hashInitData = getTelegramInitDataFromHash();
   const twa = getTelegramWebApp();
-  if (!twa) return '';
-  return twa.initData || getTelegramInitDataFromHash();
+  if (!twa) return hashInitData;
+  return twa.initData || hashInitData;
 }
 
 function getTelegramInitDataFromHash(): string {

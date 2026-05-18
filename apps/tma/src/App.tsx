@@ -7,7 +7,7 @@ import {
   getTelegramUser,
   getMockUser,
 } from './services/telegram';
-import { initializeGameSession } from './services/gameService';
+import { initializeGameSession, updatePlayerProfile } from './services/gameService';
 import { installBugReportCapture } from './services/bugReport';
 import { useSpatialNavigation } from './hooks/useSpatialNavigation';
 import { ReportBugButton } from './components/ReportBugButton';
@@ -33,28 +33,66 @@ export default function App() {
     installBugReportCapture();
     initTelegram();
     const uninstallViewportSync = installTelegramViewportSync();
+    const retryTimers: number[] = [];
 
     if (isAdminRoute) {
       return uninstallViewportSync;
     }
 
-    const tgUser = getTelegramUser();
-    const user = tgUser ?? getMockUser();
-    const source: 'telegram' | 'web' = tgUser ? 'telegram' : 'web';
-    const profileUser = {
-      id: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      username: user.username,
-      photo_url: user.photo_url,
-      source,
-      initData: tgUser ? getTelegramInitData() : undefined,
+    let disposed = false;
+    let initialized = false;
+    let appliedProfileKey = '';
+    const fallbackWebUser = getMockUser();
+
+    const readProfile = () => {
+      const tgUser = getTelegramUser();
+      const user = tgUser ?? fallbackWebUser;
+      const source: 'telegram' | 'web' = tgUser ? 'telegram' : 'web';
+      return {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        username: user.username,
+        photo_url: user.photo_url,
+        source,
+        initData: tgUser ? getTelegramInitData() : undefined,
+      };
     };
 
-    setTelegramUser(profileUser);
+    const applyProfile = (profileUser: ReturnType<typeof readProfile>) => {
+      const profileKey = `${profileUser.source}:${profileUser.id}:${profileUser.initData ? 'signed' : 'unsigned'}`;
+      if (profileKey === appliedProfileKey || disposed) return;
 
-    void initializeGameSession(profileUser);
-    return uninstallViewportSync;
+      appliedProfileKey = profileKey;
+      setTelegramUser(profileUser);
+
+      if (!initialized) {
+        initialized = true;
+        void initializeGameSession(profileUser);
+        return;
+      }
+
+      void updatePlayerProfile(profileUser);
+    };
+
+    const initialProfile = readProfile();
+    applyProfile(initialProfile);
+
+    if (initialProfile.source !== 'telegram' || !initialProfile.initData) {
+      for (const delayMs of [100, 300, 700, 1_500, 3_000, 6_000]) {
+        retryTimers.push(window.setTimeout(() => {
+          const profileUser = readProfile();
+          if (profileUser.source !== 'telegram' || !profileUser.initData) return;
+          applyProfile(profileUser);
+        }, delayMs));
+      }
+    }
+
+    return () => {
+      disposed = true;
+      for (const timer of retryTimers) window.clearTimeout(timer);
+      uninstallViewportSync();
+    };
   }, [isAdminRoute, setTelegramUser]);
 
   if (isAdminRoute) {
