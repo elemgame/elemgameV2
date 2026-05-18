@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { EnergyLevelBadge } from './EnergyBar';
-import { StarIcon } from './icons/StarIcon';
+import { TrophyIcon } from './icons/TrophyIcon';
 import type { EnergyLevel } from '../stores/gameStore';
 
 interface OpponentInfoProps {
@@ -40,7 +40,7 @@ export function OpponentInfo({
             {name}
           </div>
           <div className="text-xs text-text-secondary flex items-center gap-0.5">
-            <StarIcon size={12} className="text-gold" /> {rating}
+            <TrophyIcon size={12} className="text-gold" /> {rating}
           </div>
         </div>
       </div>

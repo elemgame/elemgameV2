@@ -10,7 +10,6 @@ import { TrophyIcon } from '../components/icons/TrophyIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { HandshakeIcon } from '../components/icons/HandshakeIcon';
 import { CoinsIcon } from '../components/icons/CoinsIcon';
-import { StarIcon } from '../components/icons/StarIcon';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { HomeIcon } from '../components/icons/HomeIcon';
 import { FlameIcon } from '../components/icons/FlameIcon';
@@ -228,7 +227,7 @@ export function ResultScreen() {
           />
           <div className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-2">
-              <StarIcon size={18} className="text-gold" />
+              <TrophyIcon size={18} className="text-gold" />
               <span className="text-sm text-text-secondary">Rating Change</span>
             </div>
             <span

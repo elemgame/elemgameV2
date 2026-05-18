@@ -18,10 +18,11 @@ import {
 import { currencyForUser, formatCurrencyAmount } from '../services/economy';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
+import { TrophyIcon } from '../components/icons/TrophyIcon';
 import { VortexIcon } from '../components/icons/VortexIcon';
 import { UserIcon } from '../components/icons/UserIcon';
 import { GearIcon } from '../components/icons/GearIcon';
-import { StarIcon } from '../components/icons/StarIcon';
+import { TelegramStarsIcon } from '../components/icons/TelegramStarsIcon';
 import { BoltIcon } from '../components/icons/BoltIcon';
 import { EarthIcon } from '../components/icons/EarthIcon';
 import { WaterIcon } from '../components/icons/WaterIcon';
@@ -204,7 +205,7 @@ export function HomeScreen() {
                 {displayName}
               </div>
               <div className="text-xs text-text-secondary flex items-center gap-0.5">
-                <StarIcon size={12} className="text-gold" /> {rating} Rating
+                <TrophyIcon size={12} className="text-gold" /> {rating} Rating
               </div>
             </div>
           </div>
@@ -280,7 +281,7 @@ export function HomeScreen() {
                   Top up
                 </div>
                 <div className="flex items-center gap-1 text-xs font-bold text-gold">
-                  <StarIcon size={12} />
+                  <TelegramStarsIcon size={12} />
                   Stars
                 </div>
               </div>
@@ -302,7 +303,7 @@ export function HomeScreen() {
                       onClick={() => void handleTopUp(pkg.id)}
                     >
                       <span className="flex items-center justify-center gap-1 text-sm font-black text-gold leading-none">
-                        <StarIcon size={13} />
+                        <TelegramStarsIcon size={13} />
                         {pkg.starsAmount}
                       </span>
                       <span className="text-[11px] font-bold text-text-primary leading-tight">

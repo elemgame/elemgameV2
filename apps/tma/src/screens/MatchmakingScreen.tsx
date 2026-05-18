@@ -7,7 +7,7 @@ import { EarthIcon } from '../components/icons/EarthIcon';
 import { FireIcon } from '../components/icons/FireIcon';
 import { WaterIcon } from '../components/icons/WaterIcon';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
-import { StarIcon } from '../components/icons/StarIcon';
+import { TrophyIcon } from '../components/icons/TrophyIcon';
 import { BoltIcon } from '../components/icons/BoltIcon';
 
 const SEARCHING_MESSAGES = [
@@ -146,7 +146,7 @@ export function MatchmakingScreen() {
         <div className="flex justify-between items-center text-sm">
           <span className="text-text-secondary">Your rating</span>
           <span className="font-bold text-text-primary inline-flex items-center gap-0.5">
-            <StarIcon size={14} className="text-gold" /> {rating}
+            <TrophyIcon size={14} className="text-gold" /> {rating}
           </span>
         </div>
         <div

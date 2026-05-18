@@ -14,7 +14,8 @@ import {
 } from '../services/payments';
 import type { EconomyTransaction } from '../stores/gameStore';
 import { ArrowLeftIcon } from '../components/icons/ArrowLeftIcon';
-import { StarIcon } from '../components/icons/StarIcon';
+import { TrophyIcon } from '../components/icons/TrophyIcon';
+import { TelegramStarsIcon } from '../components/icons/TelegramStarsIcon';
 import { CheckIcon } from '../components/icons/CheckIcon';
 import { CrossIcon } from '../components/icons/CrossIcon';
 import { ControllerIcon } from '../components/icons/ControllerIcon';
@@ -221,7 +222,7 @@ export function ProfileScreen() {
               border: '1px solid rgba(255,215,0,0.3)',
             }}
           >
-            <StarIcon size={16} className="text-gold" />
+            <TrophyIcon size={16} className="text-gold" />
             <span className="font-black text-gold">{rating}</span>
             <span className="text-text-secondary text-sm">Rating</span>
           </div>
@@ -517,8 +518,8 @@ function transactionTitle(type: EconomyTransaction['type']): string {
 }
 
 function historyIcon(item: HistoryDisplayItem): React.ReactNode {
-  if (item.kind === 'stars_purchase') return <StarIcon size={16} className="text-gold" />;
-  if (item.kind === 'stars_refund') return <StarIcon size={16} className={item.status === 'pending' ? 'text-text-muted' : 'text-energy-high'} />;
+  if (item.kind === 'stars_purchase') return <TelegramStarsIcon size={16} className="text-gold" />;
+  if (item.kind === 'stars_refund') return <TelegramStarsIcon size={16} className={item.status === 'pending' ? 'text-text-muted' : 'text-energy-high'} />;
   if (item.kind === 'elm_credit' || item.kind === 'pvp_win' || item.kind === 'pvp_draw_refund') {
     return <CoinsIcon size={16} className="text-energy-high" />;
   }
