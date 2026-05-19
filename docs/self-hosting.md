@@ -165,7 +165,7 @@ docker run --rm -v elemgamev2_spacetimedb-data:/data -v "$PWD/backups:/backup" a
 - Telegram webhook points to `https://${PUBLIC_HOST}/telegram/webhook`.
 - Payment service logs show a successful SpacetimeDB connection.
 - Browser smoke confirms the app subscribes to self-hosted SpacetimeDB.
-- Telegram smoke confirms invoice open and paid EML crediting.
+- Telegram smoke confirms invoice open and paid ELM crediting.
 
 ## Rollback
 

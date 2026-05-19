@@ -765,6 +765,16 @@ export const record_stars_refund = spacetimedb.reducer(
       refundedAtMicros: now,
       updatedAtMicros: now,
     });
+    const accountRow = ctx.db.account.id.find(ledger.accountId);
+    if (accountRow) {
+      recordBalanceEvent(ctx, accountRow, {
+        delta: 0,
+        reasonKind: 'stars_refund_record',
+        paymentId: ledger.paymentId,
+        actor: PAYMENT_JWT_SUBJECT,
+        idempotencyKey: `payment:${ledger.paymentId}:refund_record`,
+      });
+    }
     logEvent(
       ctx,
       'payment.refunded',
