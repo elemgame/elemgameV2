@@ -318,7 +318,7 @@ function UserTable({ users, onSelect }: { users: AdminUserSummary[]; onSelect(ac
     <div className="admin-table-wrap">
       <table>
         <thead>
-          <tr><th>Name</th><th>Account</th><th>Balance</th><th>State</th><th /></tr>
+          <tr><th>Name</th><th>Account</th><th>Balance</th><th>SP</th><th>State</th><th /></tr>
         </thead>
         <tbody>
           {users.map(user => (
@@ -326,6 +326,7 @@ function UserTable({ users, onSelect }: { users: AdminUserSummary[]; onSelect(ac
               <td>{user.name}</td>
               <td>{user.accountId}</td>
               <td>{user.balance.toLocaleString()} {currencyLabel(user.balanceKind)}</td>
+              <td>{user.seasonPoints.toLocaleString()}</td>
               <td>{user.online ? 'online' : user.queued ? 'queued' : user.activeMatchId ? 'match' : '-'}</td>
               <td><button type="button" onClick={() => onSelect(user.accountId)}>Open</button></td>
             </tr>
@@ -345,10 +346,31 @@ function UserDetail({ user }: { user: AdminUserDetail | null }) {
         <dt>Account</dt><dd>{user.accountId}</dd>
         <dt>Identity</dt><dd>{user.playerIdentity ?? '-'}</dd>
         <dt>Balance</dt><dd>{user.balance.toLocaleString()} {currencyLabel(user.balanceKind)}</dd>
+        <dt>Season Points</dt><dd>{user.seasonPoints.toLocaleString()}</dd>
         <dt>Rating</dt><dd>{user.rating}</dd>
         <dt>Record</dt><dd>{user.wins}-{user.losses}</dd>
         <dt>State</dt><dd>{user.online ? 'online' : user.queued ? 'queued' : user.activeMatchId ? `match ${user.activeMatchId}` : '-'}</dd>
       </dl>
+      {user.balanceEvents.length > 0 ? (
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr><th>Time</th><th>Reason</th><th>Delta</th><th>After</th><th>Actor</th></tr>
+            </thead>
+            <tbody>
+              {user.balanceEvents.map(event => (
+                <tr key={event.idempotencyKey}>
+                  <td>{formatAdminTime(event.createdAt)}</td>
+                  <td>{event.reasonKind}</td>
+                  <td>{event.delta > 0 ? '+' : ''}{event.delta.toLocaleString()}</td>
+                  <td>{event.balanceAfter.toLocaleString()} {currencyLabel(event.balanceKind)}</td>
+                  <td>{event.actor}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -385,6 +407,12 @@ function AuditTable({ events }: { events: AdminAuditEvent[] }) {
 
 function tabLabel(tab: AdminTab): string {
   return tab === 'overview' ? 'Overview' : tab === 'users' ? 'Users' : tab === 'balance' ? 'Balance' : 'Audit';
+}
+
+function formatAdminTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
 function currencyLabel(kind: string): string {

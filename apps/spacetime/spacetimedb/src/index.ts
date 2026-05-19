@@ -24,8 +24,12 @@ const FORFEIT_PENALTY_WINDOW_MICROS = 3_600_000_000n;
 const REPEAT_FORFEIT_RATING_MULTIPLIER = 2;
 const NEXT_ROUND_JITTER_MAX_MICROS = 500_000;
 const INITIAL_BALANCE = 1000;
-const RAKE_PERCENT = 5;
 const BOOST_STAKE_PERCENT = 10;
+const ECONOMY_MODEL_ENTRY_FEE = 'entry_fee_season_points';
+const SEASON_POINTS_WIN = 30;
+const SEASON_POINTS_DRAW = 15;
+const SEASON_POINTS_LOSS = 10;
+const SEASON_POINTS_CLEAN_WIN_BONUS = 5;
 const PAYMENT_JWT_ISSUER = 'elmental-payments';
 const PAYMENT_JWT_AUDIENCE = 'elmental-v2-payments';
 const PAYMENT_JWT_SUBJECT = 'payments-service';
@@ -50,6 +54,7 @@ const account = table(
     losses: t.u32(),
     balance: t.i32().default(INITIAL_BALANCE),
     balanceKind: t.string().default('demo_teml'),
+    seasonPoints: t.u32().default(0),
   }
 );
 
@@ -65,6 +70,7 @@ const player = table(
     balance: t.i32().default(INITIAL_BALANCE),
     balanceKind: t.string().default('demo_teml'),
     accountId: t.string().default(''),
+    seasonPoints: t.u32().default(0),
   }
 );
 
@@ -157,6 +163,30 @@ const adminAuditEvent = table(
   }
 );
 
+// Private: append-only source of truth for account balance mutations.
+const balanceEvent = table(
+  {
+    name: 'balance_event',
+    indexes: [
+      { accessor: 'balance_event_account_id', algorithm: 'btree', columns: ['accountId'] },
+      { accessor: 'balance_event_match_id', algorithm: 'btree', columns: ['matchId'] },
+      { accessor: 'balance_event_payment_id', algorithm: 'btree', columns: ['paymentId'] },
+    ],
+  },
+  {
+    idempotencyKey: t.string().primaryKey(),
+    accountId: t.string(),
+    balanceKind: t.string().default('demo_teml'),
+    delta: t.i32(),
+    balanceAfter: t.i32(),
+    reasonKind: t.string(),
+    paymentId: t.string().optional().default(undefined),
+    matchId: t.u64().optional().default(undefined),
+    actor: t.string().default('system'),
+    createdAtMicros: t.u64(),
+  }
+);
+
 const matchState = table(
   { name: 'match_state', public: true },
   {
@@ -169,6 +199,7 @@ const matchState = table(
     p2Rating: t.i32(),
     stake: t.u32(),
     balanceKind: t.string().default('demo_teml'),
+    economyModel: t.string().default(ECONOMY_MODEL_ENTRY_FEE),
     mode: t.string(),
     room: t.string(),
     phase: t.string(),
@@ -180,6 +211,8 @@ const matchState = table(
     p2Energy: t.i32(),
     p1BoostEnabled: t.bool(),
     p2BoostEnabled: t.bool(),
+    p1SeasonPointsAwarded: t.u32().default(0),
+    p2SeasonPointsAwarded: t.u32().default(0),
     p1CommitHash: t.string().optional(),
     p2CommitHash: t.string().optional(),
     p1RevealMove: t.u32().optional(),
@@ -253,6 +286,7 @@ const spacetimedb = schema({
   botMoveCommit,
   paymentLedger,
   adminAuditEvent,
+  balanceEvent,
   matchState,
   roundResult,
   gameEvent,
@@ -265,6 +299,14 @@ type ReducerContext = any;
 type MatchRow = any;
 type QueueEntryRow = any;
 type AccountRow = any;
+type BalanceMutation = {
+  delta: number;
+  reasonKind: string;
+  idempotencyKey: string;
+  paymentId?: string;
+  matchId?: bigint;
+  actor?: string;
+};
 
 export const init = spacetimedb.init(ctx => {
   logEvent(ctx, 'system.init', undefined, 'SpacetimeDB module initialized');
@@ -297,6 +339,7 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
     losses: accountRow.losses,
     balance: accountRow.balance,
     balanceKind: accountBalanceKind(accountRow),
+    seasonPoints: accountSeasonPoints(accountRow),
   });
   logEvent(ctx, 'player.connected', undefined, `Player connected ${shortIdentity(ctx.sender)}`, identityHex(ctx.sender));
 });
@@ -605,6 +648,12 @@ export const record_stars_payment = spacetimedb.reducer(
     updateAccount(ctx, {
       ...accountRow,
       balance: accountBalance(accountRow) + elmAmount,
+    }, {
+      delta: elmAmount,
+      reasonKind: 'stars_purchase_credit',
+      paymentId: validatedPaymentId,
+      actor: PAYMENT_JWT_SUBJECT,
+      idempotencyKey: `payment:${validatedPaymentId}:credit`,
     });
 
     const ledgerRow = {
@@ -662,6 +711,12 @@ export const reserve_stars_refund = spacetimedb.reducer(
     updateAccount(ctx, {
       ...accountRow,
       balance: accountBalance(accountRow) - ledger.elmAmount,
+    }, {
+      delta: -ledger.elmAmount,
+      reasonKind: 'stars_refund_reserve',
+      paymentId: ledger.paymentId,
+      actor: PAYMENT_JWT_SUBJECT,
+      idempotencyKey: `payment:${ledger.paymentId}:refund_reserve`,
     });
     ctx.db.paymentLedger.paymentId.update({
       ...ledger,
@@ -734,6 +789,12 @@ export const cancel_stars_refund = spacetimedb.reducer(
     updateAccount(ctx, {
       ...accountRow,
       balance: accountBalance(accountRow) + ledger.elmAmount,
+    }, {
+      delta: ledger.elmAmount,
+      reasonKind: 'stars_refund_cancel',
+      paymentId: ledger.paymentId,
+      actor: PAYMENT_JWT_SUBJECT,
+      idempotencyKey: `payment:${ledger.paymentId}:refund_cancel`,
     });
     ctx.db.paymentLedger.paymentId.update({
       ...ledger,
@@ -1001,16 +1062,27 @@ function nextRoundJitterMicros(match: MatchRow) {
 function expireMatchAsDraw(ctx: ReducerContext, match: MatchRow, reason: string) {
   if (match.status === 'settled') return;
   const replayHash = hashHex(`${match.id}:draw:${match.currentRound}:${nowMicros(ctx)}`);
+  const p1SeasonPointsAwarded = SEASON_POINTS_DRAW;
+  const p2SeasonPointsAwarded = SEASON_POINTS_DRAW;
   logEvent(ctx, 'match.expired_draw', match, reason, `score=${match.p1Score}:${match.p2Score}`);
-  refundDrawBalances(ctx, match);
+  awardDrawSeasonPoints(ctx, match, p1SeasonPointsAwarded, p2SeasonPointsAwarded);
   ctx.db.matchState.id.update({
     ...match,
     phase: 'complete',
     status: 'settled',
     winner: undefined,
     replayHash,
+    p1SeasonPointsAwarded,
+    p2SeasonPointsAwarded,
     updatedAtMicros: nowMicros(ctx),
   });
+  logEvent(
+    ctx,
+    'match.entry_fee_spent_draw',
+    match,
+    `Draw settled without ELM payout for match ${match.id}`,
+    `entryFee=${match.stake} p1SeasonPoints=${p1SeasonPointsAwarded} p2SeasonPoints=${p2SeasonPointsAwarded}`
+  );
 }
 
 function expireResultPhase(ctx: ReducerContext, match: MatchRow) {
@@ -1039,6 +1111,11 @@ function finishMatch(
 ) {
   if (match.status === 'settled') return;
   const replayHash = hashHex(`${match.id}:${match.p1Score}:${match.p2Score}:${match.currentRound}`);
+  const winnerSide = identityEquals(winner, match.p1) ? 'p1' : 'p2';
+  const winnerSeasonPoints = seasonPointsForWinner(match, winnerSide);
+  const loserSeasonPoints = SEASON_POINTS_LOSS;
+  const p1SeasonPointsAwarded = winnerSide === 'p1' ? winnerSeasonPoints : loserSeasonPoints;
+  const p2SeasonPointsAwarded = winnerSide === 'p2' ? winnerSeasonPoints : loserSeasonPoints;
   logEvent(
     ctx,
     'match.settled',
@@ -1052,6 +1129,8 @@ function finishMatch(
     status: 'settled',
     winner,
     replayHash,
+    p1SeasonPointsAwarded,
+    p2SeasonPointsAwarded,
     updatedAtMicros: nowMicros(ctx),
   });
 
@@ -1065,20 +1144,25 @@ function finishMatch(
     const loserPenaltyMultiplier = options.loserRatingPenaltyMultiplier ?? 1;
     const loserRatingLoss = Math.max(0, loserAccount.rating - baseNewLoser);
     const newLoser = loserAccount.rating - Math.round(loserRatingLoss * loserPenaltyMultiplier);
-    const winnerSide = identityEquals(winner, match.p1) ? 'p1' : 'p2';
-    const winnerBoostRefund = playerBoostStake(match, winnerSide);
-    const winnerPayout = calculateWinnerPayout(match.stake);
     updateAccount(ctx, {
       ...winnerAccount,
       rating: newWinner,
       wins: winnerAccount.wins + 1,
-      balance: accountBalance(winnerAccount) + winnerPayout + winnerBoostRefund,
+      seasonPoints: accountSeasonPoints(winnerAccount) + winnerSeasonPoints,
     });
     updateAccount(ctx, {
       ...loserAccount,
       rating: newLoser,
       losses: loserAccount.losses + 1,
+      seasonPoints: accountSeasonPoints(loserAccount) + loserSeasonPoints,
     });
+    logEvent(
+      ctx,
+      'match.season_points_awarded',
+      match,
+      `Season Points awarded for match ${match.id}`,
+      `winner=${winnerSeasonPoints} loser=${loserSeasonPoints} economy=${ECONOMY_MODEL_ENTRY_FEE}`
+    );
   }
 }
 
@@ -1087,8 +1171,10 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
   const p2Player = ctx.db.player.identity.find(p2Entry.identity);
   if (!p1Player || !p2Player) throw new SenderError('Player not found');
   const balanceKind = assertSameEntryBalanceKind(p1Entry, p2Entry);
-  const p1Account = reserveStake(ctx, p1Player, totalStake(p1Entry.stake, p1Entry.boostEnabled));
-  const p2Account = reserveStake(ctx, p2Player, totalStake(p2Entry.stake, p2Entry.boostEnabled));
+  const p1Account = accountForPlayer(ctx, p1Player);
+  const p2Account = accountForPlayer(ctx, p2Player);
+  assertCanStakeAccount(p1Account, totalStake(p1Entry.stake, p1Entry.boostEnabled));
+  assertCanStakeAccount(p2Account, totalStake(p2Entry.stake, p2Entry.boostEnabled));
   const inserted = ctx.db.matchState.insert({
     id: 0n,
     p1: p1Entry.identity,
@@ -1099,6 +1185,7 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     p2Rating: p2Account.rating,
     stake: p1Entry.stake,
     balanceKind,
+    economyModel: ECONOMY_MODEL_ENTRY_FEE,
     mode: p1Entry.mode,
     room: p1Entry.room,
     phase: 'select',
@@ -1110,6 +1197,8 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     p2Energy: p2Entry.boostEnabled ? STARTING_ENERGY + BOOST_EXTRA_ENERGY : STARTING_ENERGY,
     p1BoostEnabled: p1Entry.boostEnabled,
     p2BoostEnabled: p2Entry.boostEnabled,
+    p1SeasonPointsAwarded: 0,
+    p2SeasonPointsAwarded: 0,
     p1CommitHash: undefined,
     p2CommitHash: undefined,
     p1RevealMove: undefined,
@@ -1123,12 +1212,14 @@ function createPlayerMatch(ctx: ReducerContext, p1Entry: QueueEntryRow, p2Entry:
     createdAtMicros: now,
     updatedAtMicros: now,
   });
+  chargeMatchEntryFee(ctx, p1Account, inserted, 'p1', p1Entry.boostEnabled);
+  chargeMatchEntryFee(ctx, p2Account, inserted, 'p2', p2Entry.boostEnabled);
   logEvent(
     ctx,
     'match.created',
     inserted,
     `Match ${inserted.id} created: ${p1Entry.name} vs ${p2Entry.name}`,
-    `room=${p1Entry.room} mode=${p1Entry.mode} stake=${p1Entry.stake} balanceKind=${balanceKind}`
+    `room=${p1Entry.room} mode=${p1Entry.mode} entryFee=${p1Entry.stake} balanceKind=${balanceKind} economy=${ECONOMY_MODEL_ENTRY_FEE}`
   );
   return inserted;
 }
@@ -1280,17 +1371,34 @@ function ensureAccount(ctx: ReducerContext, accountId: string, name: string, see
     losses: seed?.losses ?? 0,
     balance: seed?.balance ?? initialBalanceForBalanceKind(balanceKind),
     balanceKind,
+    seasonPoints: seed?.seasonPoints ?? 0,
   });
 }
 
-function updateAccount(ctx: ReducerContext, accountRow: AccountRow) {
+function updateAccount(ctx: ReducerContext, accountRow: AccountRow, mutation?: BalanceMutation) {
   const normalizedId = normalizeAccountId(accountRow.id, undefined);
+  if (mutation && ctx.db.balanceEvent.idempotencyKey.find(mutation.idempotencyKey)) {
+    const existing = ctx.db.account.id.find(normalizedId);
+    if (existing) return existing;
+  }
+
   const normalized = {
     ...accountRow,
     id: normalizedId,
     balanceKind: balanceKindForAccountId(normalizedId),
+    seasonPoints: accountSeasonPoints(accountRow),
   };
+  if (mutation) {
+    const existing = ctx.db.account.id.find(normalizedId);
+    const previousBalance = existing ? accountBalance(existing) : accountBalance(normalized) - mutation.delta;
+    if (previousBalance + mutation.delta !== accountBalance(normalized)) {
+      throw new SenderError('Balance event delta does not match account balance update');
+    }
+  }
   ctx.db.account.id.update(normalized);
+  if (mutation) {
+    recordBalanceEvent(ctx, normalized, mutation);
+  }
   syncAccountToPlayers(ctx, normalized);
   return normalized;
 }
@@ -1304,6 +1412,7 @@ function mergeLegacyPlayerIntoAccount(ctx: ReducerContext, accountRow: AccountRo
     losses: accountRow.losses + (playerRow.losses ?? 0),
     balance: Math.max(accountBalance(accountRow), playerRow.balance ?? INITIAL_BALANCE),
     balanceKind: accountBalanceKind(accountRow),
+    seasonPoints: Math.max(accountSeasonPoints(accountRow), playerRow.seasonPoints ?? 0),
   });
 }
 
@@ -1334,6 +1443,7 @@ function playerFromAccount(playerRow: MatchRow, accountRow: AccountRow, name = a
     losses: accountRow.losses,
     balance: accountBalance(accountRow),
     balanceKind: accountBalanceKind(accountRow),
+    seasonPoints: accountSeasonPoints(accountRow),
   };
 }
 
@@ -1355,20 +1465,41 @@ function normalizeAccountId(accountId: string | undefined, fallback: string | un
   return normalized || 'anonymous';
 }
 
-function reserveStake(ctx: ReducerContext, playerRow: MatchRow, amount: number) {
-  const accountRow = accountForPlayer(ctx, playerRow);
-  assertCanStakeAccount(accountRow, amount);
-  consumeRefundableElm(ctx, accountRow, amount);
-  return updateAccount(ctx, {
-    ...accountRow,
-    balance: accountBalance(accountRow) - amount,
-  });
-}
-
 function assertCanStakeAccount(accountRow: AccountRow, amount: number) {
   if (accountBalance(accountRow) < amount) {
     throw new SenderError(`Insufficient ${currencyLabelForBalanceKind(accountBalanceKind(accountRow))} balance: need ${amount}, have ${accountBalance(accountRow)}`);
   }
+}
+
+function applyBalanceDelta(ctx: ReducerContext, accountRow: AccountRow, delta: number, mutation: Omit<BalanceMutation, 'delta'>) {
+  if (delta === 0) return accountRow;
+  const nextBalance = accountBalance(accountRow) + delta;
+  if (nextBalance < 0) {
+    throw new SenderError(`Insufficient ${currencyLabelForBalanceKind(accountBalanceKind(accountRow))} balance: need ${Math.abs(delta)}, have ${accountBalance(accountRow)}`);
+  }
+  return updateAccount(ctx, {
+    ...accountRow,
+    balance: nextBalance,
+  }, {
+    ...mutation,
+    delta,
+  });
+}
+
+function recordBalanceEvent(ctx: ReducerContext, accountRow: AccountRow, mutation: BalanceMutation) {
+  if (ctx.db.balanceEvent.idempotencyKey.find(mutation.idempotencyKey)) return;
+  ctx.db.balanceEvent.insert({
+    idempotencyKey: mutation.idempotencyKey,
+    accountId: accountRow.id,
+    balanceKind: accountBalanceKind(accountRow),
+    delta: mutation.delta,
+    balanceAfter: accountBalance(accountRow),
+    reasonKind: mutation.reasonKind,
+    paymentId: mutation.paymentId,
+    matchId: mutation.matchId,
+    actor: mutation.actor ?? 'system',
+    createdAtMicros: nowMicros(ctx),
+  });
 }
 
 function requirePaymentService(ctx: ReducerContext) {
@@ -1517,30 +1648,54 @@ function consumeRefundableElm(ctx: ReducerContext, accountRow: AccountRow, amoun
   }
 }
 
-function refundDrawBalances(ctx: ReducerContext, match: MatchRow) {
+function chargeMatchEntryFee(ctx: ReducerContext, accountRow: AccountRow, match: MatchRow, side: 'p1' | 'p2', boostEnabled: boolean) {
+  let updatedAccount = accountRow;
+  const entryFee = Math.trunc(match.stake);
+  consumeRefundableElm(ctx, updatedAccount, entryFee);
+  updatedAccount = applyBalanceDelta(ctx, updatedAccount, -entryFee, {
+    reasonKind: 'match_entry_fee',
+    idempotencyKey: `match:${match.id}:${accountRow.id}:entry_fee`,
+    matchId: match.id,
+    actor: side,
+  });
+
+  const boostCost = boostEnabled ? boostStake(match.stake) : 0;
+  if (boostCost > 0) {
+    consumeRefundableElm(ctx, updatedAccount, boostCost);
+    updatedAccount = applyBalanceDelta(ctx, updatedAccount, -boostCost, {
+      reasonKind: 'match_boost_cost',
+      idempotencyKey: `match:${match.id}:${accountRow.id}:boost_cost`,
+      matchId: match.id,
+      actor: side,
+    });
+  }
+
+  return updatedAccount;
+}
+
+function awardDrawSeasonPoints(ctx: ReducerContext, match: MatchRow, p1Award: number, p2Award: number) {
   const p1Player = ctx.db.player.identity.find(match.p1);
   const p2Player = ctx.db.player.identity.find(match.p2);
-  const drawRefund = calculateDrawRefund(match.stake);
   if (p1Player) {
     const p1Account = accountForPlayer(ctx, p1Player);
     updateAccount(ctx, {
       ...p1Account,
-      balance: accountBalance(p1Account) + drawRefund + playerBoostStake(match, 'p1'),
+      seasonPoints: accountSeasonPoints(p1Account) + p1Award,
     });
   }
   if (p2Player) {
     const p2Account = accountForPlayer(ctx, p2Player);
     updateAccount(ctx, {
       ...p2Account,
-      balance: accountBalance(p2Account) + drawRefund + playerBoostStake(match, 'p2'),
+      seasonPoints: accountSeasonPoints(p2Account) + p2Award,
     });
   }
   logEvent(
     ctx,
-    'match.draw_rake',
+    'match.season_points_awarded',
     match,
-    `Applied draw rake for match ${match.id}`,
-    `stake=${match.stake} refund=${drawRefund} rakePerPlayer=${match.stake - drawRefund}`
+    `Season Points awarded for draw match ${match.id}`,
+    `p1=${p1Award} p2=${p2Award} economy=${ECONOMY_MODEL_ENTRY_FEE}`
   );
 }
 
@@ -1548,29 +1703,22 @@ function totalStake(stake: number, boostEnabled: boolean) {
   return stake + (boostEnabled ? boostStake(stake) : 0);
 }
 
-function playerBoostStake(match: MatchRow, side: 'p1' | 'p2') {
-  return side === 'p1'
-    ? match.p1BoostEnabled ? boostStake(match.stake) : 0
-    : match.p2BoostEnabled ? boostStake(match.stake) : 0;
-}
-
 function boostStake(stake: number) {
   return Math.ceil((stake * BOOST_STAKE_PERCENT) / 100);
 }
 
-function calculateWinnerPayout(stake: number) {
-  const pool = stake * 2;
-  const rake = Math.floor((pool * RAKE_PERCENT) / 100);
-  return pool - rake;
-}
-
-function calculateDrawRefund(stake: number) {
-  const rake = Math.floor((stake * RAKE_PERCENT) / 100);
-  return stake - rake;
+function seasonPointsForWinner(match: MatchRow, winnerSide: 'p1' | 'p2') {
+  const winnerScore = winnerSide === 'p1' ? match.p1Score : match.p2Score;
+  const loserScore = winnerSide === 'p1' ? match.p2Score : match.p1Score;
+  return SEASON_POINTS_WIN + (winnerScore >= ROUNDS_TO_WIN && loserScore === 0 ? SEASON_POINTS_CLEAN_WIN_BONUS : 0);
 }
 
 function accountBalance(accountRow: AccountRow) {
   return accountRow.balance ?? INITIAL_BALANCE;
+}
+
+function accountSeasonPoints(accountRow: AccountRow) {
+  return accountRow.seasonPoints ?? 0;
 }
 
 function accountBalanceKind(accountRow: AccountRow) {

@@ -62,6 +62,7 @@ export interface AdminUserSummary {
   rating: number;
   wins: number;
   losses: number;
+  seasonPoints: number;
   online: boolean;
   activeMatchId?: string;
   queued: boolean;
@@ -73,6 +74,7 @@ export interface AdminUserDetail extends AdminUserSummary {
   player?: PlayerRow;
   queue?: QueueEntryRow;
   activeMatch?: MatchStateRow;
+  balanceEvents: AdminBalanceEvent[];
 }
 
 export interface AdminAuditEvent {
@@ -85,6 +87,19 @@ export interface AdminAuditEvent {
   newBalance: number;
   delta: number;
   reason: string;
+  createdAt: string;
+}
+
+export interface AdminBalanceEvent {
+  idempotencyKey: string;
+  accountId: string;
+  balanceKind: string;
+  delta: number;
+  balanceAfter: number;
+  reasonKind: string;
+  paymentId?: string;
+  matchId?: string;
+  actor: string;
   createdAt: string;
 }
 
@@ -119,6 +134,7 @@ interface AccountRow {
   losses: number;
   balance: number;
   balanceKind: string;
+  seasonPoints: number;
 }
 
 interface PlayerRow {
@@ -131,6 +147,7 @@ interface PlayerRow {
   balance: number;
   balanceKind: string;
   accountId: string;
+  seasonPoints: number;
 }
 
 interface QueueEntryRow {
@@ -175,6 +192,19 @@ interface PaymentLedgerRow {
   elmAmount: number;
   status: string;
   updatedAtMicros: number;
+}
+
+interface BalanceEventRow {
+  idempotencyKey: string;
+  accountId: string;
+  balanceKind: string;
+  delta: number;
+  balanceAfter: number;
+  reasonKind: string;
+  paymentId?: string;
+  matchId?: string;
+  actor: string;
+  createdAtMicros: number;
 }
 
 interface AdminAuditEventRow {
@@ -225,13 +255,14 @@ export function createSpacetimeAdminStore(
   };
 
   const readState = async () => {
-    const [accountsRaw, playersRaw, queueRaw, matchesRaw, eventsRaw, paymentsRaw, auditRows] = await Promise.all([
+    const [accountsRaw, playersRaw, queueRaw, matchesRaw, eventsRaw, paymentsRaw, balanceEventsRaw, auditRows] = await Promise.all([
       safeSelect('account'),
       safeSelect('player'),
       safeSelect('queue_entry'),
       safeSelect('match_state'),
       safeSelect('game_event'),
       safeSelect('payment_ledger'),
+      safeSelect('balance_event'),
       auditLog ? auditLog.read() : safeSelect('admin_audit_event').then(rows => rows.map(toAdminAuditEventRow)),
     ]);
 
@@ -242,6 +273,7 @@ export function createSpacetimeAdminStore(
       matches: matchesRaw.map(toMatchStateRow),
       events: eventsRaw.map(toGameEventRow),
       payments: paymentsRaw.map(toPaymentLedgerRow),
+      balanceEvents: balanceEventsRaw.map(toBalanceEventRow),
       audit: auditRows,
     };
   };
@@ -340,6 +372,24 @@ export function createSpacetimeAdminStore(
 
       await sql(`UPDATE account SET balance = ${nextBalance} WHERE id = ${sqlString(accountId)}`);
       await sql(`UPDATE player SET balance = ${nextBalance} WHERE account_id = ${sqlString(accountId)}`);
+      if (delta !== 0) {
+        await sql(
+          `INSERT INTO balance_event (idempotency_key, account_id, balance_kind, delta, balance_after, reason_kind, payment_id, match_id, actor, created_at_micros) VALUES (` +
+            [
+              sqlString(`admin:${requestId}:balance`),
+              sqlString(accountId),
+              sqlString(input.balanceKind),
+              String(delta),
+              String(nextBalance),
+              sqlString(`admin_balance_${input.operation}`),
+              'NULL',
+              'NULL',
+              sqlString(`admin:${input.admin.telegramId}`),
+              String(createdAtMicros),
+            ].join(', ') +
+            ')',
+        );
+      }
       const auditRow: AdminAuditEventRow = {
         requestId,
         adminTelegramId: String(input.admin.telegramId),
@@ -491,6 +541,7 @@ function toAccountRow(row: Record<string, unknown>): AccountRow {
     losses: numberValue(row['losses']),
     balance: numberValue(row['balance']),
     balanceKind: stringValue(row['balance_kind']),
+    seasonPoints: numberValue(row['season_points']),
   };
 }
 
@@ -505,6 +556,7 @@ function toPlayerRow(row: Record<string, unknown>): PlayerRow {
     balance: numberValue(row['balance']),
     balanceKind: stringValue(row['balance_kind']),
     accountId: stringValue(row['account_id']),
+    seasonPoints: numberValue(row['season_points']),
   };
 }
 
@@ -560,6 +612,21 @@ function toPaymentLedgerRow(row: Record<string, unknown>): PaymentLedgerRow {
   };
 }
 
+function toBalanceEventRow(row: Record<string, unknown>): BalanceEventRow {
+  return {
+    idempotencyKey: stringValue(row['idempotency_key']),
+    accountId: stringValue(row['account_id']),
+    balanceKind: stringValue(row['balance_kind']),
+    delta: numberValue(row['delta']),
+    balanceAfter: numberValue(row['balance_after']),
+    reasonKind: stringValue(row['reason_kind']),
+    matchId: maybeStringValue(row['match_id']),
+    paymentId: maybeStringValue(row['payment_id']),
+    actor: stringValue(row['actor']),
+    createdAtMicros: numberValue(row['created_at_micros']),
+  };
+}
+
 function toAdminAuditEventRow(row: Record<string, unknown>): AdminAuditEventRow {
   return {
     requestId: stringValue(row['request_id']),
@@ -587,6 +654,7 @@ function createStateReader() {
     matches: [] as MatchStateRow[],
     events: [] as GameEventRow[],
     payments: [] as PaymentLedgerRow[],
+    balanceEvents: [] as BalanceEventRow[],
     audit: [] as AdminAuditEventRow[],
   });
 }
@@ -608,6 +676,11 @@ function buildUserDetail(state: AdminState, accountId: string): AdminUserDetail 
     ...(player ? { player } : {}),
     ...(queue ? { queue } : {}),
     ...(activeMatch ? { activeMatch } : {}),
+    balanceEvents: state.balanceEvents
+      .filter(event => event.accountId === account.id)
+      .sort((a, b) => b.createdAtMicros - a.createdAtMicros)
+      .slice(0, 20)
+      .map(toAdminBalanceEvent),
   };
 }
 
@@ -634,6 +707,7 @@ function summarizeUser(state: AdminState, account: AccountRow): AdminUserSummary
     rating: player?.rating ?? account.rating,
     wins: player?.wins ?? account.wins,
     losses: player?.losses ?? account.losses,
+    seasonPoints: player?.seasonPoints ?? account.seasonPoints,
     online: player?.online ?? false,
     ...(activeMatch ? { activeMatchId: activeMatch.id } : {}),
     queued: Boolean(queue),
@@ -658,6 +732,21 @@ function toAdminEventSummary(event: GameEventRow): AdminEventSummary {
     level: event.level,
     event: event.event,
     message: event.message,
+    createdAt: microsToIso(event.createdAtMicros),
+  };
+}
+
+function toAdminBalanceEvent(event: BalanceEventRow): AdminBalanceEvent {
+  return {
+    idempotencyKey: event.idempotencyKey,
+    accountId: event.accountId,
+    balanceKind: event.balanceKind,
+    delta: event.delta,
+    balanceAfter: event.balanceAfter,
+    reasonKind: event.reasonKind,
+    ...(event.paymentId ? { paymentId: event.paymentId } : {}),
+    ...(event.matchId ? { matchId: event.matchId } : {}),
+    actor: event.actor,
     createdAt: microsToIso(event.createdAtMicros),
   };
 }

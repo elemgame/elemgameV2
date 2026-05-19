@@ -6,12 +6,13 @@ const PAID_ELM_BALANCE_KIND = 'paid_elm';
 const PAYMENT_STATUS_CREDITED = 'credited';
 const PAYMENT_STATUS_REFUND_PENDING = 'refund_pending';
 const PAYMENT_STATUS_REFUNDED = 'refunded';
-const RAKE_PERCENT = 5;
 
 export type WalletHistoryEntryKind =
   | 'stars_purchase'
   | 'elm_credit'
   | 'stars_refund'
+  | 'match_entry_fee'
+  | 'match_boost_cost'
   | 'pvp_stake'
   | 'pvp_boost_stake'
   | 'pvp_win'
@@ -195,12 +196,11 @@ function pvpEntries(conn: HistoryConnection, accountId: string): WalletHistoryEn
     const boostEnabled = side === 'p1' ? row.p1BoostEnabled : row.p2BoostEnabled;
     const boostStake = boostEnabled ? Math.ceil(row.stake * 0.1) : 0;
     const opponentName = side === 'p1' ? row.p2Name : row.p1Name;
-    const settledAt = toIso(row.updatedAtMicros);
     entries.push({
-      id: `match:${matchId}:stake`,
-      kind: 'pvp_stake',
+      id: `match:${matchId}:entry_fee`,
+      kind: 'match_entry_fee',
       status: 'settled',
-      title: 'PvP stake',
+      title: 'Match entry fee',
       description: `Match vs ${opponentName}`,
       occurredAt: toIso(row.createdAtMicros),
       balanceKind: row.balanceKind,
@@ -209,10 +209,10 @@ function pvpEntries(conn: HistoryConnection, accountId: string): WalletHistoryEn
     });
     if (boostStake > 0) {
       entries.push({
-        id: `match:${matchId}:boost_stake`,
-        kind: 'pvp_boost_stake',
+        id: `match:${matchId}:boost_cost`,
+        kind: 'match_boost_cost',
         status: 'settled',
-        title: 'Energy Boost stake',
+        title: 'Energy Boost cost',
         description: `Match vs ${opponentName}`,
         occurredAt: toIso(row.createdAtMicros),
         balanceKind: row.balanceKind,
@@ -221,59 +221,8 @@ function pvpEntries(conn: HistoryConnection, accountId: string): WalletHistoryEn
       });
     }
 
-    if (row.winner === undefined) {
-      entries.push({
-        id: `match:${matchId}:draw_refund`,
-        kind: 'pvp_draw_refund',
-        status: 'settled',
-        title: 'Draw refund',
-        description: `Match vs ${opponentName}`,
-        occurredAt: settledAt,
-        balanceKind: row.balanceKind,
-        elmAmount: drawRefund(row.stake),
-        matchId,
-      });
-      if (boostStake > 0) entries.push(boostReturnEntry(matchId, opponentName, boostStake, settledAt, row.balanceKind));
-      continue;
-    }
-
-    const won = identityHex(row.winner) === (side === 'p1' ? p1 : p2);
-    if (won) {
-      entries.push({
-        id: `match:${matchId}:win`,
-        kind: 'pvp_win',
-        status: 'settled',
-        title: 'PvP winnings',
-        description: `Match vs ${opponentName}`,
-        occurredAt: settledAt,
-        balanceKind: row.balanceKind,
-        elmAmount: winnerPayout(row.stake),
-        matchId,
-      });
-      if (boostStake > 0) entries.push(boostReturnEntry(matchId, opponentName, boostStake, settledAt, row.balanceKind));
-    }
   }
   return entries;
-}
-
-function boostReturnEntry(
-  matchId: string,
-  opponentName: string,
-  amount: number,
-  occurredAt: string,
-  balanceKind: string,
-): WalletHistoryEntry {
-  return {
-    id: `match:${matchId}:boost_return`,
-    kind: 'pvp_boost_return',
-    status: 'settled',
-    title: 'Energy Boost returned',
-    description: `Match vs ${opponentName}`,
-    occurredAt,
-    balanceKind,
-    elmAmount: amount,
-    matchId,
-  };
 }
 
 function summarize(entries: WalletHistoryEntry[]): WalletHistorySummary {
@@ -287,7 +236,7 @@ function summarize(entries: WalletHistoryEntry[]): WalletHistorySummary {
     if (entry.kind === 'stars_refund' && entry.status === 'pending') {
       summary.pendingRefundStars += entry.starsAmount ?? 0;
     }
-    if (entry.kind.startsWith('pvp_')) summary.pvpNetElm += entry.elmAmount;
+    if (entry.kind.startsWith('pvp_') || entry.kind.startsWith('match_')) summary.pvpNetElm += entry.elmAmount;
     return summary;
   }, {
     totalStarsPurchased: 0,
@@ -303,15 +252,6 @@ function isCreditedStatus(status: string): boolean {
   return status === PAYMENT_STATUS_CREDITED ||
     status === PAYMENT_STATUS_REFUND_PENDING ||
     status === PAYMENT_STATUS_REFUNDED;
-}
-
-function winnerPayout(stake: number): number {
-  const pool = stake * 2;
-  return pool - Math.floor((pool * RAKE_PERCENT) / 100);
-}
-
-function drawRefund(stake: number): number {
-  return stake - Math.floor((stake * RAKE_PERCENT) / 100);
 }
 
 function identityHex(identity: { toHexString(): string }): string {

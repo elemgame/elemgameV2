@@ -189,7 +189,7 @@ export function SettingsScreen() {
             <ToggleRow
               icon={<BoltIcon size={20} className="text-gold" />}
               label="Energy Boost"
-              desc="Start with +20 energy for +10% stake"
+              desc="Start with +20 energy for +10% match cost"
               value={boostEnabled}
               onChange={setBoostEnabled}
             />

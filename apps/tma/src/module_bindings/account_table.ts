@@ -18,4 +18,5 @@ export default __t.row({
   losses: __t.u32(),
   balance: __t.i32(),
   balanceKind: __t.string().name("balance_kind"),
+  seasonPoints: __t.u32().name("season_points"),
 });

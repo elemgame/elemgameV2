@@ -351,6 +351,7 @@ async function handleWalletBalance(
     rating: account?.rating ?? 1200,
     wins: account?.wins ?? 0,
     losses: account?.losses ?? 0,
+    seasonPoints: account?.seasonPoints ?? 0,
   });
 }
 

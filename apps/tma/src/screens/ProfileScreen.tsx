@@ -460,7 +460,7 @@ function buildHistoryItems(
 ): HistoryDisplayItem[] {
   const walletMatchIds = new Set(
     walletHistory
-      .filter(entry => entry.matchId && entry.kind.startsWith('pvp_'))
+      .filter(entry => entry.matchId && isMatchWalletKind(entry.kind))
       .map(entry => entry.matchId),
   );
   const localItems = transactions
@@ -502,6 +502,10 @@ function transactionToHistoryItem(tx: EconomyTransaction): HistoryDisplayItem {
 
 function transactionTitle(type: EconomyTransaction['type']): string {
   switch (type) {
+    case 'entry_fee':
+      return 'Match entry fee';
+    case 'boost_cost':
+      return 'Energy Boost cost';
     case 'stake':
       return 'PvP stake';
     case 'win':
@@ -523,10 +527,14 @@ function historyIcon(item: HistoryDisplayItem): React.ReactNode {
   if (item.kind === 'elm_credit' || item.kind === 'pvp_win' || item.kind === 'pvp_draw_refund') {
     return <CoinsIcon size={16} className="text-energy-high" />;
   }
-  if (item.kind === 'pvp_boost_stake' || item.kind === 'boost_burn') return <FlameIcon size={16} className="text-energy-low" />;
+  if (item.kind === 'match_boost_cost' || item.kind === 'pvp_boost_stake' || item.kind === 'boost_cost' || item.kind === 'boost_burn') return <FlameIcon size={16} className="text-energy-low" />;
   if (item.kind === 'pvp_boost_return' || item.kind === 'boost_return') return <CheckIcon size={16} className="text-energy-high" />;
   if (item.elmAmount < 0) return <CrossIcon size={16} className="text-energy-low" />;
   return <CoinsIcon size={16} className="text-text-muted" />;
+}
+
+function isMatchWalletKind(kind: WalletHistoryEntryKind): boolean {
+  return kind.startsWith('pvp_') || kind.startsWith('match_');
 }
 
 function historyStatusClass(status: WalletHistoryStatus): string {

@@ -261,6 +261,7 @@ export function createSpacetimeProvider(
       rating: row.rating,
       wins: row.wins,
       losses: row.losses,
+      seasonPoints: row.seasonPoints,
     });
     context.emit({
       type: 'playerStats',
@@ -270,6 +271,7 @@ export function createSpacetimeProvider(
       rating: row.rating,
       wins: row.wins,
       losses: row.losses,
+      seasonPoints: row.seasonPoints,
     });
   }
 
@@ -292,6 +294,7 @@ export function createSpacetimeProvider(
       rating: row.rating,
       wins: row.wins,
       losses: row.losses,
+      seasonPoints: row.seasonPoints,
     });
     context.emit({
       type: 'playerStats',
@@ -301,6 +304,7 @@ export function createSpacetimeProvider(
       rating: row.rating,
       wins: row.wins,
       losses: row.losses,
+      seasonPoints: row.seasonPoints,
     });
   }
 
@@ -389,6 +393,7 @@ export function createSpacetimeProvider(
         opponentEnergy: perspective.opponentEnergy,
         myScore: perspective.myScore,
         opponentScore: perspective.opponentScore,
+        economyModel: row.economyModel,
       });
 
       if (row.phase === 'select' || row.phase === 'commit' || row.phase === 'reveal') {
@@ -404,6 +409,7 @@ export function createSpacetimeProvider(
           opponentEnergy: perspective.opponentEnergy,
           myScore: perspective.myScore,
           opponentScore: perspective.opponentScore,
+          economyModel: row.economyModel,
         });
       } else if (row.phase === 'result') {
         syncRoundResultForMatch(row.id);
@@ -500,6 +506,8 @@ export function createSpacetimeProvider(
         stake: row.stake,
         myRating: perspective.myRating,
         opponentRating: perspective.opponentSideRating,
+        seasonPointsEarned: perspective.isPlayer1 ? row.p1SeasonPointsAwarded : row.p2SeasonPointsAwarded,
+        economyModel: row.economyModel,
       });
     }, attempt === 0 ? 0 : 50);
     settlementTimers.add(timer);

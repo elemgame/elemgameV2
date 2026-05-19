@@ -38,6 +38,7 @@ export interface MatchResult {
   myScore: number;
   opponentScore: number;
   elmEarned: number;
+  seasonPointsEarned: number;
   ratingChange: number;
   rounds: RoundEntry[];
   // Economy breakdown
@@ -52,7 +53,15 @@ export interface MatchResult {
 
 export interface EconomyTransaction {
   id: string;
-  type: 'stake' | 'win' | 'loss' | 'boost_burn' | 'boost_return' | 'rake';
+  type:
+    | 'entry_fee'
+    | 'boost_cost'
+    | 'stake'
+    | 'win'
+    | 'loss'
+    | 'boost_burn'
+    | 'boost_return'
+    | 'rake';
   amount: number;
   matchId: string;
   timestamp: number;
@@ -89,10 +98,11 @@ interface GameStore {
 
   // Player stats
   elmBalance: number;
+  seasonPoints: number;
   rating: number;
   stats: { wins: number; losses: number };
   opponentStats: OpponentStats[];
-  setPlayerStats: (stats: { elmBalance: number; rating: number; wins: number; losses: number }) => void;
+  setPlayerStats: (stats: { elmBalance: number; rating: number; wins: number; losses: number; seasonPoints?: number }) => void;
   recordOpponentResult: (result: {
     opponentName: string;
     winner: OpponentMatchOutcome;
@@ -178,11 +188,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // Player stats
   elmBalance: 0,
+  seasonPoints: 0,
   rating: 1200,
   stats: { wins: 0, losses: 0 },
   opponentStats: loadOpponentStats(),
-  setPlayerStats: ({ elmBalance, rating, wins, losses }) =>
-    set({ elmBalance, rating, stats: { wins, losses } }),
+  setPlayerStats: ({ elmBalance, rating, wins, losses, seasonPoints }) =>
+    set((state) => ({
+      elmBalance,
+      rating,
+      seasonPoints: seasonPoints ?? state.seasonPoints,
+      stats: { wins, losses },
+    })),
   recordOpponentResult: (result) =>
     set((state) => {
       const opponentStats = recordOpponentMatch(state.opponentStats, result);

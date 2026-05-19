@@ -11,12 +11,14 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  id: __t.string().primaryKey(),
-  name: __t.string(),
-  rating: __t.i32(),
-  wins: __t.u32(),
-  losses: __t.u32(),
-  balance: __t.i32(),
+  requestId: __t.string().primaryKey().name("request_id"),
+  adminTelegramId: __t.string().name("admin_telegram_id"),
+  targetAccountId: __t.string().name("target_account_id"),
   balanceKind: __t.string().name("balance_kind"),
-  seasonPoints: __t.u32().name("season_points"),
+  operation: __t.string(),
+  previousBalance: __t.i32().name("previous_balance"),
+  newBalance: __t.i32().name("new_balance"),
+  delta: __t.i32(),
+  reason: __t.string(),
+  createdAtMicros: __t.u64().name("created_at_micros"),
 });

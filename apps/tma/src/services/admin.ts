@@ -60,6 +60,7 @@ export interface AdminUserSummary {
   rating: number;
   wins: number;
   losses: number;
+  seasonPoints: number;
   online: boolean;
   activeMatchId?: string;
   queued: boolean;
@@ -71,6 +72,20 @@ export interface AdminUserDetail extends AdminUserSummary {
   player?: Record<string, unknown>;
   queue?: Record<string, unknown>;
   activeMatch?: Record<string, unknown>;
+  balanceEvents: AdminBalanceEvent[];
+}
+
+export interface AdminBalanceEvent {
+  idempotencyKey: string;
+  accountId: string;
+  balanceKind: string;
+  delta: number;
+  balanceAfter: number;
+  reasonKind: string;
+  paymentId?: string;
+  matchId?: string;
+  actor: string;
+  createdAt: string;
 }
 
 export interface AdminAuditEvent {

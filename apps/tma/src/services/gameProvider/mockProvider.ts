@@ -51,6 +51,10 @@ const DEFAULT_OPPONENTS = [
   'Training Rival',
   'Arena Rival',
 ];
+const SEASON_POINTS_WIN = 30;
+const SEASON_POINTS_DRAW = 15;
+const SEASON_POINTS_LOSS = 10;
+const SEASON_POINTS_CLEAN_WIN_BONUS = 5;
 
 export function createMockProvider(
   context: GameplayProviderContext,
@@ -79,6 +83,7 @@ export function createMockProvider(
         rating: 1200,
         wins: 12,
         losses: 8,
+        seasonPoints: 0,
       });
     },
 
@@ -93,6 +98,7 @@ export function createMockProvider(
         rating: 1200,
         wins: 12,
         losses: 8,
+        seasonPoints: 0,
       });
     },
 
@@ -142,6 +148,7 @@ export function createMockProvider(
           opponentEnergy: match.opponentEnergy,
           myScore: 0,
           opponentScore: 0,
+          economyModel: 'entry_fee_season_points',
         });
         emitMatchUpdate();
       }, matchmakingDelayMs);
@@ -293,6 +300,7 @@ export function createMockProvider(
       opponentEnergy: match.opponentEnergy,
       myScore: match.myScore,
       opponentScore: match.opponentScore,
+      economyModel: 'entry_fee_season_points',
     });
   }
 
@@ -309,6 +317,8 @@ export function createMockProvider(
       stake: match.request.stake,
       myRating: 1200,
       opponentRating: match.opponentRating,
+      seasonPointsEarned: seasonPointsForMockResult(winner, match.myScore, match.opponentScore),
+      economyModel: 'entry_fee_season_points',
     });
     match = null;
   }
@@ -339,6 +349,12 @@ export function createMockProvider(
 
 function displayName(user: PlayerProfileInput): string {
   return playerDisplayName(user);
+}
+
+function seasonPointsForMockResult(winner: 'me' | 'opponent' | 'draw', myScore: number, opponentScore: number): number {
+  if (winner === 'draw') return SEASON_POINTS_DRAW;
+  if (winner === 'opponent') return SEASON_POINTS_LOSS;
+  return SEASON_POINTS_WIN + (myScore >= ROUNDS_TO_WIN && opponentScore === 0 ? SEASON_POINTS_CLEAN_WIN_BONUS : 0);
 }
 
 function randomSeed(): Uint8Array {

@@ -36,6 +36,7 @@ export interface MatchFoundEvent {
   opponentEnergy: number;
   myScore: number;
   opponentScore: number;
+  economyModel?: string;
 }
 
 export interface MatchUpdateEvent {
@@ -50,6 +51,7 @@ export interface MatchUpdateEvent {
   opponentEnergy: number;
   myScore: number;
   opponentScore: number;
+  economyModel?: string;
 }
 
 export interface RoundResultEvent {
@@ -78,12 +80,14 @@ export interface MatchSettledEvent {
   stake: number;
   myRating: number;
   opponentRating: number;
+  seasonPointsEarned: number;
+  economyModel?: string;
 }
 
 export type GameplayProviderEvent =
   | { type: 'trace'; event: string; data: Record<string, unknown> }
   | { type: 'error'; code: string; message: string; source: string; metadata?: Record<string, unknown> }
-  | { type: 'playerStats'; name: string; elmBalance: number; balanceKind: string; rating: number; wins: number; losses: number }
+  | { type: 'playerStats'; name: string; elmBalance: number; balanceKind: string; rating: number; wins: number; losses: number; seasonPoints?: number }
   | { type: 'queueActive'; name: string; room: string; mode: string; stake: number; balanceKind: string }
   | { type: 'queueRemoved'; name: string; room: string; mode: string; stake: number; balanceKind: string }
   | MatchFoundEvent

@@ -67,6 +67,7 @@ describe('mock gameplay provider contract', () => {
       winner: 'me',
       myScore: 3,
       opponentScore: 0,
+      seasonPointsEarned: 35,
     });
   });
 
@@ -114,6 +115,7 @@ describe('mock gameplay provider contract', () => {
       type: 'matchSettled',
       winner: 'opponent',
       opponentScore: 3,
+      seasonPointsEarned: 10,
     });
   });
 

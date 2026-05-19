@@ -52,7 +52,9 @@ import SubmitMoveReducer from "./submit_move_reducer";
 
 // Import all table schema definitions
 import AccountRow from "./account_table";
+import AdminAuditEventRow from "./admin_audit_event_table";
 import AutomationGuardRow from "./automation_guard_table";
+import BalanceEventRow from "./balance_event_table";
 import BotMoveCommitRow from "./bot_move_commit_table";
 import GameEventRow from "./game_event_table";
 import GameTickRow from "./game_tick_table";
@@ -77,6 +79,17 @@ const tablesSchema = __schema({
       { name: 'account_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, AccountRow),
+  adminAuditEvent: __table({
+    name: 'admin_audit_event',
+    indexes: [
+      { accessor: 'requestId', name: 'admin_audit_event_request_id_idx_btree', algorithm: 'btree', columns: [
+        'requestId',
+      ] },
+    ],
+    constraints: [
+      { name: 'admin_audit_event_request_id_key', constraint: 'unique', columns: ['requestId'] },
+    ],
+  }, AdminAuditEventRow),
   automationGuard: __table({
     name: 'automation_guard',
     indexes: [
@@ -88,6 +101,26 @@ const tablesSchema = __schema({
       { name: 'automation_guard_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, AutomationGuardRow),
+  balanceEvent: __table({
+    name: 'balance_event',
+    indexes: [
+      { accessor: 'balance_event_account_id', name: 'balance_event_account_id_idx_btree', algorithm: 'btree', columns: [
+        'accountId',
+      ] },
+      { accessor: 'idempotencyKey', name: 'balance_event_idempotency_key_idx_btree', algorithm: 'btree', columns: [
+        'idempotencyKey',
+      ] },
+      { accessor: 'balance_event_match_id', name: 'balance_event_match_id_idx_btree', algorithm: 'btree', columns: [
+        'matchId',
+      ] },
+      { accessor: 'balance_event_payment_id', name: 'balance_event_payment_id_idx_btree', algorithm: 'btree', columns: [
+        'paymentId',
+      ] },
+    ],
+    constraints: [
+      { name: 'balance_event_idempotency_key_key', constraint: 'unique', columns: ['idempotencyKey'] },
+    ],
+  }, BalanceEventRow),
   botMoveCommit: __table({
     name: 'bot_move_commit',
     indexes: [

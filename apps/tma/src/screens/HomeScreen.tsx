@@ -69,6 +69,7 @@ export function HomeScreen() {
   const {
     telegramUser,
     elmBalance,
+    seasonPoints,
     rating,
     stats,
     gameMode,
@@ -88,8 +89,8 @@ export function HomeScreen() {
       : 0;
 
   const boostStake = boostEnabled ? Math.ceil((MATCH_STAKE * BOOST_PERCENT) / 100) : 0;
-  const stakeRequired = MATCH_STAKE + boostStake;
-  const canAffordMatch = elmBalance >= stakeRequired;
+  const matchCost = MATCH_STAKE + boostStake;
+  const canAffordMatch = elmBalance >= matchCost;
   const currency = currencyForUser(telegramUser);
   const showStarsTopUp = telegramUser?.source === 'telegram' && Boolean(telegramUser.initData);
   const pendingPackageId = topUpState.status === 'loading' ? topUpState.packageId : undefined;
@@ -272,6 +273,14 @@ export function HomeScreen() {
               <div className="text-lg font-black text-water-light">{winRate}%</div>
               <div className="text-xs text-text-secondary">Win Rate</div>
             </div>
+            <div
+              className="w-px h-8"
+              style={{ background: 'rgba(255,255,255,0.12)' }}
+            />
+            <div className="text-center">
+              <div className="text-lg font-black text-gold">{seasonPoints.toLocaleString()}</div>
+              <div className="text-xs text-text-secondary">SP</div>
+            </div>
           </div>
 
           {showStarsTopUp ? (
@@ -331,7 +340,7 @@ export function HomeScreen() {
                     disabled={refundState.status === 'loading'}
                     onClick={() => void handleRefundQuote()}
                   >
-                    Refund eligible ELM
+                    Refund unused ELM
                   </button>
                   {refundState.quote?.nextLot ? (
                     <button
@@ -419,7 +428,7 @@ export function HomeScreen() {
             <div>
               <div className="font-bold text-sm text-text-primary">Energy Boost</div>
               <div className="text-xs text-text-secondary">
-                Start with +20 energy (+10% stake)
+                Start with +20 energy (+10% match cost)
               </div>
             </div>
           </div>
@@ -477,8 +486,8 @@ export function HomeScreen() {
           </motion.button>
           <div className="text-xs text-text-muted">
             {canAffordMatch
-              ? `Stake: ${formatCurrencyAmount(stakeRequired, currency)} • ${gameMode} mode`
-              : `Need ${formatCurrencyAmount(stakeRequired, currency)} (have ${formatCurrencyAmount(elmBalance, currency)})`}
+              ? `Entry fee: ${formatCurrencyAmount(matchCost, currency)} • ${gameMode} mode`
+              : `Need ${formatCurrencyAmount(matchCost, currency)} (have ${formatCurrencyAmount(elmBalance, currency)})`}
           </div>
         </motion.div>
 

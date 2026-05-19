@@ -18,8 +18,23 @@ export const Account = __t.object("Account", {
   losses: __t.u32(),
   balance: __t.i32(),
   balanceKind: __t.string(),
+  seasonPoints: __t.u32(),
 });
 export type Account = __Infer<typeof Account>;
+
+export const AdminAuditEvent = __t.object("AdminAuditEvent", {
+  requestId: __t.string(),
+  adminTelegramId: __t.string(),
+  targetAccountId: __t.string(),
+  balanceKind: __t.string(),
+  operation: __t.string(),
+  previousBalance: __t.i32(),
+  newBalance: __t.i32(),
+  delta: __t.i32(),
+  reason: __t.string(),
+  createdAtMicros: __t.u64(),
+});
+export type AdminAuditEvent = __Infer<typeof AdminAuditEvent>;
 
 export const AutomationGuard = __t.object("AutomationGuard", {
   identity: __t.identity(),
@@ -29,6 +44,20 @@ export const AutomationGuard = __t.object("AutomationGuard", {
   forfeitCount: __t.u32(),
 });
 export type AutomationGuard = __Infer<typeof AutomationGuard>;
+
+export const BalanceEvent = __t.object("BalanceEvent", {
+  idempotencyKey: __t.string(),
+  accountId: __t.string(),
+  balanceKind: __t.string(),
+  delta: __t.i32(),
+  balanceAfter: __t.i32(),
+  reasonKind: __t.string(),
+  paymentId: __t.option(__t.string()),
+  matchId: __t.option(__t.u64()),
+  actor: __t.string(),
+  createdAtMicros: __t.u64(),
+});
+export type BalanceEvent = __Infer<typeof BalanceEvent>;
 
 export const BotMoveCommit = __t.object("BotMoveCommit", {
   id: __t.string(),
@@ -67,6 +96,7 @@ export const MatchState = __t.object("MatchState", {
   p2Rating: __t.i32(),
   stake: __t.u32(),
   balanceKind: __t.string(),
+  economyModel: __t.string(),
   mode: __t.string(),
   room: __t.string(),
   phase: __t.string(),
@@ -78,6 +108,8 @@ export const MatchState = __t.object("MatchState", {
   p2Energy: __t.i32(),
   p1BoostEnabled: __t.bool(),
   p2BoostEnabled: __t.bool(),
+  p1SeasonPointsAwarded: __t.u32(),
+  p2SeasonPointsAwarded: __t.u32(),
   p1CommitHash: __t.option(__t.string()),
   p2CommitHash: __t.option(__t.string()),
   p1RevealMove: __t.option(__t.u32()),
@@ -125,6 +157,7 @@ export const Player = __t.object("Player", {
   balance: __t.i32(),
   balanceKind: __t.string(),
   accountId: __t.string(),
+  seasonPoints: __t.u32(),
 });
 export type Player = __Infer<typeof Player>;
 

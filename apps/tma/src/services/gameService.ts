@@ -1,10 +1,7 @@
 import {
   MATCH_STAKE,
   MoveId,
-  RAKE_PERCENT,
-  calculateDrawRefund,
   calculateElo,
-  calculatePayout,
   getEnergyLevel,
 } from '@elmental/shared';
 import { useGameStore, type EconomyTransaction, type EnergyLevel } from '../stores/gameStore';
@@ -93,6 +90,7 @@ export async function refreshTelegramBalance(user = useGameStore.getState().tele
       rating: balance.rating,
       wins: balance.wins,
       losses: balance.losses,
+      seasonPoints: balance.seasonPoints,
     }, accountId);
   } catch (err) {
     trace('payments.balance.sync_failed', { error: err instanceof Error ? err.message : String(err) });
@@ -104,6 +102,7 @@ export interface CachedPlayerStats {
   rating: number;
   wins: number;
   losses: number;
+  seasonPoints?: number;
 }
 
 export function loadCachedPlayerStats(accountId: string): CachedPlayerStats | null {
@@ -118,6 +117,7 @@ export function loadCachedPlayerStats(accountId: string): CachedPlayerStats | nu
       rating: Math.max(0, Math.trunc(parsed.rating)),
       wins: Math.max(0, Math.trunc(parsed.wins)),
       losses: Math.max(0, Math.trunc(parsed.losses)),
+      seasonPoints: isFiniteNumber(parsed.seasonPoints) ? Math.max(0, Math.trunc(parsed.seasonPoints)) : undefined,
     };
   } catch {
     return null;
@@ -290,11 +290,12 @@ function applyMatchFound(event: Extract<GameplayProviderEvent, { type: 'matchFou
         rating: store.rating,
         wins: store.stats.wins,
         losses: store.stats.losses,
+        seasonPoints: store.seasonPoints,
       });
     }
-    addTx('stake', -event.stake, event.matchId, `Staked ${formatCurrencyAmount(event.stake, currency)} for match vs ${event.opponentName}`);
+    addTx('entry_fee', -event.stake, event.matchId, `Entry fee ${formatCurrencyAmount(event.stake, currency)} for match vs ${event.opponentName}`);
     if (event.boostStake > 0) {
-      addTx('stake', -event.boostStake, event.matchId, `Energy Boost investment: ${formatCurrencyAmount(event.boostStake, currency)}`);
+      addTx('boost_cost', -event.boostStake, event.matchId, `Energy Boost cost: ${formatCurrencyAmount(event.boostStake, currency)}`);
     }
   }
 
@@ -375,11 +376,8 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
   const store = useGameStore.getState();
   const won = event.winner === 'me';
   const isDraw = event.winner === 'draw';
-  const { winnerPayout, rake } = calculatePayout(event.stake, RAKE_PERCENT);
-  const draw = calculateDrawRefund(event.stake, RAKE_PERCENT);
-  const appliedRake = isDraw ? draw.rake : rake;
   const boostStake = store.matchBoostStake;
-  const currency = currencyForBalanceKind(event.balanceKind);
+  const elmDelta = -(event.stake + boostStake);
 
   let ratingDelta = 0;
   if (!isDraw) {
@@ -387,26 +385,13 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
     ratingDelta = won ? elo.newWinner - event.myRating : elo.newLoser - event.myRating;
   }
 
-  let balanceDelta = 0;
-  if (isDraw) {
-    balanceDelta = draw.refund + boostStake;
-    addTx('win', draw.refund, event.matchId, `Draw. Stake refund after rake: ${formatCurrencyAmount(draw.refund, currency)}`);
-    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost refunded: ${formatCurrencyAmount(boostStake, currency)}`);
-  } else if (won) {
-    balanceDelta = winnerPayout + boostStake;
-    addTx('win', winnerPayout, event.matchId, `Won. Payout: ${formatCurrencyAmount(winnerPayout, currency)}`);
-    if (boostStake > 0) addTx('boost_return', boostStake, event.matchId, `Boost returned: ${formatCurrencyAmount(boostStake, currency)}`);
-  } else {
-    addTx('loss', -event.stake, event.matchId, `Lost match. Stake ${formatCurrencyAmount(event.stake, currency)} forfeited.`);
-    if (boostStake > 0) addTx('boost_burn', -boostStake, event.matchId, `Boost burned: ${formatCurrencyAmount(boostStake, currency)}`);
-  }
-
   if (FORCE_MOCK) {
     store.setPlayerStats({
-      elmBalance: store.elmBalance + balanceDelta,
+      elmBalance: store.elmBalance,
       rating: store.rating + ratingDelta,
       wins: store.stats.wins + (won ? 1 : 0),
       losses: store.stats.losses + (!won && !isDraw ? 1 : 0),
+      seasonPoints: store.seasonPoints + event.seasonPointsEarned,
     });
   }
   store.recordOpponentResult({
@@ -421,16 +406,17 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
     balanceKind: event.balanceKind,
     myScore: event.myScore,
     opponentScore: event.opponentScore,
-    elmEarned: isDraw ? -draw.rake : won ? winnerPayout - event.stake + boostStake : -event.stake - boostStake,
+    elmEarned: elmDelta,
+    seasonPointsEarned: event.seasonPointsEarned,
     ratingChange: ratingDelta,
     rounds: store.roundHistory,
     stake: event.stake,
-    rake: appliedRake,
+    rake: 0,
     boostStake,
-    boostBurned: !won && !isDraw && boostStake > 0,
-    boostReturned: (won || isDraw) && boostStake > 0,
-    totalPool: event.stake * 2,
-    winnerPayout,
+    boostBurned: boostStake > 0,
+    boostReturned: false,
+    totalPool: 0,
+    winnerPayout: 0,
   });
   trace('match.finish.applied', { matchId: event.matchId, winner: event.winner, score: `${event.myScore}:${event.opponentScore}` });
 }

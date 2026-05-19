@@ -20,4 +20,5 @@ export default __t.row({
   balance: __t.i32(),
   balanceKind: __t.string().name("balance_kind"),
   accountId: __t.string().name("account_id"),
+  seasonPoints: __t.u32().name("season_points"),
 });

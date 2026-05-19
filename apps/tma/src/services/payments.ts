@@ -45,6 +45,8 @@ export type WalletHistoryEntryKind =
   | 'stars_purchase'
   | 'elm_credit'
   | 'stars_refund'
+  | 'match_entry_fee'
+  | 'match_boost_cost'
   | 'pvp_stake'
   | 'pvp_boost_stake'
   | 'pvp_win'
@@ -92,6 +94,7 @@ export interface WalletBalanceResponse {
   rating: number;
   wins: number;
   losses: number;
+  seasonPoints?: number;
 }
 
 export type TelegramInvoiceStatus = 'paid' | 'cancelled' | 'failed' | 'pending' | 'unknown';

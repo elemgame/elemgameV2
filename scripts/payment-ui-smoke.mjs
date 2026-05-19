@@ -74,10 +74,10 @@ try {
 async function verifyWebDemoControls(page) {
   await page.waitForFunction(() => /tELM Balance/i.test(document.body.innerText), undefined, { timeout: 10_000 });
   const text = await compactBody(page, 1200);
-  const expectedStakeText = `Stake: ${matchStake} tELM`;
-  if (!text.includes(expectedStakeText)) throw new Error(`Web demo stake is not labelled tELM: expected "${expectedStakeText}"`);
+  const expectedEntryFeeText = `Entry fee: ${matchStake} tELM`;
+  if (!text.includes(expectedEntryFeeText)) throw new Error(`Web demo entry fee is not labelled tELM: expected "${expectedEntryFeeText}"`);
   if (/Top up/i.test(text)) throw new Error('Web demo rendered Stars top-up controls');
-  if (/Refund eligible ELM/i.test(text)) throw new Error('Web demo rendered Stars refund controls');
+  if (/Refund unused ELM/i.test(text)) throw new Error('Web demo rendered Stars refund controls');
 }
 
 async function verifyTelegramPaymentControls(page) {
@@ -85,12 +85,12 @@ async function verifyTelegramPaymentControls(page) {
   let text = await compactBody(page, 1600);
   if (/tELM Balance/i.test(text)) throw new Error('Telegram runtime rendered demo tELM balance');
   if (!/Top up/i.test(text) || !/Stars/i.test(text)) throw new Error('Telegram runtime did not render Stars controls');
-  if (!/Refund eligible ELM/i.test(text)) throw new Error('Telegram runtime did not render Stars refund controls');
+  if (!/Refund unused ELM/i.test(text)) throw new Error('Telegram runtime did not render Stars refund controls');
 
   await clickButton(page, /1\s*100 ELM/i);
   await page.waitForFunction(() => /Paid\. Waiting for server balance\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
 
-  await clickButton(page, /Refund eligible ELM/i);
+  await clickButton(page, /Refund unused ELM/i);
   await page.waitForFunction(() => /Next refundable lot: 1 Stars for 100 unused ELM\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
   await clickButton(page, /1\s*\u2605\s*\/\s*100 ELM/i);
   await page.waitForFunction(() => /Refunded 1 Stars\. Balance updates from server\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
@@ -101,7 +101,7 @@ async function verifyTelegramPaymentControls(page) {
       /Stars purchase/i.test(document.body.innerText) &&
       /ELM credited/i.test(document.body.innerText) &&
       /Stars refund pending/i.test(document.body.innerText) &&
-      /PvP winnings/i.test(document.body.innerText),
+      /Match entry fee/i.test(document.body.innerText),
     undefined,
     { timeout: 10_000 },
   );
@@ -202,6 +202,7 @@ async function mockPaymentService(page) {
           rating: 1200,
           wins: 0,
           losses: 0,
+          seasonPoints: 0,
         }),
       });
       return;
@@ -219,8 +220,8 @@ async function mockPaymentService(page) {
             { id: 'payment:purchase_1:purchase', kind: 'stars_purchase', status: 'settled', title: 'Stars purchase', description: '1 Stars for 100 ELM', occurredAt: '2026-05-17T00:00:00.000Z', balanceKind: 'paid_elm', elmAmount: 100, starsAmount: 1, paymentId: 'purchase_1' },
             { id: 'payment:purchase_1:credit', kind: 'elm_credit', status: 'settled', title: 'ELM credited', description: '100 ELM credited from Stars purchase', occurredAt: '2026-05-17T00:00:01.000Z', balanceKind: 'paid_elm', elmAmount: 100, starsAmount: 1, paymentId: 'purchase_1' },
             { id: 'payment:purchase_1:refund', kind: 'stars_refund', status: 'pending', title: 'Stars refund pending', description: '100 ELM for 1 Stars', occurredAt: '2026-05-17T00:00:02.000Z', balanceKind: 'paid_elm', elmAmount: -100, starsAmount: 1, paymentId: 'purchase_1' },
-            { id: 'match:7:stake', kind: 'pvp_stake', status: 'settled', title: 'PvP stake', description: 'Match vs Opponent', occurredAt: '2026-05-17T00:00:03.000Z', balanceKind: 'paid_elm', elmAmount: -100, matchId: '7' },
-            { id: 'match:7:win', kind: 'pvp_win', status: 'settled', title: 'PvP winnings', description: 'Match vs Opponent', occurredAt: '2026-05-17T00:00:04.000Z', balanceKind: 'paid_elm', elmAmount: 190, matchId: '7' },
+            { id: 'match:7:entry_fee', kind: 'match_entry_fee', status: 'settled', title: 'Match entry fee', description: 'Match vs Opponent', occurredAt: '2026-05-17T00:00:03.000Z', balanceKind: 'paid_elm', elmAmount: -100, matchId: '7' },
+            { id: 'match:7:boost_cost', kind: 'match_boost_cost', status: 'settled', title: 'Energy Boost cost', description: 'Match vs Opponent', occurredAt: '2026-05-17T00:00:04.000Z', balanceKind: 'paid_elm', elmAmount: -10, matchId: '7' },
           ],
           summary: {
             totalStarsPurchased: 1,
@@ -228,7 +229,7 @@ async function mockPaymentService(page) {
             totalStarsRefunded: 0,
             totalElmRefunded: 0,
             pendingRefundStars: 1,
-            pvpNetElm: 90,
+            pvpNetElm: -110,
           },
         }),
       });

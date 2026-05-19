@@ -40,7 +40,7 @@ describe('wallet history service', () => {
     expect(JSON.stringify(history)).not.toContain('invoicePayload');
   });
 
-  it('includes paid ELM PvP stake, winnings, and boost return entries', async () => {
+  it('includes paid ELM match entry fee and boost cost entries', async () => {
     const service = createWalletHistoryService(config, async () => fakeConnection({
       players: [player({ identity: identity('p1'), accountId: 'telegram:99' })],
       matches: [match({
@@ -57,15 +57,13 @@ describe('wallet history service', () => {
     });
 
     expect(history.entries).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'pvp_stake', elmAmount: -100, matchId: '7' }),
-      expect.objectContaining({ kind: 'pvp_boost_stake', elmAmount: -10, matchId: '7' }),
-      expect.objectContaining({ kind: 'pvp_win', elmAmount: 190, matchId: '7' }),
-      expect.objectContaining({ kind: 'pvp_boost_return', elmAmount: 10, matchId: '7' }),
+      expect.objectContaining({ kind: 'match_entry_fee', elmAmount: -100, matchId: '7' }),
+      expect.objectContaining({ kind: 'match_boost_cost', elmAmount: -10, matchId: '7' }),
     ]));
-    expect(history.summary.pvpNetElm).toBe(90);
+    expect(history.summary.pvpNetElm).toBe(-110);
   });
 
-  it('charges draw rake in paid ELM PvP history', async () => {
+  it('does not create draw refunds in paid ELM match history', async () => {
     const service = createWalletHistoryService(config, async () => fakeConnection({
       players: [player({ identity: identity('p1'), accountId: 'telegram:99' })],
       matches: [match({
@@ -84,10 +82,12 @@ describe('wallet history service', () => {
     });
 
     expect(history.entries).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: 'pvp_stake', elmAmount: -50, matchId: '7' }),
-      expect.objectContaining({ kind: 'pvp_draw_refund', elmAmount: 48, matchId: '7' }),
+      expect.objectContaining({ kind: 'match_entry_fee', elmAmount: -50, matchId: '7' }),
     ]));
-    expect(history.summary.pvpNetElm).toBe(-2);
+    expect(history.entries).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'pvp_draw_refund', matchId: '7' }),
+    ]));
+    expect(history.summary.pvpNetElm).toBe(-50);
   });
 });
 
@@ -142,6 +142,7 @@ function player(overrides: Partial<Record<string, unknown>> = {}) {
     balance: 1000,
     balanceKind: 'paid_elm',
     accountId: 'telegram:99',
+    seasonPoints: 0,
     ...overrides,
   };
 }
@@ -157,6 +158,7 @@ function match(overrides: Partial<Record<string, unknown>> = {}) {
     p2Rating: 1200,
     stake: 100,
     balanceKind: 'paid_elm',
+    economyModel: 'entry_fee_season_points',
     mode: 'classic',
     room: 'test',
     phase: 'complete',
@@ -168,6 +170,8 @@ function match(overrides: Partial<Record<string, unknown>> = {}) {
     p2Energy: 100,
     p1BoostEnabled: false,
     p2BoostEnabled: false,
+    p1SeasonPointsAwarded: 30,
+    p2SeasonPointsAwarded: 10,
     p1CommitHash: undefined,
     p2CommitHash: undefined,
     p1RevealMove: undefined,

@@ -296,8 +296,10 @@ describe('payments server', () => {
       rating: 1210,
       wins: 2,
       losses: 1,
+      seasonPoints: 75,
       online: false,
       queued: false,
+      balanceEvents: [],
       account: {
         id: 'telegram:99',
         name: 'Buyer',
@@ -306,6 +308,7 @@ describe('payments server', () => {
         losses: 1,
         balance: 450,
         balanceKind: 'paid_elm',
+        seasonPoints: 75,
       },
       player: undefined,
     });
@@ -327,6 +330,7 @@ describe('payments server', () => {
       rating: 1210,
       wins: 2,
       losses: 1,
+      seasonPoints: 75,
     }));
   });
 
@@ -446,6 +450,7 @@ function createAdminStoreMock(): AdminStore {
         losses: 0,
         balance: 100,
         balanceKind: 'paid_elm',
+        seasonPoints: 0,
       },
       user: {
         accountId: 'telegram:99',
@@ -455,8 +460,10 @@ function createAdminStoreMock(): AdminStore {
         rating: 1200,
         wins: 0,
         losses: 0,
+        seasonPoints: 0,
         online: false,
         queued: false,
+        balanceEvents: [],
       },
       audit: {
         requestId: 'req_1',
