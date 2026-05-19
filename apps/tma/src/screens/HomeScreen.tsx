@@ -293,7 +293,7 @@ export function HomeScreen() {
             />
             <div className="text-center">
               <div className="text-lg font-black text-gold">{seasonPoints.toLocaleString()}</div>
-              <div className="text-xs text-text-secondary">Season</div>
+              <div className="text-xs text-text-secondary">SP Earned</div>
             </div>
           </div>
 
