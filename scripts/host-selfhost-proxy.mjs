@@ -127,7 +127,8 @@ function proxyUpgrade(req, socket, head, host, port) {
 }
 
 function serveStatic(requestPath, res) {
-  const safePath = requestPath === '/' ? '/index.html' : decodeURIComponent(requestPath);
+  const normalizedPath = normalizeStaticPath(requestPath);
+  const safePath = normalizedPath === '/' ? '/index.html' : decodeURIComponent(normalizedPath);
   const filePath = path.resolve(staticRoot, `.${safePath}`);
   if (!filePath.startsWith(staticRoot)) {
     res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
@@ -135,9 +136,14 @@ function serveStatic(requestPath, res) {
     return;
   }
 
-  const finalPath = fs.existsSync(filePath) && fs.statSync(filePath).isFile()
-    ? filePath
-    : path.join(staticRoot, 'index.html');
+  const foundFile = fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+  if (!foundFile && path.extname(safePath)) {
+    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+    return;
+  }
+
+  const finalPath = foundFile ? filePath : path.join(staticRoot, 'index.html');
 
   fs.createReadStream(finalPath)
     .on('open', () => {
@@ -150,4 +156,10 @@ function serveStatic(requestPath, res) {
       res.end('Not Found');
     })
     .pipe(res);
+}
+
+function normalizeStaticPath(requestPath) {
+  if (requestPath === '/elemgameV2') return '/';
+  if (requestPath.startsWith('/elemgameV2/')) return requestPath.slice('/elemgameV2'.length);
+  return requestPath;
 }
