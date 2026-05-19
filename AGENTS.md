@@ -11,6 +11,10 @@ Public test instance:
 - SpacetimeDB database: `elmental-v2`
 - SpacetimeDB dashboard: `https://spacetimedb.com/elmental-v2`
 
+## GitHub Issue And PR Labels
+
+When creating, triaging, or editing GitHub issues and pull requests, use the repository label taxonomy in `docs/github-labeling.md`. Every active issue/PR should have a `type:*` label, at least one `area:*` label, at least one `domain:*` label, and a `priority:*` label when it represents actionable work.
+
 ## Codex Agent Sync Hook
 
 Codex project hooks are configured in `.codex/hooks.json`:
