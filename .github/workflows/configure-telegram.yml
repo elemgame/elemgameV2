@@ -7,6 +7,10 @@ on:
         description: Optional explicit Mini App URL. Defaults to the current GitHub Pages build URL.
         required: false
         type: string
+      webhook_url:
+        description: Optional explicit Telegram webhook URL. Defaults to VITE_PAYMENTS_URL + /telegram/webhook.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -30,3 +34,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || vars.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME || 'elemgamebot' }}
           TELEGRAM_WEBAPP_URL: ${{ inputs.webapp_url || format('https://elemgame.github.io/elemgameV2/?v={0}', github.sha) }}
+          TELEGRAM_WEBHOOK_URL: ${{ inputs.webhook_url || vars.TELEGRAM_WEBHOOK_URL }}
+          VITE_PAYMENTS_URL: ${{ vars.VITE_PAYMENTS_URL }}
+          PAYMENTS_WEBHOOK_SECRET: ${{ secrets.PAYMENTS_WEBHOOK_SECRET || vars.PAYMENTS_WEBHOOK_SECRET }}

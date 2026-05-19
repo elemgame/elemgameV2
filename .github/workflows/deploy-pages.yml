@@ -95,3 +95,5 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || vars.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME || 'elemgamebot' }}
           TELEGRAM_WEBAPP_URL: ${{ vars.TELEGRAM_WEBAPP_URL || format('{0}?v={1}', needs.deploy.outputs.page_url, github.sha) }}
+          VITE_PAYMENTS_URL: ${{ vars.VITE_PAYMENTS_URL }}
+          PAYMENTS_WEBHOOK_SECRET: ${{ secrets.PAYMENTS_WEBHOOK_SECRET || vars.PAYMENTS_WEBHOOK_SECRET }}

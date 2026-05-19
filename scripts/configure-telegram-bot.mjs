@@ -1,5 +1,9 @@
 const token = readEnv('TELEGRAM_BOT_TOKEN') ?? readEnv('BOT_TOKEN');
 const webappUrl = readEnv('TELEGRAM_WEBAPP_URL') ?? readEnv('WEBAPP_URL') ?? 'https://elemgame.github.io/elemgameV2/';
+const webhookUrl = normalizeWebhookUrl(
+  readEnv('TELEGRAM_WEBHOOK_URL') ?? readEnv('PAYMENTS_WEBHOOK_URL') ?? readEnv('VITE_PAYMENTS_URL'),
+);
+const webhookSecret = readEnv('PAYMENTS_WEBHOOK_SECRET') ?? readEnv('TELEGRAM_WEBHOOK_SECRET');
 const expectedBotUsername = (readEnv('TELEGRAM_BOT_USERNAME') ?? 'elemgamebot').replace(/^@/, '');
 
 if (!token || token === 'your_bot_token_here' || token === 'placeholder_bot_token') {
@@ -8,6 +12,10 @@ if (!token || token === 'your_bot_token_here' || token === 'placeholder_bot_toke
 
 if (!/^https:\/\/.+/i.test(webappUrl)) {
   fail(`TELEGRAM_WEBAPP_URL must be an HTTPS URL, got: ${webappUrl}`);
+}
+
+if (webhookUrl && !/^https:\/\/.+/i.test(webhookUrl)) {
+  fail(`TELEGRAM_WEBHOOK_URL/PAYMENTS URL must resolve to an HTTPS URL, got: ${webhookUrl}`);
 }
 
 const apiBase = `https://api.telegram.org/bot${token}`;
@@ -50,13 +58,34 @@ console.log(`[telegram] Menu button configured: ${webappUrl}`);
 
 const menuButton = await callTelegram('getChatMenuButton');
 console.log(`[telegram] Current menu button: ${JSON.stringify(menuButton)}`);
-console.log('[telegram] Bot API configured the chat menu button only.');
+
+if (webhookUrl) {
+  const webhookPayload = {
+    url: webhookUrl,
+    allowed_updates: ['message', 'pre_checkout_query'],
+  };
+  if (webhookSecret) webhookPayload.secret_token = webhookSecret;
+  await callTelegram('setWebhook', webhookPayload);
+  const webhookInfo = await callTelegram('getWebhookInfo');
+  console.log(`[telegram] Webhook configured: ${webhookInfo.url}`);
+  console.log(`[telegram] Webhook pending updates: ${webhookInfo.pending_update_count ?? 0}`);
+} else {
+  console.log('[telegram] Webhook not configured because TELEGRAM_WEBHOOK_URL/PAYMENTS URL is not set.');
+}
+
 console.log(`[telegram] Main Mini App URL must be set in @BotFather to make https://t.me/${bot.username}/?startapp open this build: ${webappUrl}`);
 console.log('[telegram] Configuration complete.');
 
 function readEnv(name) {
   const value = process.env[name]?.trim();
   return value || undefined;
+}
+
+function normalizeWebhookUrl(value) {
+  if (!value) return undefined;
+  const url = value.replace(/\/+$/, '');
+  if (/\/telegram\/webhook$/i.test(url)) return url;
+  return `${url}/telegram/webhook`;
 }
 
 async function callTelegram(method, payload) {
