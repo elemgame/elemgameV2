@@ -4,6 +4,10 @@ import {
   MAX_ROUNDS,
   MoveId,
   ROUNDS_TO_WIN,
+  SEASON_POINTS_CLEAN_WIN_BONUS,
+  SEASON_POINTS_DRAW,
+  SEASON_POINTS_LOSS,
+  SEASON_POINTS_WIN,
   STARTING_ENERGY,
   calculateEnergy,
   getMoveInfo,
@@ -51,10 +55,6 @@ const DEFAULT_OPPONENTS = [
   'Training Rival',
   'Arena Rival',
 ];
-const SEASON_POINTS_WIN = 30;
-const SEASON_POINTS_DRAW = 15;
-const SEASON_POINTS_LOSS = 10;
-const SEASON_POINTS_CLEAN_WIN_BONUS = 5;
 
 export function createMockProvider(
   context: GameplayProviderContext,

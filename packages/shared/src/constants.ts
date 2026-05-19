@@ -34,5 +34,11 @@ export const MATCH_ENTRY_FEE = 50;
 // Legacy API alias: active production economy treats this value as an entry fee.
 export const MATCH_STAKE = MATCH_ENTRY_FEE;
 
+export const SEASON_POINTS_WIN = 30;
+export const SEASON_POINTS_DRAW = 15;
+export const SEASON_POINTS_LOSS = 10;
+export const SEASON_POINTS_CLEAN_WIN_BONUS = 5;
+export const SEASON_POINTS_CLEAN_WIN = SEASON_POINTS_WIN + SEASON_POINTS_CLEAN_WIN_BONUS;
+
 export const INITIAL_RATING = 1200;
 export const ELO_K_FACTOR = 32;

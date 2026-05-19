@@ -1,7 +1,15 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore, type TelegramUser } from '../stores/gameStore';
-import { BOOST_PERCENT, GameMode, MATCH_ENTRY_FEE } from '@elmental/shared';
+import {
+  BOOST_PERCENT,
+  GameMode,
+  MATCH_ENTRY_FEE,
+  SEASON_POINTS_CLEAN_WIN,
+  SEASON_POINTS_DRAW,
+  SEASON_POINTS_LOSS,
+  SEASON_POINTS_WIN,
+} from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { refreshTelegramBalance, startMatchmaking } from '../services/gameService';
 import { playerDisplayName } from '../services/playerProfile';
@@ -94,6 +102,12 @@ export function HomeScreen() {
   const currency = currencyForUser(telegramUser);
   const showStarsTopUp = telegramUser?.source === 'telegram' && Boolean(telegramUser.initData);
   const pendingPackageId = topUpState.status === 'loading' ? topUpState.packageId : undefined;
+  const rewardPreview = [
+    { label: 'Clean Win', value: SEASON_POINTS_CLEAN_WIN },
+    { label: 'Win', value: SEASON_POINTS_WIN },
+    { label: 'Draw', value: SEASON_POINTS_DRAW },
+    { label: 'Play', value: SEASON_POINTS_LOSS },
+  ];
 
   const handlePlay = () => {
     if (!canAffordMatch) {
@@ -279,7 +293,33 @@ export function HomeScreen() {
             />
             <div className="text-center">
               <div className="text-lg font-black text-gold">{seasonPoints.toLocaleString()}</div>
-              <div className="text-xs text-text-secondary">SP</div>
+              <div className="text-xs text-text-secondary">Season</div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-bg-border text-left">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase">
+                Earn Season Points
+              </div>
+              <div className="text-xs font-bold text-text-secondary">
+                Entry {formatCurrencyAmount(MATCH_ENTRY_FEE, currency)}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {rewardPreview.map((reward) => (
+                <div
+                  key={reward.label}
+                  className="rounded-lg border px-3 py-2"
+                  style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.035)' }}
+                >
+                  <div className="text-base font-black text-energy-high">+{reward.value}</div>
+                  <div className="text-[11px] font-semibold text-text-secondary">{reward.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 text-xs leading-snug text-text-secondary">
+              {currency} opens matches. Season Points are earned from play and do not come from the opponent balance.
             </div>
           </div>
 

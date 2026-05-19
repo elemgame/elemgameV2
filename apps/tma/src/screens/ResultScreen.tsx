@@ -224,7 +224,7 @@ export function ResultScreen() {
           <div className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-2">
               <TrophyIcon size={18} className="text-gold" />
-              <span className="text-sm text-text-secondary">Season Points</span>
+              <span className="text-sm text-text-secondary">Earned Season Points</span>
             </div>
             <span className="text-lg font-black text-energy-high">
               +{matchResult.seasonPointsEarned}
@@ -285,6 +285,9 @@ export function ResultScreen() {
                 <span style={{ color: matchResult.elmDelta >= 0 ? '#22c55e' : '#ef4444' }}>
                   {formatCurrencyAmount(matchResult.elmDelta, currency, { signed: true })}
                 </span>
+              </div>
+              <div className="pt-1 text-xs leading-snug text-text-secondary">
+                ELM is the match entry fee. Your earned reward for this match is Season Points.
               </div>
             </div>
           </motion.div>
