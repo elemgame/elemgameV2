@@ -229,12 +229,14 @@ function handleProviderEvent(event: GameplayProviderEvent): void {
       trace('player.stats', {
         balance: event.elmBalance,
         balanceKind: event.balanceKind,
+        seasonPoints: event.seasonPoints,
       });
       applyPlayerStats({
         elmBalance: event.elmBalance,
         rating: event.rating,
         wins: event.wins,
         losses: event.losses,
+        seasonPoints: event.seasonPoints,
       }, currentUser ? playerAccountId(currentUser) : undefined);
       return;
 
@@ -376,8 +378,9 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
   const store = useGameStore.getState();
   const won = event.winner === 'me';
   const isDraw = event.winner === 'draw';
-  const boostStake = store.matchBoostStake;
-  const elmDelta = -(event.stake + boostStake);
+  const boostCost = store.matchBoostStake;
+  const elmSpent = event.stake + boostCost;
+  const elmDelta = -elmSpent;
 
   let ratingDelta = 0;
   if (!isDraw) {
@@ -406,17 +409,13 @@ function applyMatchSettled(event: Extract<GameplayProviderEvent, { type: 'matchS
     balanceKind: event.balanceKind,
     myScore: event.myScore,
     opponentScore: event.opponentScore,
-    elmEarned: elmDelta,
+    elmSpent,
+    elmDelta,
     seasonPointsEarned: event.seasonPointsEarned,
     ratingChange: ratingDelta,
     rounds: store.roundHistory,
-    stake: event.stake,
-    rake: 0,
-    boostStake,
-    boostBurned: boostStake > 0,
-    boostReturned: false,
-    totalPool: 0,
-    winnerPayout: 0,
+    entryFee: event.stake,
+    boostCost,
   });
   trace('match.finish.applied', { matchId: event.matchId, winner: event.winner, score: `${event.myScore}:${event.opponentScore}` });
 }

@@ -90,6 +90,31 @@ describe('Stars refund service', () => {
     });
   });
 
+  it('does not quote current ELM that is not backed by unused refundable Stars purchases', async () => {
+    const service = createStarsRefundService(config, telegramMock(), async () => fakeConnection({
+      accountBalance: 100,
+      ledgerRows: [
+        ledger({
+          paymentId: 'spent',
+          starsAmount: 1,
+          elmAmount: 100,
+          refundableElmAmount: 0,
+          createdAtMicros: 1n,
+        }),
+      ],
+    }));
+
+    await expect(service.quote({
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+    })).resolves.toMatchObject({
+      refundableStarsAmount: 0,
+      refundableElmAmount: 0,
+      lots: [],
+      note: 'Current ELM is not backed by unused refundable Stars purchases.',
+    });
+  });
+
   it('keeps the reservation when Telegram refunded but ledger recording fails', async () => {
     const connection = fakeConnection({
       accountBalance: 100,

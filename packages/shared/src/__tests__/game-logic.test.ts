@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateElo,
-  calculateDrawRefund,
   calculateEnergy,
-  calculatePayout,
+  calculateLegacyDrawRefund,
+  calculateLegacyStakePoolPayout,
   getMoveInfo,
   getEnergyLevel,
   getRegenAmount,
@@ -501,64 +501,62 @@ describe('calculateElo', () => {
 });
 
 // ---------------------------------------------------------------------------
-// calculatePayout
+// Legacy stake-pool helpers
 // ---------------------------------------------------------------------------
 
-describe('calculatePayout', () => {
-  it('5% rake on 100 stake → winner gets 190, rake 10', () => {
-    const { winnerPayout, rake } = calculatePayout(100, 5);
+describe('legacy stake-pool payout helpers', () => {
+  it('calculateLegacyStakePoolPayout applies legacy rake to the player-funded pool', () => {
+    const { winnerPayout, rake } = calculateLegacyStakePoolPayout(100, 5);
     expect(rake).toBe(10);
     expect(winnerPayout).toBe(190);
   });
 
-  it('0% rake → winner gets full pool', () => {
-    const { winnerPayout, rake } = calculatePayout(50, 0);
+  it('calculateLegacyStakePoolPayout supports a zero-rake legacy pool', () => {
+    const { winnerPayout, rake } = calculateLegacyStakePoolPayout(50, 0);
     expect(rake).toBe(0);
     expect(winnerPayout).toBe(100);
   });
 
-  it('10% rake on 50 stake → pool 100, rake 10, winner 90', () => {
-    const { winnerPayout, rake } = calculatePayout(50, 10);
+  it('calculateLegacyStakePoolPayout keeps payout plus rake equal to the legacy pool', () => {
+    const { winnerPayout, rake } = calculateLegacyStakePoolPayout(50, 10);
     expect(rake).toBe(10);
     expect(winnerPayout).toBe(90);
   });
 
-  it('payout + rake = total pool', () => {
+  it('preserves legacy pool accounting', () => {
     const stake = 73;
-    const { winnerPayout, rake } = calculatePayout(stake, 5);
+    const { winnerPayout, rake } = calculateLegacyStakePoolPayout(stake, 5);
     expect(winnerPayout + rake).toBe(stake * 2);
   });
 
-  it('floors fractional rake in favor of the winner payout', () => {
-    const { winnerPayout, rake } = calculatePayout(99, 5);
+  it('floors fractional legacy rake in favor of the winner payout', () => {
+    const { winnerPayout, rake } = calculateLegacyStakePoolPayout(99, 5);
     // pool = 198, 5% = 9.9 -> floor to 9
     expect(rake).toBe(9);
     expect(winnerPayout).toBe(189);
   });
 
-  it('uses default RAKE_PERCENT when second arg omitted', () => {
-    const { winnerPayout, rake } = calculatePayout(100);
-    // RAKE_PERCENT = 5, pool = 200, rake = 10
+  it('uses default LEGACY_RAKE_PERCENT when second arg omitted', () => {
+    const { winnerPayout, rake } = calculateLegacyStakePoolPayout(100);
+    // LEGACY_RAKE_PERCENT = 5, pool = 200, rake = 10
     expect(rake).toBe(10);
     expect(winnerPayout).toBe(190);
   });
-});
 
-describe('calculateDrawRefund', () => {
-  it('charges symmetric per-player rake on draw refunds', () => {
-    const { refund, rake } = calculateDrawRefund(50, 5);
+  it('calculateLegacyDrawRefund charges symmetric per-player legacy rake on draws', () => {
+    const { refund, rake } = calculateLegacyDrawRefund(50, 5);
     expect(rake).toBe(2);
     expect(refund).toBe(48);
   });
 
-  it('0% rake refunds the full stake on a draw', () => {
-    const { refund, rake } = calculateDrawRefund(50, 0);
+  it('calculateLegacyDrawRefund supports a zero-rake legacy draw refund', () => {
+    const { refund, rake } = calculateLegacyDrawRefund(50, 0);
     expect(rake).toBe(0);
     expect(refund).toBe(50);
   });
 
-  it('uses default RAKE_PERCENT when second arg omitted', () => {
-    const { refund, rake } = calculateDrawRefund(100);
+  it('calculateLegacyDrawRefund uses default LEGACY_RAKE_PERCENT when second arg omitted', () => {
+    const { refund, rake } = calculateLegacyDrawRefund(100);
     expect(rake).toBe(5);
     expect(refund).toBe(95);
   });

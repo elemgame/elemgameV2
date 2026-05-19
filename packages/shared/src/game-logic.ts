@@ -190,10 +190,10 @@ export function calculateElo(
 }
 
 // ---------------------------------------------------------------------------
-// calculatePayout
+// Legacy stake-pool helpers
 // ---------------------------------------------------------------------------
 
-export function calculatePayout(
+export function calculateLegacyStakePoolPayout(
   stake: number,
   rakePercent: number = RAKE_PERCENT,
 ): { winnerPayout: number; rake: number } {
@@ -203,7 +203,7 @@ export function calculatePayout(
   return { winnerPayout, rake };
 }
 
-export function calculateDrawRefund(
+export function calculateLegacyDrawRefund(
   stake: number,
   rakePercent: number = RAKE_PERCENT,
 ): { refund: number; rake: number } {
@@ -211,3 +211,15 @@ export function calculateDrawRefund(
   const refund = stake - rake;
   return { refund, rake };
 }
+
+/**
+ * @deprecated The production economy is entry_fee_season_points. This helper
+ * remains only for legacy stake-pool experiments and historical tests.
+ */
+export const calculatePayout = calculateLegacyStakePoolPayout;
+
+/**
+ * @deprecated The production economy is entry_fee_season_points. This helper
+ * remains only for legacy stake-pool experiments and historical tests.
+ */
+export const calculateDrawRefund = calculateLegacyDrawRefund;

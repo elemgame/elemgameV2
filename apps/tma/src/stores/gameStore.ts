@@ -37,18 +37,14 @@ export interface MatchResult {
   balanceKind: string;
   myScore: number;
   opponentScore: number;
-  elmEarned: number;
+  elmSpent: number;
+  elmDelta: number;
   seasonPointsEarned: number;
   ratingChange: number;
   rounds: RoundEntry[];
   // Economy breakdown
-  stake: number;
-  rake: number;
-  boostStake: number;
-  boostBurned: boolean;    // loser's boost burned
-  boostReturned: boolean;  // winner's boost returned
-  totalPool: number;
-  winnerPayout: number;
+  entryFee: number;
+  boostCost: number;
 }
 
 export interface EconomyTransaction {

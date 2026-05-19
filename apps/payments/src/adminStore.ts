@@ -40,6 +40,9 @@ export interface AdminStats {
   balances: {
     paidElm: number;
     demoTeml: number;
+    seasonPoints: number;
+    entryFees: number;
+    refundableElm: number;
   };
   recentEvents: AdminEventSummary[];
 }
@@ -63,6 +66,7 @@ export interface AdminUserSummary {
   wins: number;
   losses: number;
   seasonPoints: number;
+  refundableElm: number;
   online: boolean;
   activeMatchId?: string;
   queued: boolean;
@@ -190,6 +194,8 @@ interface PaymentLedgerRow {
   accountId: string;
   starsAmount: number;
   elmAmount: number;
+  refundableElmAmount: number;
+  balanceKind: string;
   status: string;
   updatedAtMicros: number;
 }
@@ -290,6 +296,7 @@ export function createSpacetimeAdminStore(
       const completedMatches = state.matches.filter(match => match.status !== 'active');
       const recentMatches = state.matches.filter(match => match.createdAtMicros >= cutoff || match.updatedAtMicros >= cutoff);
       const recentPayments = state.payments.filter(payment => payment.updatedAtMicros >= cutoff);
+      const recentBalanceEvents = state.balanceEvents.filter(event => event.createdAtMicros >= cutoff);
 
       return {
         window,
@@ -322,6 +329,15 @@ export function createSpacetimeAdminStore(
         balances: {
           paidElm: sum(state.accounts.filter(account => account.balanceKind === 'paid_elm'), account => account.balance),
           demoTeml: sum(state.accounts.filter(account => account.balanceKind === 'demo_teml'), account => account.balance),
+          seasonPoints: sum(state.accounts, account => account.seasonPoints),
+          entryFees: Math.abs(sum(
+            recentBalanceEvents.filter(event => event.reasonKind === 'match_entry_fee' && event.delta < 0),
+            event => event.delta,
+          )),
+          refundableElm: sum(
+            state.payments.filter(payment => payment.status === 'credited' && payment.balanceKind === 'paid_elm'),
+            payment => payment.refundableElmAmount,
+          ),
         },
         recentEvents: recentEvents
           .filter(event => event.level === 'warn' || event.level === 'error')
@@ -607,6 +623,8 @@ function toPaymentLedgerRow(row: Record<string, unknown>): PaymentLedgerRow {
     accountId: stringValue(row['account_id']),
     starsAmount: numberValue(row['stars_amount']),
     elmAmount: numberValue(row['elm_amount']),
+    refundableElmAmount: numberValue(row['refundable_elm_amount']),
+    balanceKind: stringValue(row['balance_kind']),
     status: stringValue(row['status']),
     updatedAtMicros: numberValue(row['updated_at_micros']),
   };
@@ -708,6 +726,14 @@ function summarizeUser(state: AdminState, account: AccountRow): AdminUserSummary
     wins: player?.wins ?? account.wins,
     losses: player?.losses ?? account.losses,
     seasonPoints: player?.seasonPoints ?? account.seasonPoints,
+    refundableElm: sum(
+      state.payments.filter(payment => (
+        payment.accountId === account.id &&
+        payment.status === 'credited' &&
+        payment.balanceKind === 'paid_elm'
+      )),
+      payment => payment.refundableElmAmount,
+    ),
     online: player?.online ?? false,
     ...(activeMatch ? { activeMatchId: activeMatch.id } : {}),
     queued: Boolean(queue),

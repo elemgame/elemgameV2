@@ -236,8 +236,10 @@ async function verifyFullMatchAndForfeit() {
 
   await clickButton(p2, /Back to Home/i);
   const p2Balance = await readElmBalance(p2);
+  await waitSeasonPoints(p2, '45');
   await p2.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 });
   await waitBalance(p2, p2Balance);
+  await waitSeasonPoints(p2, '45');
   snapshots.push({
     scenario: 'balance-persists-after-refresh',
     balance: p2Balance,
@@ -249,6 +251,7 @@ async function verifyFullMatchAndForfeit() {
     timeout: 30_000,
   });
   await waitBalance(secondDevice, p2Balance);
+  await waitSeasonPoints(secondDevice, '45');
   snapshots.push({
     scenario: 'balance-shared-across-devices',
     balance: p2Balance,
@@ -428,6 +431,62 @@ async function verifySqlState() {
     throw new Error(`Unexpected player balance query output:\n${playerOutput}`);
   }
   snapshots.push({ scenario: 'sql-player-balances', output: playerOutput.replace(/\s+/g, ' ').trim().slice(0, 700) });
+
+  const scenarioEconomyOutput = await runCommand(
+    'spacetime',
+    [
+      'sql',
+      '--server',
+      stdbUrl,
+      database,
+      `SELECT room, economy_model, balance_kind, stake, p_1_season_points_awarded, p_2_season_points_awarded FROM match_state WHERE room = '${room}'`,
+    ],
+    { cwd: repoRoot },
+  );
+  if (!scenarioEconomyOutput.includes('entry_fee_season_points')) {
+    throw new Error(`Entry-fee economy model was not recorded for scenario matches:\n${scenarioEconomyOutput}`);
+  }
+  if (scenarioEconomyOutput.includes('stake_pool')) {
+    throw new Error(`Production scenario unexpectedly used stake_pool economy:\n${scenarioEconomyOutput}`);
+  }
+  snapshots.push({ scenario: 'sql-entry-fee-economy', output: scenarioEconomyOutput.replace(/\s+/g, ' ').trim().slice(0, 700) });
+
+  const scenarioPlayerOutput = await runCommand(
+    'spacetime',
+    [
+      'sql',
+      '--server',
+      stdbUrl,
+      database,
+      "SELECT name, balance, wins, losses, season_points FROM player WHERE name = 'scenario_a' OR name = 'scenario_b'",
+    ],
+    { cwd: repoRoot },
+  );
+  assertSqlRow(scenarioPlayerOutput, ['scenario_a', '900', '1', '1', '45'], 'scenario_a entry-fee balance/progression');
+  assertSqlRow(scenarioPlayerOutput, ['scenario_b', '900', '1', '1', '45'], 'scenario_b entry-fee balance/progression');
+  snapshots.push({ scenario: 'sql-entry-fee-balances', output: scenarioPlayerOutput.replace(/\s+/g, ' ').trim().slice(0, 700) });
+
+  const balanceEventOutput = await runCommand(
+    'spacetime',
+    [
+      'sql',
+      '--server',
+      stdbUrl,
+      database,
+      'SELECT account_id, reason_kind, delta, balance_after, match_id FROM balance_event',
+    ],
+    { cwd: repoRoot },
+  );
+  const entryFeeEvents = balanceEventOutput.match(/match_entry_fee/g) ?? [];
+  if (entryFeeEvents.length < 2) {
+    throw new Error(`Expected append-only entry fee balance events:\n${balanceEventOutput}`);
+  }
+  for (const forbidden of ['pvp_win', 'pvp_draw_refund', 'winner_payout', 'draw_rake']) {
+    if (balanceEventOutput.includes(forbidden)) {
+      throw new Error(`Forbidden stake-pool balance event "${forbidden}" found:\n${balanceEventOutput}`);
+    }
+  }
+  snapshots.push({ scenario: 'sql-balance-events-entry-fee', output: balanceEventOutput.replace(/\s+/g, ' ').trim().slice(0, 700) });
 }
 
 async function startTwoPlayerMatch(p1, p2) {
@@ -556,6 +615,17 @@ async function waitBalance(page, expectedBalance, timeout = 30_000) {
   );
 }
 
+async function waitSeasonPoints(page, expectedSeasonPoints, timeout = 30_000) {
+  await page.waitForFunction(
+    ({ expectedSeasonPoints }) => {
+      const text = document.body.innerText.replace(/\s+/g, ' ');
+      return new RegExp(`${expectedSeasonPoints}\\s*SP`, 'i').test(text);
+    },
+    { expectedSeasonPoints },
+    { timeout },
+  );
+}
+
 async function readElmBalance(page, timeout = 30_000) {
   await page.waitForFunction(
     () => /ELM Balance/i.test(document.body.innerText),
@@ -633,6 +703,14 @@ async function compactBody(page, maxLength) {
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertSqlRow(output, values, label) {
+  const normalized = output.replace(/\s+/g, ' ');
+  const pattern = new RegExp(values.map(value => escapeRegex(value)).join('.*'));
+  if (!pattern.test(normalized)) {
+    throw new Error(`Missing SQL row for ${label}; expected values ${values.join(', ')}\n${output}`);
+  }
 }
 
 function startProcess(command, args, options = {}) {

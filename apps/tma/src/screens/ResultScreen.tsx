@@ -212,11 +212,9 @@ export function ResultScreen() {
             </div>
             <span
               className="text-lg font-black"
-              style={{
-                color: matchResult.elmEarned >= 0 ? '#22c55e' : '#ef4444',
-              }}
+              style={{ color: '#ef4444' }}
             >
-              {formatCurrencyAmount(matchResult.elmEarned, currency, { signed: true })}
+              {formatCurrencyAmount(matchResult.elmSpent, currency)}
             </span>
           </div>
           <div
@@ -253,7 +251,7 @@ export function ResultScreen() {
         </motion.div>
 
         {/* Economy Breakdown */}
-        {'stake' in matchResult && (
+        {'entryFee' in matchResult && (
           <motion.div
             className="glass-card p-4 w-full"
             initial={{ opacity: 0, y: 20 }}
@@ -266,14 +264,14 @@ export function ResultScreen() {
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex justify-between">
                 <span className="text-text-secondary">Entry Fee</span>
-                <span className="text-text-primary">{formatCurrencyAmount(matchResult.stake, currency)}</span>
+                <span className="text-text-primary">{formatCurrencyAmount(matchResult.entryFee, currency)}</span>
               </div>
-              {matchResult.boostStake > 0 && (
+              {matchResult.boostCost > 0 && (
                 <>
                   <div className="my-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
                   <div className="flex justify-between">
                     <span className="text-text-secondary">Boost Cost</span>
-                    <span className="text-text-primary">{formatCurrencyAmount(matchResult.boostStake, currency)}</span>
+                    <span className="text-text-primary">{formatCurrencyAmount(matchResult.boostCost, currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-text-secondary">Boost Status</span>
@@ -284,8 +282,8 @@ export function ResultScreen() {
               <div className="my-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
               <div className="flex justify-between text-base font-bold">
                 <span className="text-text-primary">Net ELM</span>
-                <span style={{ color: matchResult.elmEarned >= 0 ? '#22c55e' : '#ef4444' }}>
-                  {formatCurrencyAmount(matchResult.elmEarned, currency, { signed: true })}
+                <span style={{ color: matchResult.elmDelta >= 0 ? '#22c55e' : '#ef4444' }}>
+                  {formatCurrencyAmount(matchResult.elmDelta, currency, { signed: true })}
                 </span>
               </div>
             </div>

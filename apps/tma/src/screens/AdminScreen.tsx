@@ -274,8 +274,11 @@ function Overview({ stats }: { stats: AdminStats | null }) {
         <Metric label="Queue" value={stats.matches.queued} />
         <Metric label="Bot matches" value={stats.matches.botFallback} />
         <Metric label="Stars" value={stats.payments.starsAmount} />
-        <Metric label="Paid EML" value={stats.balances.paidElm} />
+        <Metric label="Paid ELM" value={stats.balances.paidElm} />
         <Metric label="Demo tELM" value={stats.balances.demoTeml} />
+        <Metric label="Season Points" value={stats.balances.seasonPoints} />
+        <Metric label="Entry Fees" value={stats.balances.entryFees} />
+        <Metric label="Refundable ELM" value={stats.balances.refundableElm} />
       </div>
       <h2>Recent Warnings</h2>
       {stats.recentEvents.length === 0 ? (
@@ -347,6 +350,7 @@ function UserDetail({ user }: { user: AdminUserDetail | null }) {
         <dt>Identity</dt><dd>{user.playerIdentity ?? '-'}</dd>
         <dt>Balance</dt><dd>{user.balance.toLocaleString()} {currencyLabel(user.balanceKind)}</dd>
         <dt>Season Points</dt><dd>{user.seasonPoints.toLocaleString()}</dd>
+        <dt>Refundable ELM</dt><dd>{user.refundableElm.toLocaleString()}</dd>
         <dt>Rating</dt><dd>{user.rating}</dd>
         <dt>Record</dt><dd>{user.wins}-{user.losses}</dd>
         <dt>State</dt><dd>{user.online ? 'online' : user.queued ? 'queued' : user.activeMatchId ? `match ${user.activeMatchId}` : '-'}</dd>

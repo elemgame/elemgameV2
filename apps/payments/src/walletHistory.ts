@@ -1,6 +1,6 @@
 import { DbConnection } from './module_bindings/index.js';
 import type { SpacetimeCreditConfig } from './config.js';
-import type { MatchState, PaymentLedger, Player } from './module_bindings/types.js';
+import type { BalanceEvent, MatchState, PaymentLedger, Player } from './module_bindings/types.js';
 
 const PAID_ELM_BALANCE_KIND = 'paid_elm';
 const PAYMENT_STATUS_CREDITED = 'credited';
@@ -58,6 +58,7 @@ export interface WalletHistoryService {
 
 interface HistoryConnection {
   db: {
+    balanceEvent?: { iter(): Iterable<BalanceEvent> };
     paymentLedger: { iter(): Iterable<PaymentLedger> };
     player: { iter(): Iterable<Player> };
     matchState: { iter(): Iterable<MatchState> };
@@ -177,6 +178,40 @@ function paymentEntries(conn: HistoryConnection, accountId: string, telegramUser
 }
 
 function pvpEntries(conn: HistoryConnection, accountId: string): WalletHistoryEntry[] {
+  const balanceEventEntries = matchBalanceEventEntries(conn, accountId);
+  if (balanceEventEntries.length > 0) return balanceEventEntries;
+  return legacyMatchStateEntries(conn, accountId);
+}
+
+function matchBalanceEventEntries(conn: HistoryConnection, accountId: string): WalletHistoryEntry[] {
+  const rows = [...(conn.db.balanceEvent?.iter() ?? [])]
+    .filter(row => (
+      row.accountId === accountId &&
+      row.balanceKind === PAID_ELM_BALANCE_KIND &&
+      (row.reasonKind === 'match_entry_fee' || row.reasonKind === 'match_boost_cost') &&
+      row.delta < 0
+    ))
+    .sort((a, b) => compareMicros(a.createdAtMicros, b.createdAtMicros));
+
+  return rows.map(row => {
+    const matchId = row.matchId?.toString();
+    const opponentName = matchId ? opponentNameForMatch(conn, accountId, matchId) : undefined;
+    const isBoost = row.reasonKind === 'match_boost_cost';
+    return {
+      id: `${row.idempotencyKey}:wallet`,
+      kind: isBoost ? 'match_boost_cost' : 'match_entry_fee',
+      status: 'settled',
+      title: isBoost ? 'Energy Boost cost' : 'Match entry fee',
+      description: opponentName ? `Match vs ${opponentName}` : matchId ? `Match ${matchId}` : 'Match economy event',
+      occurredAt: toIso(row.createdAtMicros),
+      balanceKind: row.balanceKind,
+      elmAmount: row.delta,
+      ...(matchId ? { matchId } : {}),
+    };
+  });
+}
+
+function legacyMatchStateEntries(conn: HistoryConnection, accountId: string): WalletHistoryEntry[] {
   const identitySet = new Set(
     [...conn.db.player.iter()]
       .filter(row => row.accountId === accountId)
@@ -223,6 +258,21 @@ function pvpEntries(conn: HistoryConnection, accountId: string): WalletHistoryEn
 
   }
   return entries;
+}
+
+function opponentNameForMatch(conn: HistoryConnection, accountId: string, matchId: string): string | undefined {
+  const identitySet = new Set(
+    [...conn.db.player.iter()]
+      .filter(row => row.accountId === accountId)
+      .map(row => identityHex(row.identity)),
+  );
+  const match = [...conn.db.matchState.iter()].find(row => row.id.toString() === matchId);
+  if (!match) return undefined;
+  const p1 = identityHex(match.p1);
+  const p2 = identityHex(match.p2);
+  if (identitySet.has(p1)) return match.p2Name;
+  if (identitySet.has(p2)) return match.p1Name;
+  return undefined;
 }
 
 function summarize(entries: WalletHistoryEntry[]): WalletHistorySummary {

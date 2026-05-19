@@ -42,6 +42,22 @@ describe('SQL fallback Stars refund service', () => {
     });
   });
 
+  it('does not quote balance that is not backed by Telegram Star transactions', async () => {
+    const sql = sqlFetch({ accountBalance: 100 });
+    const telegram = telegramMock([]);
+    const service = createSqlStarsRefundService(config, telegram, sql.fetchImpl);
+
+    await expect(service.quote({
+      accountId: 'telegram:99',
+      telegramUserId: '99',
+    })).resolves.toMatchObject({
+      refundableStarsAmount: 0,
+      refundableElmAmount: 0,
+      lots: [],
+      note: 'No refundable unused purchase lots.',
+    });
+  });
+
   it('excludes already refunded transactions from audit rows and Telegram refund rows', async () => {
     const sql = sqlFetch({ accountBalance: 200, auditReasons: ['stars_refund_fallback:charge_1'] });
     const telegram = telegramMock([

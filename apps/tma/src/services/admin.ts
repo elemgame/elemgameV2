@@ -38,6 +38,9 @@ export interface AdminStats {
   balances: {
     paidElm: number;
     demoTeml: number;
+    seasonPoints: number;
+    entryFees: number;
+    refundableElm: number;
   };
   recentEvents: AdminEventSummary[];
 }
@@ -61,6 +64,7 @@ export interface AdminUserSummary {
   wins: number;
   losses: number;
   seasonPoints: number;
+  refundableElm: number;
   online: boolean;
   activeMatchId?: string;
   queued: boolean;
