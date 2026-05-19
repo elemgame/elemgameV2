@@ -25,7 +25,9 @@ const REPEAT_FORFEIT_RATING_MULTIPLIER = 2;
 const NEXT_ROUND_JITTER_MAX_MICROS = 500_000;
 const INITIAL_BALANCE = 1000;
 const BOOST_STAKE_PERCENT = 10;
-const ECONOMY_MODEL_ENTRY_FEE = 'entry_fee_season_points';
+const ECONOMY_MODE_ENTRY_FEE_SEASON_POINTS = 'entry_fee_season_points';
+const PRODUCTION_ECONOMY_MODE = ECONOMY_MODE_ENTRY_FEE_SEASON_POINTS;
+const ECONOMY_MODEL_ENTRY_FEE = PRODUCTION_ECONOMY_MODE;
 const SEASON_POINTS_WIN = 30;
 const SEASON_POINTS_DRAW = 15;
 const SEASON_POINTS_LOSS = 10;
@@ -387,7 +389,7 @@ export const join_queue = spacetimedb.reducer(
     const validatedMode = validateMode(mode);
     const validatedRoom = validateRoom(room);
     if (stake <= 0) {
-      throw new SenderError('Stake must be positive');
+      throw new SenderError('Entry fee must be positive');
     }
 
     const now = nowMicros(ctx);

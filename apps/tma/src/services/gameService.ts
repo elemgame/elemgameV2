@@ -1,5 +1,5 @@
 import {
-  MATCH_STAKE,
+  MATCH_ENTRY_FEE,
   MoveId,
   calculateElo,
   getEnergyLevel,
@@ -135,7 +135,7 @@ export async function startMatchmaking(): Promise<void> {
     await getProvider().startMatchmaking({
       name,
       accountId,
-      stake: MATCH_STAKE,
+      stake: MATCH_ENTRY_FEE,
       mode: store.gameMode,
       room: getMatchRoom(),
       boostEnabled: store.boostEnabled,

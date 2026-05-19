@@ -507,17 +507,17 @@ function transactionTitle(type: EconomyTransaction['type']): string {
     case 'boost_cost':
       return 'Energy Boost cost';
     case 'stake':
-      return 'PvP stake';
+      return 'Legacy match debit';
     case 'win':
       return 'PvP result';
     case 'loss':
       return 'PvP loss';
     case 'boost_burn':
-      return 'Energy Boost burned';
+      return 'Energy Boost spent';
     case 'boost_return':
       return 'Energy Boost returned';
     case 'rake':
-      return 'Rake';
+      return 'Legacy match fee';
   }
 }
 

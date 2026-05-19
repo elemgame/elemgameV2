@@ -5,24 +5,24 @@
 [![Public Multiplayer Smoke](https://github.com/elemgame/elemgameV2/actions/workflows/public-smoke.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/public-smoke.yml)
 [![Public Timeout Smoke](https://github.com/elemgame/elemgameV2/actions/workflows/public-timeout-smoke.yml/badge.svg)](https://github.com/elemgame/elemgameV2/actions/workflows/public-timeout-smoke.yml)
 
-### Strategic PvP on Blockchain. Not luck. Pressure.
+### Strategic Telegram PvP. Energy, hidden information, and progression.
 
 ---
 
 > Rock-Paper-Scissors sounds simple.
-> Add energy economy, hidden information, and real stakes —
-> now you're playing poker with elements.
+> Add energy economy, hidden information, and server-authoritative progression,
+> and every round becomes a resource-management decision.
 
 ---
 
 ## The Problem
 
-Web3 gaming is stuck between two extremes:
+Many Telegram and Web3 games still fall between two weak extremes:
 
 **Casino games** — pure RNG, zero skill, players leave when luck runs out.
 **Complex games** — high barrier to entry, months of development, fragmented audience.
 
-There's a gap: **a game simple enough to learn in 30 seconds, deep enough to master over months, with real economic stakes that reward skill over time.**
+There's a gap: **a game simple enough to learn in 30 seconds, deep enough to master over months, and direct enough to test with real players now.**
 
 ## The Solution
 
@@ -59,7 +59,7 @@ Three rounds of enhanced moves in a row? Your opponent knows you're probably LOW
 
 Unless that's exactly what you want them to think.
 
-**This is poker with elements. You're not guessing — you're reading.**
+**This is reading, not guessing.**
 
 ### 3. Overclock (Controlled Chaos)
 
@@ -70,13 +70,19 @@ Play a move you can't afford. Your energy goes negative. But:
 - **30% chance** your move gets randomized (the chaos tax)
 - **Zero regen** next round (the recovery cost)
 
-You choose when to risk it. The game doesn't force randomness on you — you invite it when the stakes are right. Round 5, score 2-2, opponent on LOW energy? That's when overclock turns a losing position into a winning gamble.
+You choose when to risk it. The game doesn't force randomness on you; you accept volatility when the board state justifies it. Round 5, score 2-2, opponent on LOW energy? That's when overclock can turn a losing position into a playable line.
 
-### 4. Real Stakes on Blockchain
+### 4. Play-and-Earn Economy
 
-Every match has a **100 ELM stake**. Winner takes the pool minus 5% rake. This isn't play money — it's on Acki Nacki blockchain with verifiable settlement.
+The current public mechanics test uses a Play-and-Earn model:
 
-Optional **Energy Boost**: invest 10% of your stake for +20 starting energy. If you win, your boost comes back. If you lose, it's **burned forever**. Deflationary by design.
+- Telegram users can buy paid **ELM** through Telegram Stars at `1 XTR = 100 ELM`.
+- A paid PvP match spends a fixed **50 ELM entry fee**.
+- Match results award rating and **Season Points**, not another player's paid ELM.
+- Web users play with demo-only **tELM**.
+- Refunds apply only to unused purchased ELM lots that map back to original Stars payments.
+
+Blockchain settlement is deferred until the mechanics-testing instance is stable. The current production path does not use a player-funded prize pool.
 
 ---
 
@@ -86,12 +92,12 @@ Optional **Energy Boost**: invest 10% of your stake for +20 starting energy. If 
 |-------|-------------|-------|
 | Basic RPS triangle | 3 choices | Coin flip |
 | + Enhanced moves | 6 choices, 36 matchups | Strategic |
-| + Energy management | Resource economy | Poker-like |
+| + Energy management | Resource economy | Tempo control |
 | + Hidden energy | Information asymmetry | Mind games |
-| + Overclock | Risk/reward decisions | Clutch plays |
-| + Real stakes | Economic consequences | Skin in the game |
+| + Overclock | Volatility under player control | Clutch plays |
+| + Entry fee progression | Rating and Season Points | Long-term goals |
 
-**On any single round**, luck plays a role. **Over 100 matches**, the better player wins. Just like poker.
+**On any single round**, variance can matter. **Over many matches**, better resource management, reads, and timing should show up in rating and Season Points.
 
 The skill curve:
 - **Beginner**: picks moves randomly, burns energy fast
@@ -124,7 +130,7 @@ Water+    WIN    LOSE   WIN     LOSE    WIN      --
 ```
 
 **Balance**: Each basic move wins 2, loses 3. Each enhanced wins 3, loses 2.
-Enhanced costs 2.5x more energy but has better odds. Risk vs. reward.
+Enhanced costs 2.5x more energy but has better odds. The trade-off is tempo versus resource depth.
 
 ---
 
@@ -138,14 +144,12 @@ Enhanced costs 2.5x more energy but has better odds. Risk vs. reward.
     [        SpacetimeDB TypeScript Module       ]
     [  Tables | Reducers | Matchmaking | Rounds  ]
          |
-    [ Acki Nacki Blockchain — later settlement ]
+    [ Acki Nacki Blockchain — deferred settlement experiments ]
 ```
 
 **Current test model**: gameplay, matchmaking, energy, rounds, and rating run in SpacetimeDB so multiple real clients can test the mechanics without blockchain.
 
-**Later hybrid model**: gameplay stays off-chain (instant, free), settlement happens on-chain (trustless, verifiable).
-
-Only **2 transactions per match**: stake escrow + settlement. Everything else is off-chain with a verifiable replay hash.
+**Later hybrid model**: gameplay can stay off-chain while selected season, tournament, or asset settlement moves on-chain after product and legal review.
 
 ### Why Acki Nacki?
 
@@ -174,7 +178,7 @@ VITE_GAME_TRANSPORT=mock pnpm --filter @elmental/tma dev
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| **Game Logic** | **Production-ready** | 6x6 matrix, energy calc, overclock, ELO — 78 tests passing |
+| **Game Logic** | **Production-ready** | 6x6 matrix, energy calc, overclock, ELO, economy guard tests |
 | **Frontend (TMA)** | **Demo-ready** | 6 screens, full game flow, animations, keyboard nav |
 | **Mock Provider** | **Test-only** | Deterministic opponent flow for local smoke tests and demos |
 | **SpacetimeDB Backend** | **Cloud test instance** | TypeScript module with players, queue, mandatory commit-reveal matches, round resolution, ELO |
@@ -186,9 +190,9 @@ VITE_GAME_TRANSPORT=mock pnpm --filter @elmental/tma dev
 
 1. **Play a full match** — select moves, watch energy drain, read opponent's level
 2. **Experience overclock** — run out of energy and risk it on a critical round
-3. **See the economy** — stake deducted, payout calculated, boost burned, transactions logged
+3. **See the economy** — entry fee spent, Season Points awarded, wallet events logged
 4. **Try all 3 modes** — Classic (comeback-friendly), Hardcore (no regen), Chaos (random)
-5. **Review the code** — clean TypeScript, shared game logic with 78 tests, documented spec
+5. **Review the code** — clean TypeScript, shared game logic tests, documented spec
 
 ### Public Test Multiplayer Instance
 
@@ -378,42 +382,40 @@ elmental-v2/
 ## Economy At a Glance
 
 ```
-Player stakes 100 ELM
-         |
-   Match pool: 200 ELM
-         |
-   +----- 5% rake (10 ELM) ---> Treasury
-   |
-   Winner gets 190 ELM (net +90)
-   Loser  gets   0 ELM (net -100)
+Telegram Stars purchase
+        1 XTR
+          |
+       100 ELM
+          |
+   Match entry fee: 50 ELM
+          |
+   Result: rating + Season Points
 
-   Optional Energy Boost:
-   +10 ELM stake → +20 starting energy
-   Win: boost returned
-   Lose: boost BURNED (deflationary)
+Web users:
+   demo-only tELM, no Stars payments
 ```
 
-**Deflationary pressure**: every boost loss permanently removes ELM from circulation.
+Paid ELM is a match credit in the current production path. It is not transferred from the loser to the winner. Refunds are limited to unused purchased ELM lots that can be tied back to original Telegram Stars payments.
 
 ---
 
 ## The Thesis
 
-The best games in history share three properties:
+The current product thesis is practical:
 
 1. **Simple rules** — anyone can start playing immediately
-2. **Deep strategy** — mastery takes years, not hours
-3. **Meaningful stakes** — decisions have real consequences
+2. **Deep strategy** — mastery depends on energy, reads, and timing
+3. **Visible progression** — matches change rating, Season Points, and user history
 
-Chess has 1 and 2 but not 3. Poker has all three — and it's a billion-dollar industry.
+The first goal is a production-ready mechanics test with real matchmaking, reliable payments, recoverable balance history, and clear support tooling.
 
-**Elmental is poker mechanics applied to the simplest game ever invented, with blockchain-enforced stakes.**
+**Elmental is a strategic RPS game with server-authoritative progression and a Telegram-native match-credit economy.**
 
-The market for this exists: 900M+ Telegram users, growing Web3 gaming ecosystem, zero competitors in the "strategic RPS with real stakes" niche.
+The market signal is Telegram distribution, low onboarding friction, and a game loop that can be understood quickly but tested over repeated matches.
 
 The timing is right: Acki Nacki's freemium gas model eliminates the biggest UX barrier in Web3 gaming — forcing users to buy gas tokens before playing.
 
-The execution is underway: playable demo, 78 tests, 15 issues, clear roadmap.
+The execution is underway: playable demo, automated tests, prioritized issues, and a clear mechanics-testing roadmap.
 
 ---
 

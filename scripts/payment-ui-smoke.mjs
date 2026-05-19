@@ -422,7 +422,7 @@ async function getFreePort() {
 
 function readSharedMatchStake() {
   const constants = readFileSync(new URL('../packages/shared/src/constants.ts', import.meta.url), 'utf8');
-  const match = constants.match(/\bMATCH_STAKE\s*=\s*(\d+)/);
-  if (!match) throw new Error('Unable to read MATCH_STAKE from shared constants');
+  const match = constants.match(/\bMATCH_ENTRY_FEE\s*=\s*(\d+)/) ?? constants.match(/\bMATCH_STAKE\s*=\s*(\d+)/);
+  if (!match) throw new Error('Unable to read MATCH_ENTRY_FEE from shared constants');
   return Number(match[1]);
 }

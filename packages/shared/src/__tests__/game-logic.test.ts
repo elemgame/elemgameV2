@@ -18,10 +18,16 @@ import {
 } from '../types.js';
 import {
   BASIC_MOVE_COST,
+  ECONOMY_MODE_ENTRY_FEE_SEASON_POINTS,
+  ECONOMY_MODE_STAKE_POOL,
   ENHANCED_MOVE_COST,
+  MATCH_ENTRY_FEE,
+  MATCH_STAKE,
+  PRODUCTION_ECONOMY_MODE,
   REGEN_ON_DRAW,
   REGEN_ON_LOSE,
   REGEN_ON_WIN,
+  SUPPORTED_ECONOMY_MODES,
 } from '../constants.js';
 
 const ALL_MOVES = [
@@ -32,6 +38,25 @@ const ALL_MOVES = [
   MoveId.FirePlus,
   MoveId.WaterPlus,
 ] as const;
+
+describe('production economy guard', () => {
+  it('defaults production to entry-fee Season Points economy', () => {
+    expect(PRODUCTION_ECONOMY_MODE).toBe(ECONOMY_MODE_ENTRY_FEE_SEASON_POINTS);
+    expect(PRODUCTION_ECONOMY_MODE).not.toBe(ECONOMY_MODE_STAKE_POOL);
+  });
+
+  it('keeps the current public match cost as an entry fee', () => {
+    expect(MATCH_ENTRY_FEE).toBe(50);
+    expect(MATCH_STAKE).toBe(MATCH_ENTRY_FEE);
+  });
+
+  it('keeps legacy stake-pool mode explicit instead of default', () => {
+    expect(SUPPORTED_ECONOMY_MODES).toEqual([
+      ECONOMY_MODE_ENTRY_FEE_SEASON_POINTS,
+      ECONOMY_MODE_STAKE_POOL,
+    ]);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // getMoveInfo

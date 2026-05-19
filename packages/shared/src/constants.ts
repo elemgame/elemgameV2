@@ -17,9 +17,22 @@ export const COMMIT_TIMEOUT_MS = 15_000;
 export const REVEAL_TIMEOUT_MS = 10_000;
 export const MATCH_SETTLE_TIMEOUT_MS = 600_000; // 10 min
 
-export const RAKE_PERCENT = 5;
+export const ECONOMY_MODE_ENTRY_FEE_SEASON_POINTS = 'entry_fee_season_points';
+export const ECONOMY_MODE_STAKE_POOL = 'stake_pool';
+export const SUPPORTED_ECONOMY_MODES = [
+  ECONOMY_MODE_ENTRY_FEE_SEASON_POINTS,
+  ECONOMY_MODE_STAKE_POOL,
+] as const;
+export type EconomyMode = (typeof SUPPORTED_ECONOMY_MODES)[number];
+
+export const PRODUCTION_ECONOMY_MODE: EconomyMode = ECONOMY_MODE_ENTRY_FEE_SEASON_POINTS;
+
+export const LEGACY_RAKE_PERCENT = 5;
+export const RAKE_PERCENT = LEGACY_RAKE_PERCENT;
 export const BOOST_PERCENT = 10;
-export const MATCH_STAKE = 50;
+export const MATCH_ENTRY_FEE = 50;
+// Legacy API alias: active production economy treats this value as an entry fee.
+export const MATCH_STAKE = MATCH_ENTRY_FEE;
 
 export const INITIAL_RATING = 1200;
 export const ELO_K_FACTOR = 32;

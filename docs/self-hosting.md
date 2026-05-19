@@ -13,6 +13,8 @@ The stack contains:
 
 This does not migrate Maincloud state by itself. When `PAYMENTS_SPACETIME_TOKEN` is present, Stars payment crediting, wallet history, and refunds use trusted SpacetimeDB reducers and the private payment ledger. Without that token, the payments service falls back to backend SQL crediting plus Telegram `getStarTransactions` for whole-lot refunds; set `PAYMENTS_SQL_TOKEN` so the service can write balance and audit rows. Wallet history still requires the trusted payment-ledger path.
 
+The self-hosted production path uses the `entry_fee_season_points` economy model. Paid PvP spends a fixed entry fee and awards rating plus Season Points; it must not be configured as a player-funded prize-pool economy for public Telegram matches.
+
 ## First Deploy
 
 1. Create env file:

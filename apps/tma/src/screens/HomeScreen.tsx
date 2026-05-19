@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore, type TelegramUser } from '../stores/gameStore';
-import { BOOST_PERCENT, GameMode, MATCH_STAKE } from '@elmental/shared';
+import { BOOST_PERCENT, GameMode, MATCH_ENTRY_FEE } from '@elmental/shared';
 import { haptic } from '../services/telegram';
 import { refreshTelegramBalance, startMatchmaking } from '../services/gameService';
 import { playerDisplayName } from '../services/playerProfile';
@@ -88,8 +88,8 @@ export function HomeScreen() {
       ? Math.round((stats.wins / (stats.wins + stats.losses)) * 100)
       : 0;
 
-  const boostStake = boostEnabled ? Math.ceil((MATCH_STAKE * BOOST_PERCENT) / 100) : 0;
-  const matchCost = MATCH_STAKE + boostStake;
+  const boostStake = boostEnabled ? Math.ceil((MATCH_ENTRY_FEE * BOOST_PERCENT) / 100) : 0;
+  const matchCost = MATCH_ENTRY_FEE + boostStake;
   const canAffordMatch = elmBalance >= matchCost;
   const currency = currencyForUser(telegramUser);
   const showStarsTopUp = telegramUser?.source === 'telegram' && Boolean(telegramUser.initData);
