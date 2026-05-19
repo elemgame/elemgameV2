@@ -26,7 +26,7 @@ export interface AdminStats {
     active: number;
     completed: number;
     queued: number;
-    botFallback: number;
+    playersOnlyAnomalies: number;
   };
   payments: {
     count: number;

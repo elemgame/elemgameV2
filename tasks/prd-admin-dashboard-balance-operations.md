@@ -43,7 +43,7 @@ The dashboard is for production operations, not a debugging toy. It must make ac
 **Acceptance Criteria:**
 - [ ] Dashboard shows DAU and WAU based on recent player connection or gameplay activity.
 - [ ] Dashboard shows new users over the selected time window.
-- [ ] Dashboard shows match count, completed match count, active match count, queue size, and bot fallback match count.
+- [ ] Dashboard shows match count, completed match count, active match count, queue size, and players-only matchmaking anomalies.
 - [ ] Dashboard shows payment count, total Stars amount, credited paid EML, refund count, and failed payment/refund count where data exists.
 - [ ] Dashboard shows total `paid_elm` and `demo_teml` balances across accounts.
 - [ ] Dashboard shows recent backend errors or warning events from `game_event`.

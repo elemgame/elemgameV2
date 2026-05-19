@@ -38,3 +38,7 @@ pnpm-debug.log*
 # Testing
 coverage/
 .nyc_output/
+
+# Local self-host runtime data
+.spacetime-selfhost-data/
+.runtime-data/

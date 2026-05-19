@@ -28,7 +28,7 @@ export interface AdminStats {
     active: number;
     completed: number;
     queued: number;
-    botFallback: number;
+    playersOnlyAnomalies: number;
   };
   payments: {
     count: number;
@@ -317,7 +317,7 @@ export function createSpacetimeAdminStore(
           active: activeMatches.length,
           completed: completedMatches.filter(match => match.updatedAtMicros >= cutoff).length,
           queued: state.queue.length,
-          botFallback: recentMatches.filter(match => match.p2Name === 'AI Practice Bot' || match.p2.startsWith('0xb000')).length,
+          playersOnlyAnomalies: recentMatches.filter(match => match.p2Name === 'AI Practice Bot' || match.p2.startsWith('0xb000')).length,
         },
         payments: {
           count: recentPayments.length,

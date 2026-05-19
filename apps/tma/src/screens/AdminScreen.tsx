@@ -272,7 +272,7 @@ function Overview({ stats }: { stats: AdminStats | null }) {
         <Metric label="Matches" value={stats.matches.total} />
         <Metric label="Active" value={stats.matches.active} />
         <Metric label="Queue" value={stats.matches.queued} />
-        <Metric label="Bot matches" value={stats.matches.botFallback} />
+        <Metric label="Queue anomalies" value={stats.matches.playersOnlyAnomalies} />
         <Metric label="Stars" value={stats.payments.starsAmount} />
         <Metric label="Paid ELM" value={stats.balances.paidElm} />
         <Metric label="Demo tELM" value={stats.balances.demoTeml} />

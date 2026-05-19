@@ -54,7 +54,7 @@ Expose backend endpoints for the admin frontend to read activity stats, search u
 
 **Acceptance Criteria:**
 - [ ] Stats endpoint supports `24h`, `7d`, and `30d` windows.
-- [ ] Stats include DAU, WAU, new users, match count, completed/active matches, queue size, bot fallback match count, payment count, Stars total, credited EML, refunds, failed payment/refund count where data exists, and total `paid_elm`/`demo_teml` balances.
+- [ ] Stats include DAU, WAU, new users, match count, completed/active matches, queue size, players-only matchmaking anomalies, payment count, Stars total, credited EML, refunds, failed payment/refund count where data exists, and total `paid_elm`/`demo_teml` balances.
 - [ ] User search supports exact Telegram ID, exact account ID, exact SpacetimeDB identity, and partial display name.
 - [ ] User detail returns account ID, linked player identity, display name, balance kind, current balance, rating, wins, losses, online state, active match/queue state, and last relevant activity timestamp when available.
 - [ ] Audit endpoint returns recent immutable audit rows with filters.
@@ -91,7 +91,7 @@ Build the admin overview dashboard using the admin stats API.
 **Dependencies:** Blocked by https://github.com/elemgame/elemgameV2/issues/64 and https://github.com/elemgame/elemgameV2/issues/65.
 
 **Acceptance Criteria:**
-- [ ] Dashboard renders DAU, WAU, new users, matches, active matches, queue size, bot fallback matches, payment totals, balance totals, and recent errors/events.
+- [ ] Dashboard renders DAU, WAU, new users, matches, active matches, queue size, players-only matchmaking anomalies, payment totals, balance totals, and recent errors/events.
 - [ ] Admin can switch between `24h`, `7d`, and `30d` windows.
 - [ ] Empty data is displayed differently from failed data load.
 - [ ] Currency labels distinguish `ELM` from `tELM`.

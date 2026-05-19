@@ -1,10 +1,16 @@
 # PRD: Telegram Stars ELM Payments
 
+Status as of 2026-05-19: superseded by the Play-and-Earn economy work in
+`tasks/prd-play-and-earn-economy.md`. Telegram Stars purchase/refund mechanics
+remain relevant, but production paid PvP uses a fixed match entry fee, Season
+Points, and rating. It must not use player-funded stake pools, winner payout, or
+rake.
+
 ## Introduction
 
 Add Telegram Stars payments to the Telegram Mini App so Telegram users can buy paid `ELM` for gameplay. Web/browser users remain on demo-only `tELM`, a separate test balance with no payment, refund, or cash-out meaning.
 
-The feature must preserve the current SpacetimeDB-authoritative gameplay model: the frontend can request payment and display balances, but confirmed payment, balance crediting, staking, refunds, and conversion ledger updates must be server-authoritative.
+The feature must preserve the current SpacetimeDB-authoritative gameplay model: the frontend can request payment and display balances, but confirmed payment, balance crediting, entry-fee debits, refunds, and conversion ledger updates must be server-authoritative.
 
 Telegram platform constraint: digital goods inside Telegram bots and Mini Apps must be sold through Telegram Stars with currency `XTR`. Telegram supports refunding Stars payments through Bot API refund methods tied to successful payment charge IDs. It does not provide a generic "send arbitrary Stars to user" balance transfer flow for normal Mini App purchases. The reverse conversion requirement must therefore be implemented as refund-backed conversion from eligible paid `ELM` lots, or explicitly blocked when no refundable payment lots are available.
 
@@ -19,7 +25,7 @@ References:
 - Provide a stable conversion rate of `1 Star = 100 ELM` for every package.
 - Allow Telegram users to convert eligible paid `ELM` back to Stars through a ledger-backed refund flow.
 - Keep web/browser users on clearly labeled `tELM` demo coins with no Telegram Stars payment controls.
-- Keep paid `ELM` usable in PvP stakes for Telegram users.
+- Keep paid `ELM` usable as a fixed PvP match entry fee for Telegram users.
 - Preserve server-authoritative balances and prevent client-side crediting, double-crediting, or refund abuse.
 
 ## User Stories
@@ -73,20 +79,20 @@ References:
 **Description:** As a web demo user, I want to play with test coins while understanding they are not paid ELM.
 
 **Acceptance Criteria:**
-- [ ] Web/browser fallback users see `tELM` labels instead of `ELM` for balances, stakes, and economy history.
+- [ ] Web/browser fallback users see `tELM` labels instead of `ELM` for balances, match costs, and economy history.
 - [ ] Web users do not see Stars top-up or reverse conversion buttons.
 - [ ] Telegram users see paid `ELM` labels and Stars payment controls.
 - [ ] Public bug reports include whether the session uses `ELM` or `tELM`.
 - [ ] Typecheck/build passes.
 - [ ] Verify in browser using dev-browser skill.
 
-### US-006: Use Paid ELM In PvP Stakes
-**Description:** As a Telegram user, I want paid ELM to be usable for PvP stakes so Stars purchases affect actual gameplay balance.
+### US-006: Use Paid ELM For PvP Entry Fees
+**Description:** As a Telegram user, I want paid ELM to be usable for fixed PvP match entry fees so Stars purchases affect actual gameplay access without creating a player-funded prize pool.
 
 **Acceptance Criteria:**
-- [ ] Telegram accounts stake from server-authoritative paid `ELM`.
-- [ ] Existing match creation, stake reservation, payout, draw refund, and boost stake logic use the correct paid balance.
-- [ ] Web users continue staking demo `tELM`.
+- [ ] Telegram accounts pay entry fees from server-authoritative paid `ELM`.
+- [ ] Existing match creation, entry-fee debit, cancellation/timeout refund eligibility, and boost-cost logic use the correct paid balance.
+- [ ] Web users continue spending demo `tELM` in the demo economy.
 - [ ] Paid and demo balances cannot be matched or transferred into each other accidentally.
 - [ ] Typecheck/build passes.
 
@@ -101,7 +107,7 @@ References:
 - [ ] Backend calls Telegram refund API with the original charge ID for each refunded lot.
 - [ ] Refunded ELM is deducted only after Telegram refund succeeds, or the operation is safely retried without double deduction.
 - [ ] Refunded ledger rows are marked with refund status and timestamp.
-- [ ] UI clearly explains when only part of the balance can be converted back because some ELM came from winnings or non-refundable lots.
+- [ ] UI clearly explains when only part of the balance can be converted back because some ELM was already spent as entry fees or came from non-refundable lots.
 - [ ] Typecheck/build passes.
 - [ ] Verify in browser using dev-browser skill.
 
@@ -109,7 +115,7 @@ References:
 **Description:** As a user, I want to see payment and conversion history so I can understand my balance changes.
 
 **Acceptance Criteria:**
-- [ ] Wallet/history view includes Stars purchases, ELM credits, stakes, winnings, draw refunds, and reverse conversions.
+- [ ] Wallet/history view includes Stars purchases, ELM credits, entry fees, boost costs, admin adjustments, and reverse conversions.
 - [ ] Each Stars purchase shows Stars amount, ELM amount, status, and time.
 - [ ] Each reverse conversion shows ELM deducted, Stars refunded, status, and time.
 - [ ] Failed or pending entries are visually distinct from settled entries.
@@ -142,11 +148,11 @@ References:
 - FR-9: The backend must reject purchases from non-Telegram web/demo sessions.
 - FR-10: Web/demo sessions must use `tELM`, not paid `ELM`.
 - FR-11: Web/demo sessions must not display Stars payment or reverse conversion controls.
-- FR-12: Telegram users must be able to stake paid `ELM` in PvP matches.
+- FR-12: Telegram users must be able to spend paid `ELM` as the fixed PvP match entry fee.
 - FR-13: Demo `tELM` and paid `ELM` must be separate accounting domains.
 - FR-14: Reverse conversion must deduct eligible ELM and refund Stars through Telegram payment refund APIs tied to original charge IDs.
 - FR-15: Reverse conversion must not refund Stars that were never purchased by the user.
-- FR-16: Reverse conversion must not allow users to convert gameplay winnings into Stars unless a refundable paid ELM lot exists and product/legal policy explicitly allows it.
+- FR-16: Reverse conversion must not allow users to convert Season Points, bonus credits, or already spent entry fees into Stars.
 - FR-17: The system must clearly show when a requested reverse conversion cannot be completed because the ELM is not refundable.
 - FR-18: The payment service must not be used for active multiplayer gameplay transport.
 - FR-19: The system must keep bot tokens and payment secrets out of the frontend bundle and GitHub repository.
@@ -166,7 +172,7 @@ References:
 
 - Add a compact wallet/top-up surface rather than a marketing-style page.
 - Telegram mode should label the balance as `ELM`.
-- Web mode should label the balance as `tELM` everywhere a user sees balance, stake, payout, or history.
+- Web mode should label the balance as `tELM` everywhere a user sees balance, match cost, or history.
 - Top-up controls should be package cards or segmented options with the Star amount and resulting ELM amount.
 - Reverse conversion must use careful copy:
   - Example: `Convert refundable ELM back to Stars`
@@ -203,7 +209,7 @@ References:
 ## Open Questions
 
 - Can Telegram's refund APIs satisfy the product desire for "any ELM balance back to Stars", or must reverse conversion be limited to unspent/refundable purchase lots?
-- What is the business policy for ELM won from other players: can it become refundable Stars, or is only originally purchased ELM refundable?
+- What is the business policy for bonus or promotional ELM: must it always remain non-refundable, or can it ever offset future entry fees only?
 - Should package rates be remotely configurable, or hardcoded for MVP?
 - What anti-abuse limits are needed for repeated buy/refund cycles?
 - What is the expected support flow for `/paysupport` and disputed Stars purchases?

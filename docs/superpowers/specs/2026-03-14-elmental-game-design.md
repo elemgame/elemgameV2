@@ -1,5 +1,13 @@
 # Elmental — Game Design Specification
 
+> Status: legacy blockchain and stake-pool concept from 2026-03-14. This
+> document is kept as historical design context, not current production
+> guidance. The current public mechanics-testing path uses SpacetimeDB,
+> Telegram Stars purchases, fixed match entry fees, Season Points, and no
+> player-funded prize pool, rake, cash-out, or blockchain settlement. See
+> `README.md`, `tasks/prd-play-and-earn-economy.md`, and
+> `docs/play-and-earn-triz-analysis.md` for the active direction.
+
 ## Context
 
 Elmental is a strategic blockchain game built as a Telegram Mini App on Acki Nacki blockchain. It transforms the classic Rock-Paper-Scissors into a deep strategic experience with an energy economy system inspired by poker's chip management. The project currently has only card art assets (12 PNGs: Earth/Fire/Water × Common/Rare/Epic/Immortal) — all code is built from scratch.

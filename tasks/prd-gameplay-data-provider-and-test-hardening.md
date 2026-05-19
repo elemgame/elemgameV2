@@ -148,7 +148,7 @@ This PRD defines a non-blockchain refactor that introduces a clear gameplay data
   - `gameProvider/mockProvider.ts`: deterministic local provider.
   - `gameController.ts`: provider event to Zustand store mapping, timers, sounds, navigation side effects.
   - `gameProvider/__tests__/contract.test.ts`: provider behavior tests.
-- Keep `packages/shared` as the source of truth for move matrix, energy, ELO, payout, and shared enums.
+- Keep `packages/shared` as the source of truth for move matrix, energy, ELO/rating, production economy constants, and shared enums.
 
 ## Success Metrics
 

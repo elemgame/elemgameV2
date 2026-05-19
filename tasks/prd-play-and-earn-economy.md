@@ -1,5 +1,9 @@
 # PRD: Play-and-Earn Economy
 
+Status as of 2026-05-19: implemented on `main` through issues #72-#80. The
+remaining production-readiness work is operational: self-hosting, monitoring,
+support/admin workflows, manual public smokes, and a controlled human playtest.
+
 ## Introduction
 
 Transform Elmental's paid PvP economy from a stake-pool model into a production-ready Play-and-Earn model. The current paid flow can be interpreted as gambling-like because Telegram users can buy `ELM`, enter a paid PvP match, lose their stake, and let the winner receive the pooled paid balance minus rake.
@@ -328,4 +332,3 @@ This PRD is based on `docs/play-and-earn-triz-analysis.md`.
 - Telegram Stars digital goods payments: https://core.telegram.org/bots/payments-stars
 - Telegram Stars Terms: https://telegram.org/tos/stars
 - Telegram Mini Apps Terms: https://telegram.org/tos/mini-apps
-

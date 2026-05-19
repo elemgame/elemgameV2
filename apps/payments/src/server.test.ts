@@ -435,7 +435,7 @@ function createAdminStoreMock(): AdminStore {
       window,
       generatedAt: '2026-05-17T00:00:00.000Z',
       users: { dau: 1, wau: 1, totalAccounts: 1, totalPlayers: 1, newUsers: 1, onlinePlayers: 1 },
-      matches: { total: 0, active: 0, completed: 0, queued: 0, botFallback: 0 },
+      matches: { total: 0, active: 0, completed: 0, queued: 0, playersOnlyAnomalies: 0 },
       payments: { count: 0, starsAmount: 0, creditedElm: 0, refunds: 0, failed: 0 },
       balances: { paidElm: 0, demoTeml: 0, seasonPoints: 0, entryFees: 0, refundableElm: 0 },
       recentEvents: [],
