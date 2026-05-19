@@ -5,6 +5,7 @@ import {
   getMockUser,
   getTelegramInitData,
   getTelegramUser,
+  haptic,
   installTelegramViewportSync,
   sanitizeWebUserName,
   saveWebUser,
@@ -282,6 +283,30 @@ describe('web user profile helpers', () => {
     expect(setProperty).toHaveBeenCalledWith('--elmental-js-safe-top', '12px');
 
     cleanup();
+  });
+
+  it('does not throw when Telegram haptics are unavailable or incomplete', () => {
+    setMockWindow('');
+    window.Telegram = {
+      WebApp: {
+        initData: 'query_id=test',
+        initDataUnsafe: { user: { id: 1, first_name: 'Haptic' } },
+      } as never,
+    };
+
+    expect(() => haptic.medium()).not.toThrow();
+    expect(() => haptic.success()).not.toThrow();
+    expect(() => haptic.selection()).not.toThrow();
+
+    window.Telegram.WebApp.HapticFeedback = {
+      impactOccurred: vi.fn(() => {
+        throw new Error('client haptic failure');
+      }),
+    };
+
+    expect(() => haptic.medium()).not.toThrow();
+    expect(() => haptic.success()).not.toThrow();
+    expect(() => haptic.selection()).not.toThrow();
   });
 
   it('falls back to a generated player when stored data is invalid', () => {

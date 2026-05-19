@@ -56,10 +56,10 @@ export interface TelegramWebApp {
     onClick(cb: () => void): void;
     offClick(cb: () => void): void;
   };
-  HapticFeedback: {
-    impactOccurred(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void;
-    notificationOccurred(type: 'error' | 'success' | 'warning'): void;
-    selectionChanged(): void;
+  HapticFeedback?: {
+    impactOccurred?(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void;
+    notificationOccurred?(type: 'error' | 'success' | 'warning'): void;
+    selectionChanged?(): void;
   };
   setHeaderColor?(color: string): void;
   setBackgroundColor?(color: string): void;
@@ -251,14 +251,38 @@ function normalizeTelegramUser(user: Partial<WebUserProfile>): WebUserProfile | 
  * Haptic feedback helpers (no-op outside Telegram).
  */
 export const haptic = {
-  light: () => getTelegramWebApp()?.HapticFeedback.impactOccurred('light'),
-  medium: () => getTelegramWebApp()?.HapticFeedback.impactOccurred('medium'),
-  heavy: () => getTelegramWebApp()?.HapticFeedback.impactOccurred('heavy'),
-  success: () => getTelegramWebApp()?.HapticFeedback.notificationOccurred('success'),
-  error: () => getTelegramWebApp()?.HapticFeedback.notificationOccurred('error'),
-  warning: () => getTelegramWebApp()?.HapticFeedback.notificationOccurred('warning'),
-  selection: () => getTelegramWebApp()?.HapticFeedback.selectionChanged(),
+  light: () => safeHapticImpact('light'),
+  medium: () => safeHapticImpact('medium'),
+  heavy: () => safeHapticImpact('heavy'),
+  success: () => safeHapticNotification('success'),
+  error: () => safeHapticNotification('error'),
+  warning: () => safeHapticNotification('warning'),
+  selection: () => safeHapticSelection(),
 };
+
+function safeHapticImpact(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void {
+  try {
+    getTelegramWebApp()?.HapticFeedback?.impactOccurred?.(style);
+  } catch {
+    // Haptics are optional in Telegram clients and must never block gameplay.
+  }
+}
+
+function safeHapticNotification(type: 'error' | 'success' | 'warning'): void {
+  try {
+    getTelegramWebApp()?.HapticFeedback?.notificationOccurred?.(type);
+  } catch {
+    // Haptics are optional in Telegram clients and must never block gameplay.
+  }
+}
+
+function safeHapticSelection(): void {
+  try {
+    getTelegramWebApp()?.HapticFeedback?.selectionChanged?.();
+  } catch {
+    // Haptics are optional in Telegram clients and must never block gameplay.
+  }
+}
 
 /**
  * Show a native Telegram alert.

@@ -53,6 +53,13 @@ interface PendingReveal {
 const MIN_REVEAL_DELAY_MS = 1_550;
 const REVEAL_RETRY_MS = 500;
 const MAX_REVEAL_ATTEMPTS = 20;
+const GAMEPLAY_SUBSCRIPTIONS = [
+  'SELECT * FROM account',
+  'SELECT * FROM player',
+  'SELECT * FROM queue_entry',
+  'SELECT * FROM match_state',
+  'SELECT * FROM round_result',
+];
 
 export function createSpacetimeProvider(
   context: GameplayProviderContext,
@@ -212,7 +219,7 @@ export function createSpacetimeProvider(
               emitError('subscription_failed', 'SpacetimeDB subscription failed', { ctx });
               reject(new Error('SpacetimeDB subscription failed'));
             })
-            .subscribeToAllTables();
+            .subscribe(GAMEPLAY_SUBSCRIPTIONS);
         })
         .onConnectError((_ctx, error) => {
           connectPromise = null;
