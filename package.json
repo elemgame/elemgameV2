@@ -15,10 +15,12 @@
     "stdb:generate": "spacetime generate --lang typescript --out-dir apps/tma/src/module_bindings --module-path apps/spacetime/spacetimedb",
     "test:matrix-parity": "node scripts/check-matrix-parity.mjs",
     "test:stdb-local-scenarios": "node scripts/spacetime-local-scenarios.mjs",
+    "test:stdb-local-scenarios:full": "node scripts/spacetime-local-scenarios.mjs --include-timeouts",
     "smoke:local-mock": "node scripts/local-mock-smoke.mjs",
     "smoke:payments-ui": "node scripts/payment-ui-smoke.mjs",
     "smoke:public-match": "node scripts/public-match-smoke.mjs",
     "smoke:public-timeouts": "node scripts/public-timeout-smoke.mjs",
+    "selfhost:tma:build": "node scripts/build-selfhost-tma.mjs",
     "telegram:configure": "node scripts/configure-telegram-bot.mjs"
   },
   "engines": {

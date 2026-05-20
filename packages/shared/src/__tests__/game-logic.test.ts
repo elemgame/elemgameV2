@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   calculateElo,
@@ -38,6 +39,21 @@ const ALL_MOVES = [
   MoveId.FirePlus,
   MoveId.WaterPlus,
 ] as const;
+
+const MOVE_BY_DOC_NAME: Record<string, MoveId> = {
+  Earth: MoveId.Earth,
+  Fire: MoveId.Fire,
+  Water: MoveId.Water,
+  'Earth+': MoveId.EarthPlus,
+  'Fire+': MoveId.FirePlus,
+  'Water+': MoveId.WaterPlus,
+};
+
+const RESULT_BY_DOC_NAME: Record<string, RoundResult> = {
+  Win: RoundResult.Win,
+  Lose: RoundResult.Lose,
+  Draw: RoundResult.Draw,
+};
 
 describe('production economy guard', () => {
   it('defaults production to entry-fee Season Points economy', () => {
@@ -219,7 +235,64 @@ describe('resolveRound — full 6×6 outcome matrix', () => {
     expect(() => resolveRound(99 as MoveId, MoveId.Earth)).toThrow('Invalid p1Move: 99');
     expect(() => resolveRound(MoveId.Earth, 99 as MoveId)).toThrow('Invalid p2Move: 99');
   });
+
+  it('matches the Outcome matrix documented in docs/about-project.md', () => {
+    const cases = readProjectOutcomeMatrix();
+    expect(cases).toHaveLength(36);
+
+    for (const { rowMove, columnMove, expected } of cases) {
+      expect(resolveRound(rowMove, columnMove).p1Result).toBe(expected);
+    }
+  });
 });
+
+function readProjectOutcomeMatrix(): Array<{ rowMove: MoveId; columnMove: MoveId; expected: RoundResult }> {
+  const projectDoc = readFileSync(new URL('../../../../docs/about-project.md', import.meta.url), 'utf8');
+  const block = projectDoc.match(/Outcome matrix:\s*```text\s*([\s\S]*?)```/)?.[1];
+  if (!block) throw new Error('Could not find Outcome matrix in docs/about-project.md');
+
+  const lines = block.trim().split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const [headerLine, ...rowLines] = lines;
+  if (!headerLine) throw new Error('Outcome matrix is missing a header row');
+
+  const columnMoves = headerLine.trim().split(/\s+/).map(readDocMove);
+  if (columnMoves.length !== ALL_MOVES.length) {
+    throw new Error(`Expected ${ALL_MOVES.length} Outcome matrix columns, got ${columnMoves.length}`);
+  }
+
+  return rowLines.flatMap((line) => {
+    const [rowName, ...resultNames] = line.trim().split(/\s+/);
+    const rowMove = readDocMove(rowName);
+    if (resultNames.length !== columnMoves.length) {
+      throw new Error(`Expected ${columnMoves.length} outcomes for ${rowName}, got ${resultNames.length}`);
+    }
+
+    return resultNames.map((resultName, index) => {
+      const columnMove = columnMoves[index];
+      if (columnMove === undefined) {
+        throw new Error(`Missing column move at index ${index} in docs/about-project.md Outcome matrix`);
+      }
+
+      return {
+        rowMove,
+        columnMove,
+        expected: readDocResult(resultName),
+      };
+    });
+  });
+}
+
+function readDocMove(name: string | undefined): MoveId {
+  const move = name ? MOVE_BY_DOC_NAME[name] : undefined;
+  if (move === undefined) throw new Error(`Unknown move in docs/about-project.md Outcome matrix: ${name}`);
+  return move;
+}
+
+function readDocResult(name: string): RoundResult {
+  const result = RESULT_BY_DOC_NAME[name];
+  if (!result) throw new Error(`Unknown result in docs/about-project.md Outcome matrix: ${name}`);
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // getRegenAmount

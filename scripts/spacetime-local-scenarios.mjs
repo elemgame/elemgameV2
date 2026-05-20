@@ -6,8 +6,10 @@ import { chromium } from '@playwright/test';
 import { spawnCommand, stopProcessTree } from './process-helpers.mjs';
 
 const repoRoot = new URL('..', import.meta.url);
+const args = new Set(process.argv.slice(2));
 const headless = process.env.SMOKE_HEADLESS !== 'false';
 const slowMo = Number(process.env.SMOKE_SLOWMO_MS ?? 0);
+const includeTimeoutScenarios = args.has('--include-timeouts') || process.env.SPACETIME_SCENARIOS_INCLUDE_TIMEOUTS === '1';
 const stdbPort = await getFreePort();
 const tmaPort = await getFreePort();
 const stdbUrl = `http://127.0.0.1:${stdbPort}`;
@@ -81,7 +83,14 @@ try {
   await verifySoloQueueWaitsForPlayers();
   await verifyFullMatchAndForfeit();
   await verifyMaxRoundCurrentScoreSettlement();
-  await verifyTimeoutScenarios();
+  if (includeTimeoutScenarios) {
+    await verifyTimeoutScenarios();
+  } else {
+    snapshots.push({
+      scenario: 'timeout-scenarios-skipped',
+      reason: 'Real timeout checks wait production scheduler windows; run pnpm test:stdb-local-scenarios:full when changing timeout handling.',
+    });
+  }
   await verifySqlState();
 
   if (errors.length > 0) {

@@ -32,7 +32,7 @@ The manual gate mirrors `.github/workflows/ci.yml`:
 - TMA production build with SpacetimeDB env
 - GitHub Pages artifact build with `GITHUB_PAGES=true`
 
-The pre-commit and pre-push hooks intentionally skip `pnpm test:stdb-local-scenarios`. That scenario starts SpacetimeDB, publishes a module, runs Vite, drives browser flows, and waits for server scheduler timeouts, so it is too slow and environment-sensitive for automatic local hooks. Keep it for manual verification and GitHub Actions.
+The pre-commit and pre-push hooks intentionally skip `pnpm test:stdb-local-scenarios`. That scenario starts SpacetimeDB, publishes a module, runs Vite, and drives browser flows, so it is too environment-sensitive for automatic local hooks. Timeout coverage that waits production scheduler windows lives in `pnpm test:stdb-local-scenarios:full` and the manual public timeout smoke.
 
 The gate caches a successful result by git tree in `.git/codex-ci-gate.json`. If a push follows an unchanged, already-checked commit, the hook may skip duplicate work.
 

@@ -130,7 +130,7 @@ Project automation and verification scripts.
 
 - `check-matrix-parity.mjs`: checks that move matrices remain aligned.
 - `local-mock-smoke.mjs`: browser smoke test for mock mode.
-- `spacetime-local-scenarios.mjs`: local SpacetimeDB scenario checks.
+- `spacetime-local-scenarios.mjs`: local SpacetimeDB scenario checks. The default mode skips real-time timeout waits; run `pnpm test:stdb-local-scenarios:full` when changing timeout handling.
 - `public-match-smoke.mjs`: public two-player multiplayer smoke.
 - `public-timeout-smoke.mjs`: public timeout/reconnect smoke.
 - `configure-telegram-bot.mjs`: Telegram bot webapp configuration.
@@ -242,6 +242,12 @@ pnpm test:matrix-parity
 pnpm smoke:local-mock
 pnpm test:stdb-local-scenarios
 pnpm --filter @elmental/tma build
+```
+
+Full local timeout verification, intentionally slower because it waits production scheduler windows:
+
+```bash
+pnpm test:stdb-local-scenarios:full
 ```
 
 ## Current Public Test Instance

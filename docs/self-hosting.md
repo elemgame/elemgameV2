@@ -106,6 +106,29 @@ docker compose --env-file .env.selfhost -f docker-compose.selfhost.yml logs -f p
 docker compose --env-file .env.selfhost -f docker-compose.selfhost.yml logs -f edge
 ```
 
+## Local Tunnel Runtime
+
+For the ad hoc `trycloudflare` test instance, keep the live TMA build outside
+`apps/tma/dist`. CI and GitHub Pages verification rebuild `apps/tma/dist` with
+Pages/Maincloud settings, so the local host proxy prefers
+`.runtime-data/tma-selfhost-dist` when it exists.
+
+```bash
+set -a
+source .env.selfhost
+set +a
+pnpm selfhost:tma:build
+```
+
+Run the local proxy against SpacetimeDB and payments:
+
+```bash
+HOST_PROXY_PORT=8081 \
+HOST_PROXY_SPACETIME_PORT=3100 \
+HOST_PROXY_PAYMENTS_PORT=3102 \
+node scripts/host-selfhost-proxy.mjs
+```
+
 ## Telegram Setup
 
 Set the Mini App URL to:

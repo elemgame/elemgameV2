@@ -13,7 +13,11 @@ const spacetimeHost = process.env.HOST_PROXY_SPACETIME_HOST ?? '127.0.0.1';
 const spacetimePort = Number(process.env.HOST_PROXY_SPACETIME_PORT ?? 3000);
 const paymentsHost = process.env.HOST_PROXY_PAYMENTS_HOST ?? '127.0.0.1';
 const paymentsPort = Number(process.env.HOST_PROXY_PAYMENTS_PORT ?? 3002);
-const staticRoot = path.resolve(process.env.HOST_PROXY_STATIC_ROOT ?? path.join(repoRoot, 'apps/tma/dist'));
+const runtimeStaticRoot = path.join(repoRoot, '.runtime-data/tma-selfhost-dist');
+const defaultStaticRoot = fs.existsSync(runtimeStaticRoot)
+  ? runtimeStaticRoot
+  : path.join(repoRoot, 'apps/tma/dist');
+const staticRoot = path.resolve(process.env.HOST_PROXY_STATIC_ROOT ?? defaultStaticRoot);
 
 const paymentPrefixes = ['/payments/', '/admin/', '/telegram/webhook'];
 const paymentExact = new Set(['/health']);
