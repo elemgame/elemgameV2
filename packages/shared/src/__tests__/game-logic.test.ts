@@ -118,39 +118,39 @@ describe('resolveRound — full 6×6 outcome matrix', () => {
     [MoveId.Earth, MoveId.Fire, L, W],
     [MoveId.Earth, MoveId.Water, W, L],
     [MoveId.Earth, MoveId.EarthPlus, L, W],
-    [MoveId.Earth, MoveId.FirePlus, W, L],
-    [MoveId.Earth, MoveId.WaterPlus, L, W],
+    [MoveId.Earth, MoveId.FirePlus, L, W],
+    [MoveId.Earth, MoveId.WaterPlus, D, D],
     // Fire row
     [MoveId.Fire, MoveId.Earth, W, L],
     [MoveId.Fire, MoveId.Fire, D, D],
     [MoveId.Fire, MoveId.Water, L, W],
-    [MoveId.Fire, MoveId.EarthPlus, L, W],
+    [MoveId.Fire, MoveId.EarthPlus, D, D],
     [MoveId.Fire, MoveId.FirePlus, L, W],
-    [MoveId.Fire, MoveId.WaterPlus, W, L],
+    [MoveId.Fire, MoveId.WaterPlus, L, W],
     // Water row
     [MoveId.Water, MoveId.Earth, L, W],
     [MoveId.Water, MoveId.Fire, W, L],
     [MoveId.Water, MoveId.Water, D, D],
-    [MoveId.Water, MoveId.EarthPlus, W, L],
-    [MoveId.Water, MoveId.FirePlus, L, W],
+    [MoveId.Water, MoveId.EarthPlus, L, W],
+    [MoveId.Water, MoveId.FirePlus, D, D],
     [MoveId.Water, MoveId.WaterPlus, L, W],
     // Earth+ row
     [MoveId.EarthPlus, MoveId.Earth, W, L],
-    [MoveId.EarthPlus, MoveId.Fire, W, L],
-    [MoveId.EarthPlus, MoveId.Water, L, W],
+    [MoveId.EarthPlus, MoveId.Fire, D, D],
+    [MoveId.EarthPlus, MoveId.Water, W, L],
     [MoveId.EarthPlus, MoveId.EarthPlus, D, D],
     [MoveId.EarthPlus, MoveId.FirePlus, L, W],
     [MoveId.EarthPlus, MoveId.WaterPlus, W, L],
     // Fire+ row
-    [MoveId.FirePlus, MoveId.Earth, L, W],
+    [MoveId.FirePlus, MoveId.Earth, W, L],
     [MoveId.FirePlus, MoveId.Fire, W, L],
-    [MoveId.FirePlus, MoveId.Water, W, L],
+    [MoveId.FirePlus, MoveId.Water, D, D],
     [MoveId.FirePlus, MoveId.EarthPlus, W, L],
     [MoveId.FirePlus, MoveId.FirePlus, D, D],
     [MoveId.FirePlus, MoveId.WaterPlus, L, W],
     // Water+ row
-    [MoveId.WaterPlus, MoveId.Earth, W, L],
-    [MoveId.WaterPlus, MoveId.Fire, L, W],
+    [MoveId.WaterPlus, MoveId.Earth, D, D],
+    [MoveId.WaterPlus, MoveId.Fire, W, L],
     [MoveId.WaterPlus, MoveId.Water, W, L],
     [MoveId.WaterPlus, MoveId.EarthPlus, L, W],
     [MoveId.WaterPlus, MoveId.FirePlus, W, L],
@@ -166,9 +166,9 @@ describe('resolveRound — full 6×6 outcome matrix', () => {
     },
   );
 
-  it('has exactly 36 cells (6 draws on diagonal)', () => {
+  it('has exactly 36 cells (12 draws: diagonal plus basic wins against plus)', () => {
     const draws = matrix.filter(([, , r]) => r === D);
-    expect(draws).toHaveLength(6);
+    expect(draws).toHaveLength(12);
     expect(matrix).toHaveLength(36);
   });
 
@@ -202,16 +202,16 @@ describe('resolveRound — full 6×6 outcome matrix', () => {
 
     for (const move of basicMoves) {
       const outcomes = ALL_MOVES.map((opponent) => resolveRound(move, opponent).p1Result);
-      expect(outcomes.filter((result) => result === W)).toHaveLength(2);
+      expect(outcomes.filter((result) => result === W)).toHaveLength(1);
       expect(outcomes.filter((result) => result === L)).toHaveLength(3);
-      expect(outcomes.filter((result) => result === D)).toHaveLength(1);
+      expect(outcomes.filter((result) => result === D)).toHaveLength(2);
     }
 
     for (const move of enhancedMoves) {
       const outcomes = ALL_MOVES.map((opponent) => resolveRound(move, opponent).p1Result);
       expect(outcomes.filter((result) => result === W)).toHaveLength(3);
-      expect(outcomes.filter((result) => result === L)).toHaveLength(2);
-      expect(outcomes.filter((result) => result === D)).toHaveLength(1);
+      expect(outcomes.filter((result) => result === L)).toHaveLength(1);
+      expect(outcomes.filter((result) => result === D)).toHaveLength(2);
     }
   });
 

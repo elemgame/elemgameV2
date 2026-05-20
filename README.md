@@ -39,11 +39,11 @@ Basic moves:     10 energy  (Earth, Fire, Water)
 Enhanced moves:  25 energy  (Earth+, Fire+, Water+)
 ```
 
-Enhanced moves **flip your weakness**. Earth normally loses to Fire, but Earth+ **beats** Fire. The trade-off: 2.5x the energy cost.
+Enhanced moves reduce your bad basic matchup to a draw and punish basics that do not naturally counter them. The trade-off: 2.5x the energy cost.
 
 **This creates a decision tree, not a coin flip.**
 
-Should you play it safe with basic moves and conserve energy? Or go all-in with an enhanced move to flip the matchup? Your opponent sees your energy level — they know when you're running low.
+Should you play it safe with basic moves and conserve energy? Or spend more energy on an enhanced move to cover a weakness? Your opponent sees your energy level — they know when you're running low.
 
 ### 2. Hidden Information (The Mind Game)
 
@@ -121,15 +121,15 @@ The skill curve:
 
 ```
          Earth   Fire   Water   Earth+  Fire+   Water+
-Earth     --     LOSE   WIN     LOSE    WIN     LOSE
-Fire      WIN     --    LOSE    LOSE    LOSE    WIN
-Water    LOSE    WIN     --     WIN     LOSE    LOSE
-Earth+    WIN    WIN    LOSE     --     LOSE    WIN
-Fire+    LOSE    WIN    WIN     WIN      --     LOSE
-Water+    WIN    LOSE   WIN     LOSE    WIN      --
+Earth     --     LOSE   WIN     LOSE    LOSE    --
+Fire      WIN     --    LOSE     --     LOSE    LOSE
+Water    LOSE    WIN     --     LOSE     --     LOSE
+Earth+    WIN     --    WIN      --     LOSE    WIN
+Fire+     WIN    WIN     --     WIN      --     LOSE
+Water+     --    WIN    WIN     LOSE    WIN      --
 ```
 
-**Balance**: Each basic move wins 2, loses 3. Each enhanced wins 3, loses 2.
+**Balance**: Each basic move wins 1, draws 2, loses 3. Each enhanced wins 3, draws 2, loses 1.
 Enhanced costs 2.5x more energy but has better odds. The trade-off is tempo versus resource depth.
 
 ---

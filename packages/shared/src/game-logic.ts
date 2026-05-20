@@ -39,12 +39,12 @@ export function getMoveInfo(moveId: MoveId): Move {
 //
 // | ATK\DEF | Earth | Fire  | Water | Earth+| Fire+ | Water+|
 // |---------|-------|-------|-------|-------|-------|-------|
-// | Earth   | Draw  | LOSE  | WIN   | LOSE  | WIN   | LOSE  |
-// | Fire    | WIN   | Draw  | LOSE  | LOSE  | LOSE  | WIN   |
-// | Water   | LOSE  | WIN   | Draw  | WIN   | LOSE  | LOSE  |
-// | Earth+  | WIN   | WIN   | LOSE  | Draw  | LOSE  | WIN   |
-// | Fire+   | LOSE  | WIN   | WIN   | WIN   | Draw  | LOSE  |
-// | Water+  | WIN   | LOSE  | WIN   | LOSE  | WIN   | Draw  |
+// | Earth   | Draw  | LOSE  | WIN   | LOSE  | LOSE  | Draw  |
+// | Fire    | WIN   | Draw  | LOSE  | Draw  | LOSE  | LOSE  |
+// | Water   | LOSE  | WIN   | Draw  | LOSE  | Draw  | LOSE  |
+// | Earth+  | WIN   | Draw  | WIN   | Draw  | LOSE  | WIN   |
+// | Fire+   | WIN   | WIN   | Draw  | WIN   | Draw  | LOSE  |
+// | Water+  | Draw  | WIN   | WIN   | LOSE  | WIN   | Draw  |
 // ---------------------------------------------------------------------------
 
 // Encode as p1 perspective: W = win, L = lose, D = draw
@@ -53,12 +53,12 @@ type Outcome = 'W' | 'L' | 'D';
 
 const OUTCOME_MATRIX: Readonly<Outcome[][]> = [
   // vs: Earth  Fire   Water  Earth+ Fire+  Water+
-  ['D', 'L', 'W', 'L', 'W', 'L'], // Earth
-  ['W', 'D', 'L', 'L', 'L', 'W'], // Fire
-  ['L', 'W', 'D', 'W', 'L', 'L'], // Water
-  ['W', 'W', 'L', 'D', 'L', 'W'], // Earth+
-  ['L', 'W', 'W', 'W', 'D', 'L'], // Fire+
-  ['W', 'L', 'W', 'L', 'W', 'D'], // Water+
+  ['D', 'L', 'W', 'L', 'L', 'D'], // Earth
+  ['W', 'D', 'L', 'D', 'L', 'L'], // Fire
+  ['L', 'W', 'D', 'L', 'D', 'L'], // Water
+  ['W', 'D', 'W', 'D', 'L', 'W'], // Earth+
+  ['W', 'W', 'D', 'W', 'D', 'L'], // Fire+
+  ['D', 'W', 'W', 'L', 'W', 'D'], // Water+
 ];
 
 export function resolveRound(

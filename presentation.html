@@ -774,8 +774,8 @@
   <section class="slide">
     <div class="slide-inner">
       <div class="tag">Ходы — усиленные</div>
-      <h2>Переверни свою слабость</h2>
-      <p>Усиленные ходы стоят в <strong class="accent">2.5×</strong> дороже, но <strong>переворачивают вашу слабость</strong>: Earth обычно проигрывает Воде → <strong class="accent">Earth+ ПОБЕЖДАЕТ</strong> Воду.</p>
+      <h2>Закрой свою слабость</h2>
+      <p>Усиленные ходы стоят в <strong class="accent">2.5×</strong> дороже, но <strong>закрывают слабость базовой стихии</strong>: Fire обычно бьёт Earth → против <strong class="accent">Earth+</strong> это уже ничья.</p>
 
       <div class="moves">
         <div class="move earth enhanced"><div class="icon">🌳</div><div class="name">Earth+</div><div class="cost">25⚡</div></div>
@@ -788,13 +788,13 @@
           <h3>Логика плюса</h3>
           <ul class="bullets">
             <li><strong>Бьёт свой базовый</strong> (Earth+ &gt; Earth)</li>
-            <li><strong>Бьёт свою слабость</strong> (Earth+ &gt; Water)</li>
-            <li>Проигрывает тому, кого Earth обычно бил (Earth+ &lt; Fire)</li>
+            <li><strong>Даёт ничью против контры</strong> (Earth+ = Fire)</li>
+            <li>Бьёт другой базовый ход, который не контрит Earth (Earth+ &gt; Water)</li>
           </ul>
         </div>
         <div class="card">
           <h3>Размен</h3>
-          <p>3 победы из 5 в матрице (вместо 2), но цена в 2.5×. <strong>Не доминирует — это компромисс.</strong></p>
+          <p>3 победы, 2 ничьи и 1 проигрыш в матрице, но цена в 2.5×. <strong>Не доминирует — это компромисс.</strong></p>
         </div>
       </div>
     </div>
@@ -804,14 +804,14 @@
   <section class="slide">
     <div class="slide-inner">
       <div class="tag">Объясняю просто</div>
-      <h2>Что значит «плюс ломает правило»?</h2>
+      <h2>Что значит «плюс закрывает слабость»?</h2>
 
       <div class="analogy">
         <div class="icon">🛡️</div>
         <div class="body">
           <div class="lbl">Простыми словами</div>
-          <p>Помнишь обычное камень-ножницы-бумага? Камень проигрывает бумаге. Но если у тебя <strong>бронебойный камень</strong> — он рвёт бумагу в клочья. Только такой камень <strong>дороже</strong> обычного, и есть <strong>другие враги</strong>, против которых он бесполезен.</p>
-          <p style="margin-top: 8px;">В Elmental: <strong class="accent-2">плюс — это бронебойная версия своей стихии</strong>. Он бьёт того, кому обычно проигрывал. Но проигрывает тому, кого обычно бил.</p>
+          <p>Помнишь обычное камень-ножницы-бумага? Камень проигрывает бумаге. Но если у тебя <strong>усиленный камень</strong> — бумага уже не забирает раунд, а только держит ничью. Такой камень <strong>дороже</strong> обычного.</p>
+          <p style="margin-top: 8px;">В Elmental: <strong class="accent-2">плюс — это защищённая версия своей стихии</strong>. Если обычная стихия раньше побеждала базовую стихию, то против её плюсовой версии теперь будет ничья. Если не побеждала — проигрыш.</p>
         </div>
       </div>
 
@@ -821,41 +821,41 @@
           <div class="flip-row broken">
             <span>💧</span><span class="arr">→</span><span>🌿</span>
           </div>
-          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 4px;">Вода обычно <strong style="color: var(--lose);">бьёт</strong> Землю</div>
+          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 4px;">Огонь обычно <strong style="color: var(--lose);">бьёт</strong> Землю</div>
           <div class="flip-row broken" style="margin-top: 16px;">
-            <span>🌿</span><span class="arr">→</span><span>🔥</span>
+            <span>🌿</span><span class="arr">→</span><span>💧</span>
           </div>
-          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 4px;">Земля обычно <strong style="color: var(--win);">бьёт</strong> Огонь</div>
+          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 4px;">Земля обычно <strong style="color: var(--win);">бьёт</strong> Воду</div>
         </div>
         <div class="flip-side after">
-          <div class="heading">Земля+ переворачивает</div>
+          <div class="heading">Земля+ закрывает слабость</div>
           <div class="flip-row fixed">
+            <span>🌳</span><span class="arr">=</span><span>🔥</span>
+          </div>
+          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--draw); margin-top: 4px;">Earth+ даёт <strong>НИЧЬЮ</strong> против Fire</div>
+          <div class="flip-row broken" style="margin-top: 16px;">
             <span>🌳</span><span class="arr">→</span><span>💧</span>
           </div>
-          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--win); margin-top: 4px;">Earth+ <strong>БЬЁТ</strong> Воду ✓</div>
-          <div class="flip-row broken" style="margin-top: 16px;">
-            <span>🌳</span><span class="arr">←</span><span>🔥</span>
-          </div>
-          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--lose); margin-top: 4px;">Earth+ <strong>проигрывает</strong> Огню ✗</div>
+          <div class="lbl" style="text-align: center; font-size: 12px; color: var(--win); margin-top: 4px;">Earth+ всё ещё <strong>бьёт</strong> Water</div>
         </div>
       </div>
 
-      <h3 style="margin-top: 32px;">Три «переворота» во всей игре</h3>
+      <h3 style="margin-top: 32px;">Три защитные ничьи во всей игре</h3>
       <div class="grid grid-3" style="margin-top: 12px;">
         <div class="card" style="text-align: center;">
-          <div style="font-size: 32px; margin-bottom: 8px;">🌳 vs 💧</div>
-          <p><strong style="color: var(--earth);">Earth+ бьёт Water</strong></p>
-          <p class="muted" style="font-size: 12px; margin-top: 4px;">Раньше теряла → теперь побеждает</p>
+          <div style="font-size: 32px; margin-bottom: 8px;">🌳 vs 🔥</div>
+          <p><strong style="color: var(--earth);">Earth+ держит ничью с Fire</strong></p>
+          <p class="muted" style="font-size: 12px; margin-top: 4px;">База теряла → плюс даёт ничью</p>
         </div>
         <div class="card" style="text-align: center;">
-          <div style="font-size: 32px; margin-bottom: 8px;">☄️ vs 🌿</div>
-          <p><strong style="color: var(--fire);">Fire+ бьёт Earth</strong></p>
-          <p class="muted" style="font-size: 12px; margin-top: 4px;">Раньше теряла → теперь побеждает</p>
+          <div style="font-size: 32px; margin-bottom: 8px;">☄️ vs 💧</div>
+          <p><strong style="color: var(--fire);">Fire+ держит ничью с Water</strong></p>
+          <p class="muted" style="font-size: 12px; margin-top: 4px;">База теряла → плюс даёт ничью</p>
         </div>
         <div class="card" style="text-align: center;">
-          <div style="font-size: 32px; margin-bottom: 8px;">🌊 vs 🔥</div>
-          <p><strong style="color: var(--water);">Water+ бьёт Fire</strong></p>
-          <p class="muted" style="font-size: 12px; margin-top: 4px;">Раньше теряла → теперь побеждает</p>
+          <div style="font-size: 32px; margin-bottom: 8px;">🌊 vs 🌿</div>
+          <p><strong style="color: var(--water);">Water+ держит ничью с Earth</strong></p>
+          <p class="muted" style="font-size: 12px; margin-top: 4px;">База теряла → плюс даёт ничью</p>
         </div>
       </div>
 
@@ -877,12 +877,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td class="row-h">Earth</td>  <td class="draw">—</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="lose">LOSE</td><td class="lose">LOSE</td><td class="win">WIN</td></tr>
-          <tr><td class="row-h">Fire</td>   <td class="lose">LOSE</td><td class="draw">—</td><td class="win">WIN</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="lose">LOSE</td></tr>
-          <tr><td class="row-h">Water</td>  <td class="win">WIN</td><td class="lose">LOSE</td><td class="draw">—</td><td class="lose">LOSE</td><td class="win">WIN</td><td class="lose">LOSE</td></tr>
-          <tr><td class="row-h">Earth+</td> <td class="win">WIN</td><td class="lose">LOSE</td><td class="win">WIN</td><td class="draw">—</td><td class="win">WIN</td><td class="lose">LOSE</td></tr>
-          <tr><td class="row-h">Fire+</td>  <td class="win">WIN</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="lose">LOSE</td><td class="draw">—</td><td class="win">WIN</td></tr>
-          <tr><td class="row-h">Water+</td> <td class="lose">LOSE</td><td class="lose">LOSE</td><td class="win">WIN</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="draw">—</td></tr>
+          <tr><td class="row-h">Earth</td>  <td class="draw">—</td><td class="lose">LOSE</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="lose">LOSE</td><td class="draw">—</td></tr>
+          <tr><td class="row-h">Fire</td>   <td class="win">WIN</td><td class="draw">—</td><td class="lose">LOSE</td><td class="draw">—</td><td class="lose">LOSE</td><td class="lose">LOSE</td></tr>
+          <tr><td class="row-h">Water</td>  <td class="lose">LOSE</td><td class="win">WIN</td><td class="draw">—</td><td class="lose">LOSE</td><td class="draw">—</td><td class="lose">LOSE</td></tr>
+          <tr><td class="row-h">Earth+</td> <td class="win">WIN</td><td class="draw">—</td><td class="win">WIN</td><td class="draw">—</td><td class="lose">LOSE</td><td class="win">WIN</td></tr>
+          <tr><td class="row-h">Fire+</td>  <td class="win">WIN</td><td class="win">WIN</td><td class="draw">—</td><td class="win">WIN</td><td class="draw">—</td><td class="lose">LOSE</td></tr>
+          <tr><td class="row-h">Water+</td> <td class="draw">—</td><td class="win">WIN</td><td class="win">WIN</td><td class="lose">LOSE</td><td class="win">WIN</td><td class="draw">—</td></tr>
         </tbody>
       </table>
       <p style="margin-top: 16px;">Матрица <strong>антисимметрична</strong> — если A бьёт B, то B проигрывает A. Ни один ход не доминирует абсолютно.</p>
@@ -1628,25 +1628,25 @@
         <div class="quiz-question">Решающий раунд. Что играешь?</div>
 
         <div class="quiz-opts">
-          <button class="quiz-opt" data-verdict="good" data-desc="Огонь у соперника подряд — он залип. Earth бьёт Fire по матрице. Дешёво (10⚡), не палит твою стратегию. Если он повторит Fire — победа в кармане." data-verdict-text="✓ Лучший выбор">
+          <button class="quiz-opt" data-verdict="bad" data-desc="Огонь у соперника подряд — он залип, но Fire бьёт Earth по матрице. Дёшево, но если он повторит Fire — ты проиграешь раунд." data-verdict-text="✗ Плохой выбор">
             <div class="opt-head"><span class="ico">🌿</span><span class="nm">Earth</span><span class="cst">10⚡</span></div>
             <p class="opt-desc"></p>
             <div class="opt-verdict"></div>
           </button>
 
-          <button class="quiz-opt" data-verdict="ok" data-desc="Бьёт и Fire, и Water+ — двойная страховка. Но: соперник видит, что ты MED → может ждать твой плюс и сыграть Fire+ (бьёт Earth+). К тому же 25⚡ — половина бюджета на один ход." data-verdict-text="◐ Можно, но рискованно">
+          <button class="quiz-opt" data-verdict="ok" data-desc="Earth+ даёт ничью против Fire и бьёт Water, но стоит 25⚡. Это безопаснее Earth, но дорого для решающего раунда." data-verdict-text="◐ Безопасно, но дорого">
             <div class="opt-head"><span class="ico">🌳</span><span class="nm">Earth+</span><span class="cst">25⚡</span></div>
             <p class="opt-desc"></p>
             <div class="opt-verdict"></div>
           </button>
 
-          <button class="quiz-opt" data-verdict="bad" data-desc="Water ПРОИГРЫВАЕТ Fire в матрице. Если соперник правда сыграет Fire третий раз — ты сольёшь финал. Это худший вариант против читаемого Fire-спамера." data-verdict-text="✗ Плохой выбор">
+          <button class="quiz-opt" data-verdict="good" data-desc="Water бьёт Fire по матрице. Если соперник правда сыграет Fire третий раз — ты забираешь финал дешёвым ходом за 10⚡." data-verdict-text="✓ Лучший выбор">
             <div class="opt-head"><span class="ico">💧</span><span class="nm">Water</span><span class="cst">10⚡</span></div>
             <p class="opt-desc"></p>
             <div class="opt-verdict"></div>
           </button>
 
-          <button class="quiz-opt" data-verdict="bad" data-desc="У тебя 30⚡, Water+ стоит 25⚡ — не overclock, ход доступен. НО: Water+ ПРОИГРЫВАЕТ Fire по матрице. Дорого И проигрышно. Никогда не делай так." data-verdict-text="✗ Двойная ошибка">
+          <button class="quiz-opt" data-verdict="ok" data-desc="Water+ тоже бьёт Fire, но стоит 25⚡. Победный вариант, однако против читаемого Fire достаточно дешёвого Water." data-verdict-text="◐ Работает, но дорого">
             <div class="opt-head"><span class="ico">🌊</span><span class="nm">Water+</span><span class="cst">25⚡</span></div>
             <p class="opt-desc"></p>
             <div class="opt-verdict"></div>

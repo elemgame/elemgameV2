@@ -81,33 +81,33 @@ DappConfig (deployed via DappRoot @ 0:999...999)
 
 ### Move Matrix (6 moves)
 
-**Basic (10⚡):** Earth, Fire, Water — classic triangle (Earth > Fire > Water > Earth)
+**Basic (10⚡):** Earth, Fire, Water — classic triangle (Fire > Earth > Water > Fire)
 
-**Enhanced (25⚡):** Earth+, Fire+, Water+ — each enhanced move "flips the weakness":
+**Enhanced (25⚡):** Earth+, Fire+, Water+ — each enhanced move protects its base element from its basic counter:
 
 1. **Beats its own basic** (Earth+ > Earth)
-2. **Beats its weakness** — the basic element that normally counters its base (Earth is countered by Water → Earth+ beats Water)
-3. **Loses to the basic it normally beats** — the trade-off for flipping (Earth normally beats Fire → Earth+ loses to Fire)
+2. **Draws against its basic counter** — if a basic element would beat the base element, it draws against the enhanced version
+3. **Beats basics that do not counter it** — if a basic element would not beat the base element, it loses to the enhanced version
 4. **Enhanced triangle same as basic** (Earth+ > Fire+ > Water+ > Earth+)
 
 Full 6×6 outcome matrix:
 
 | ATK \ DEF | Earth | Fire | Water | Earth+ | Fire+ | Water+ |
 |-----------|-------|------|-------|--------|-------|--------|
-| Earth     | Draw  | WIN  | LOSE  | LOSE   | LOSE  | WIN    |
-| Fire      | LOSE  | Draw | WIN   | WIN    | LOSE  | LOSE   |
-| Water     | WIN   | LOSE | Draw  | LOSE   | WIN   | LOSE   |
-| Earth+    | WIN   | LOSE | WIN   | Draw   | WIN   | LOSE   |
-| Fire+     | WIN   | WIN  | LOSE  | LOSE   | Draw  | WIN    |
-| Water+    | LOSE  | LOSE | WIN   | WIN    | LOSE  | Draw   |
+| Earth     | Draw  | LOSE | WIN   | LOSE   | LOSE  | Draw   |
+| Fire      | WIN   | Draw | LOSE  | Draw   | LOSE  | LOSE   |
+| Water     | LOSE  | WIN  | Draw  | LOSE   | Draw  | LOSE   |
+| Earth+    | WIN   | Draw | WIN   | Draw   | LOSE  | WIN    |
+| Fire+     | WIN   | WIN  | Draw  | WIN    | Draw  | LOSE   |
+| Water+    | Draw  | WIN  | WIN   | LOSE   | WIN   | Draw   |
 
 **Balance verification:**
-- Each Basic: 2 wins, 3 losses (against non-draw). Cheap (10⚡) but lower win rate.
-- Each Enhanced: 3 wins, 2 losses. Expensive (25⚡) but higher win rate.
+- Each Basic: 1 win, 2 draws, 3 losses. Cheap (10⚡) but lower win rate.
+- Each Enhanced: 3 wins, 2 draws, 1 loss. Expensive (25⚡) but higher win rate.
 - Matrix is antisymmetric: if A vs B = WIN, then B vs A = LOSE.
 - No move is strictly dominated. Enhanced is a risk/reward trade-off.
 
-**Strategic depth:** Playing Enhanced costs 2.5x more energy but flips your weakness. Your opponent must decide: is the enemy playing Enhanced to flip, or saving energy? This creates the mind game.
+**Strategic depth:** Playing Enhanced costs 2.5x more energy but can turn a losing basic matchup into a draw. Your opponent must decide: is the enemy playing Enhanced to cover a weakness, or saving energy? This creates the mind game.
 
 ### Overclock System
 
