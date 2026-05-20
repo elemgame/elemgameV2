@@ -49,7 +49,7 @@ export function MatchmakingScreen() {
   const ratingMax = rating + 100;
 
   return (
-    <div className="flex flex-col h-full items-center justify-center bg-game-bg p-6 gap-8">
+    <div className="game-home-stage flex flex-col h-full items-center justify-center p-6 gap-7">
 
       {/* Orbiting elements animation */}
       <div className="relative w-32 h-32 flex items-center justify-center">
@@ -57,8 +57,9 @@ export function MatchmakingScreen() {
         <motion.div
           className="w-20 h-20 rounded-full"
           style={{
-            background: 'radial-gradient(circle, rgba(59,130,246,0.3), transparent)',
-            border: '2px solid rgba(59,130,246,0.2)',
+            background: 'radial-gradient(circle, oklch(68% 0.135 238 / 0.34), transparent)',
+            border: '2px solid oklch(68% 0.135 238 / 0.28)',
+            boxShadow: '0 18px 34px oklch(58% 0.16 245 / 0.24)',
           }}
           animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -67,7 +68,7 @@ export function MatchmakingScreen() {
         {/* Orbit ring */}
         <motion.div
           className="absolute w-32 h-32 rounded-full"
-          style={{ border: '1px dashed rgba(255,255,255,0.1)' }}
+          style={{ border: '1px dashed oklch(72% 0.04 73 / 0.7)' }}
           animate={{ rotate: 360 }}
           transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
         />
@@ -130,33 +131,25 @@ export function MatchmakingScreen() {
 
       {/* Search info card */}
       <motion.div
-        className="glass-card p-4 w-full max-w-xs"
+        className="arena-page-section w-full max-w-xs"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <div className="flex justify-between items-center text-sm">
+        <div className="arena-data-row flex items-center justify-between py-2 text-sm">
           <span className="text-text-secondary">Mode</span>
           <span className="font-bold text-water-light capitalize">{gameMode}</span>
         </div>
-        <div
-          className="my-3 h-px"
-          style={{ background: 'rgba(255,255,255,0.06)' }}
-        />
-        <div className="flex justify-between items-center text-sm">
+        <div className="arena-data-row flex items-center justify-between py-2 text-sm">
           <span className="text-text-secondary">Your rating</span>
           <span className="font-bold text-text-primary inline-flex items-center gap-0.5">
             <TrophyIcon size={14} className="text-gold" /> {rating}
           </span>
         </div>
-        <div
-          className="my-3 h-px"
-          style={{ background: 'rgba(255,255,255,0.06)' }}
-        />
-        <div className="flex justify-between items-center text-sm">
+        <div className="arena-data-row flex items-center justify-between py-2 text-sm">
           <span className="text-text-secondary">Search range</span>
           <span className="font-bold text-text-primary">
-            {ratingMin} — {ratingMax}
+            {ratingMin} to {ratingMax}
           </span>
         </div>
       </motion.div>

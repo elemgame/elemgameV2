@@ -88,16 +88,19 @@ export function MatchScreen() {
 
   return (
     <div
-      className="relative flex flex-col h-full overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #0d0d2b 0%, #0a0a1a 100%)' }}
+      className="game-match-stage relative flex flex-col h-full overflow-hidden"
     >
       {/* ── TOP BAR ──────────────────────────────────── */}
       <div
-        className="flex items-center justify-between px-4 py-3"
-        style={{ background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        className="mx-3 mt-3 flex items-center justify-between rounded-lg px-3 py-2"
+        style={{
+          background: 'oklch(18% 0.045 252 / 0.9)',
+          border: '1px solid oklch(43% 0.055 252 / 0.68)',
+          boxShadow: '0 12px 26px oklch(3% 0.02 252 / 0.46), 0 1px 0 oklch(100% 0 0 / 0.1) inset',
+        }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs text-text-secondary font-semibold">ROUND</span>
+          <span className="text-xs text-text-secondary font-semibold tracking-widest">ROUND</span>
           <span className="text-lg font-black text-text-primary">{currentRound}</span>
         </div>
 
@@ -133,7 +136,7 @@ export function MatchScreen() {
       <div className="relative flex items-center justify-center py-3">
         <div
           className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)' }}
+          style={{ background: 'linear-gradient(90deg, transparent, oklch(72% 0.04 73 / 0.48), transparent)' }}
         />
         <motion.div
           className="relative z-10 flex items-center gap-2 px-4 py-1 rounded-full text-xs font-bold"
@@ -182,7 +185,7 @@ export function MatchScreen() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              Choose wisely — your opponent is watching your energy level
+              Choose wisely: your opponent is watching your energy level
             </motion.div>
           ) : roundPhase === 'commit' ? (
             <motion.div
@@ -193,7 +196,7 @@ export function MatchScreen() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              Move committed — waiting for opponent...
+              Move committed: waiting for opponent...
             </motion.div>
           ) : (
             <motion.div key="empty-hint" />
@@ -232,7 +235,7 @@ export function MatchScreen() {
           <button
             data-nav
             className="text-xs text-text-muted px-3 py-1 rounded-full"
-            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
+            style={{ background: 'oklch(20% 0.06 31 / 0.78)', border: '1px solid oklch(56% 0.19 31 / 0.34)' }}
             onClick={handleForfeit}
           >
             Forfeit match

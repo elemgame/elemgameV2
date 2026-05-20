@@ -172,8 +172,8 @@ export function HomeScreen() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto scrollbar-hide bg-game-bg">
-      <div className="flex flex-col gap-4 p-4 pb-6">
+    <div className="game-home-stage flex flex-col h-full overflow-y-auto scrollbar-hide">
+      <div className="flex flex-col gap-4 p-4 pb-7">
 
         {/* Header bar */}
         <motion.div
@@ -186,8 +186,9 @@ export function HomeScreen() {
             <div
               className="w-11 h-11 rounded-full flex items-center justify-center text-xl font-black overflow-hidden border-2"
               style={{
-                background: 'linear-gradient(135deg, #7c3aed, #3b82f6)',
-                borderColor: 'rgba(255,255,255,0.2)',
+                background: 'linear-gradient(135deg, oklch(88% 0.12 87), oklch(68% 0.135 238))',
+                borderColor: 'oklch(100% 0 0 / 0.2)',
+                boxShadow: '0 10px 22px oklch(3% 0.02 252 / 0.42)',
               }}
             >
               {telegramUser?.photo_url ? (
@@ -214,16 +215,14 @@ export function HomeScreen() {
           <div className="flex gap-2">
             <button
               data-nav
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+              className="hud-icon-button flex items-center justify-center"
               onClick={() => setScreen('profile')}
             >
               <UserIcon size={18} className="text-text-secondary" />
             </button>
             <button
               data-nav
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+              className="hud-icon-button flex items-center justify-center"
               onClick={() => setScreen('settings')}
             >
               <GearIcon size={18} className="text-text-secondary" />
@@ -231,9 +230,9 @@ export function HomeScreen() {
           </div>
         </motion.div>
 
-        {/* Balance card */}
+        {/* Arena HUD */}
         <motion.div
-          className="glass-card p-5 text-center"
+          className="arena-balance-hud"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
@@ -243,32 +242,24 @@ export function HomeScreen() {
           </div>
           <motion.div
             className="glow-text-gold text-5xl font-black tabular-nums"
-            animate={{ textShadow: ['0 0 10px rgba(255,215,0,0.4)', '0 0 20px rgba(255,215,0,0.7)', '0 0 10px rgba(255,215,0,0.4)'] }}
+            animate={{ textShadow: ['0 0 18px oklch(78% 0.15 83 / 0.3)', '0 0 28px oklch(78% 0.15 83 / 0.46)', '0 0 18px oklch(78% 0.15 83 / 0.3)'] }}
             transition={{ duration: 2.5, repeat: Infinity }}
           >
             {elmBalance.toLocaleString()}
           </motion.div>
-          <div className="text-xs text-text-secondary mt-1">tokens</div>
+          <div className="text-xs font-semibold text-text-secondary mt-1">tokens</div>
 
           {/* Win/Loss stats */}
-          <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-bg-border">
-            <div className="text-center">
+          <div className="flex items-center justify-center gap-2 mt-5">
+            <div className="arena-stat-chip text-center">
               <div className="text-lg font-black text-energy-high">{stats.wins}</div>
               <div className="text-xs text-text-secondary">Wins</div>
             </div>
-            <div
-              className="w-px h-8"
-              style={{ background: 'rgba(255,255,255,0.12)' }}
-            />
-            <div className="text-center">
+            <div className="arena-stat-chip text-center">
               <div className="text-lg font-black text-energy-low">{stats.losses}</div>
               <div className="text-xs text-text-secondary">Losses</div>
             </div>
-            <div
-              className="w-px h-8"
-              style={{ background: 'rgba(255,255,255,0.12)' }}
-            />
-            <div className="text-center">
+            <div className="arena-stat-chip text-center">
               <div className="text-lg font-black text-water-light">{winRate}%</div>
               <div className="text-xs text-text-secondary">Win Rate</div>
             </div>
@@ -295,8 +286,9 @@ export function HomeScreen() {
                       data-nav
                       className="min-h-[58px] rounded-xl border px-2 py-2 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-60 disabled:cursor-wait"
                       style={{
-                        borderColor: isPending ? '#ffd700' : 'rgba(255,255,255,0.1)',
-                        background: isPending ? 'rgba(255, 215, 0, 0.12)' : 'rgba(255,255,255,0.04)',
+                        borderColor: isPending ? 'oklch(78% 0.15 83)' : 'oklch(72% 0.04 73 / 0.5)',
+                        background: isPending ? 'oklch(32% 0.09 83 / 0.58)' : 'oklch(10% 0.035 252 / 0.48)',
+                        boxShadow: isPending ? '0 10px 20px oklch(78% 0.15 83 / 0.22)' : '0 5px 12px oklch(3% 0.02 252 / 0.26)',
                       }}
                       disabled={disabled}
                       whileTap={!disabled ? { scale: 0.96 } : undefined}
@@ -327,7 +319,7 @@ export function HomeScreen() {
                   <button
                     data-nav
                     className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-bold text-text-primary disabled:opacity-60"
-                    style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+                    style={{ background: 'oklch(10% 0.035 252 / 0.48)', borderColor: 'oklch(43% 0.055 252 / 0.58)' }}
                     disabled={refundState.status === 'loading'}
                     onClick={() => void handleRefundQuote()}
                   >
@@ -337,11 +329,11 @@ export function HomeScreen() {
                     <button
                       data-nav
                       className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-black text-gold disabled:opacity-60"
-                      style={{ background: 'rgba(255, 215, 0, 0.1)', borderColor: 'rgba(255,215,0,0.25)' }}
+                      style={{ background: 'oklch(32% 0.09 83 / 0.42)', borderColor: 'oklch(78% 0.15 83 / 0.55)' }}
                       disabled={refundState.status === 'loading'}
                       onClick={() => void handleRefundNextLot()}
                     >
-                      {refundState.quote.nextLot.starsAmount}★ / {refundState.quote.nextLot.elmAmount} ELM
+                      {refundState.quote.nextLot.starsAmount} Stars / {refundState.quote.nextLot.elmAmount} ELM
                     </button>
                   ) : null}
                 </div>
@@ -360,12 +352,12 @@ export function HomeScreen() {
 
         {/* Game Mode selector */}
         <motion.div
-          className="glass-card p-4"
+          className="arena-mode-dock"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
         >
-          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3 px-1">
             Game Mode
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -375,13 +367,13 @@ export function HomeScreen() {
                 <motion.button
                   key={mode.id}
                   data-nav
-                  className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-colors"
+                  className="arena-mode-option flex flex-col items-center justify-center gap-1.5 py-3 px-2 border-2 transition-colors"
                   style={{
-                    borderColor: isSelected ? mode.color : 'rgba(255,255,255,0.08)',
+                    borderColor: isSelected ? mode.color : 'oklch(76% 0.026 86 / 0.2)',
                     background: isSelected
-                      ? `${mode.color}18`
-                      : 'rgba(255,255,255,0.03)',
-                    boxShadow: isSelected ? `0 0 10px ${mode.color}40` : 'none',
+                      ? `${mode.color}16`
+                      : 'transparent',
+                    boxShadow: isSelected ? `0 0 24px ${mode.color}26, inset 0 0 18px ${mode.color}10` : 'none',
                   }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
@@ -409,7 +401,7 @@ export function HomeScreen() {
 
         {/* Energy Boost toggle */}
         <motion.div
-          className="glass-card p-4 flex items-center justify-between"
+          className="arena-toggle-strip flex items-center justify-between"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -430,10 +422,10 @@ export function HomeScreen() {
               width: '52px',
               height: '28px',
               background: boostEnabled
-                ? 'linear-gradient(90deg, #eab308, #ffd700)'
-                : 'rgba(255,255,255,0.1)',
-              border: boostEnabled ? '1px solid #ffd700' : '1px solid rgba(255,255,255,0.15)',
-              boxShadow: boostEnabled ? '0 0 10px rgba(255,215,0,0.4)' : 'none',
+                ? 'linear-gradient(90deg, oklch(72% 0.15 82), oklch(88% 0.12 87))'
+                : 'oklch(10% 0.035 252 / 0.7)',
+              border: boostEnabled ? '1px solid oklch(78% 0.15 83)' : '1px solid oklch(76% 0.026 86 / 0.26)',
+              boxShadow: boostEnabled ? '0 10px 18px oklch(78% 0.15 83 / 0.28)' : '0 4px 10px oklch(3% 0.02 252 / 0.36) inset',
             }}
             onClick={() => {
               haptic.selection();
@@ -443,7 +435,7 @@ export function HomeScreen() {
             <motion.div
               className="absolute top-0.5 w-6 h-6 rounded-full"
               style={{
-                background: boostEnabled ? '#000' : 'rgba(255,255,255,0.6)',
+                background: boostEnabled ? 'oklch(14% 0.045 252)' : 'oklch(59% 0.035 86)',
                 bottom: '2px',
               }}
               animate={{ x: boostEnabled ? 24 : 2 }}
@@ -475,9 +467,9 @@ export function HomeScreen() {
               `NOT ENOUGH ${currency}`
             )}
           </motion.button>
-          <div className="text-xs text-text-muted">
+          <div className="text-xs font-semibold text-text-secondary">
             {canAffordMatch
-              ? `Stake: ${formatCurrencyAmount(stakeRequired, currency)} • ${gameMode} mode`
+              ? `Stake: ${formatCurrencyAmount(stakeRequired, currency)} | ${gameMode} mode`
               : `Need ${formatCurrencyAmount(stakeRequired, currency)} (have ${formatCurrencyAmount(elmBalance, currency)})`}
           </div>
         </motion.div>

@@ -10,22 +10,22 @@ interface EnergyBarProps {
   className?: string;
 }
 
-function getEnergyColor(energy: number): string {
-  if (energy <= 33) return '#ef4444'; // red
-  if (energy <= 66) return '#eab308'; // yellow
-  return '#22c55e'; // green
+function getEnergyColor(percent: number): string {
+  if (percent <= 33) return 'oklch(56% 0.19 31)';
+  if (percent <= 66) return 'oklch(72% 0.15 82)';
+  return 'oklch(57% 0.15 145)';
 }
 
-function getEnergyLabel(energy: number): string {
-  if (energy <= 33) return 'LOW';
-  if (energy <= 66) return 'MED';
+function getEnergyLabel(percent: number): string {
+  if (percent <= 33) return 'LOW';
+  if (percent <= 66) return 'MED';
   return 'HIGH';
 }
 
-function getEnergyGlow(energy: number): string {
-  if (energy <= 33) return '0 0 8px rgba(239,68,68,0.6)';
-  if (energy <= 66) return '0 0 8px rgba(234,179,8,0.6)';
-  return '0 0 8px rgba(34,197,94,0.6)';
+function getEnergyGlow(percent: number): string {
+  if (percent <= 33) return '0 8px 18px oklch(56% 0.19 31 / 0.28)';
+  if (percent <= 66) return '0 8px 18px oklch(72% 0.15 82 / 0.28)';
+  return '0 8px 18px oklch(57% 0.15 145 / 0.28)';
 }
 
 const SIZE_CONFIG = {
@@ -44,8 +44,8 @@ export function EnergyBar({
 }: EnergyBarProps) {
   const clamped = Math.max(0, Math.min(maxEnergy, energy));
   const pct = (clamped / maxEnergy) * 100;
-  const color = getEnergyColor(energy);
-  const glow = getEnergyGlow(energy);
+  const color = getEnergyColor(pct);
+  const glow = getEnergyGlow(pct);
   const cfg = SIZE_CONFIG[size];
 
   return (
@@ -60,7 +60,7 @@ export function EnergyBar({
           {showNumber && (
             <div className="flex items-center gap-1.5 ml-auto">
               <span className="text-xs font-bold" style={{ color }}>
-                {getEnergyLabel(energy)}
+                {getEnergyLabel(pct)}
               </span>
               <span
                 className={`${cfg.text} font-black tabular-nums`}
@@ -77,14 +77,15 @@ export function EnergyBar({
       <div
         className={`${cfg.trackH} rounded-full w-full overflow-hidden`}
         style={{
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'oklch(11% 0.04 252 / 0.82)',
+          border: '1px solid oklch(72% 0.04 73 / 0.58)',
+          boxShadow: '0 2px 4px oklch(3% 0.02 252 / 0.48) inset, 0 1px 0 oklch(100% 0 0 / 0.08)',
         }}
       >
         <motion.div
           className="h-full rounded-full"
           style={{
-            background: `linear-gradient(90deg, ${color}aa, ${color})`,
+            background: `linear-gradient(90deg, ${color}, ${color})`,
             boxShadow: glow,
           }}
           initial={{ width: 0 }}
@@ -107,20 +108,20 @@ export function EnergyLevelBadge({ level, className = '' }: EnergyLevelBadgeProp
     low: {
       label: 'LOW',
       color: '#ef4444',
-      bg: 'rgba(239,68,68,0.15)',
-      border: 'rgba(239,68,68,0.4)',
+      bg: 'oklch(20% 0.06 31 / 0.84)',
+      border: 'oklch(56% 0.19 31 / 0.42)',
     },
     medium: {
       label: 'MED',
       color: '#eab308',
-      bg: 'rgba(234,179,8,0.15)',
-      border: 'rgba(234,179,8,0.4)',
+      bg: 'oklch(22% 0.055 82 / 0.84)',
+      border: 'oklch(72% 0.15 82 / 0.45)',
     },
     high: {
       label: 'HIGH',
       color: '#22c55e',
-      bg: 'rgba(34,197,94,0.15)',
-      border: 'rgba(34,197,94,0.4)',
+      bg: 'oklch(22% 0.055 145 / 0.84)',
+      border: 'oklch(57% 0.15 145 / 0.45)',
     },
   }[level];
 

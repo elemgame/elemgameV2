@@ -105,26 +105,26 @@ export function MoveCard({
 }: MoveCardProps) {
   const cfg = MOVE_CONFIG[moveId];
   const canAfford = energy >= cfg.cost;
-  const wouldOverclock = !canAfford && energy >= 0; // Can play but triggers overclock
-  // Allow overclock moves (energy >= 0 but < cost) — only fully disable if energy deeply negative
+  const wouldOverclock = !canAfford && energy >= 0;
+  // Allow overclock moves when energy is non-negative but below cost.
   const isDisabled = externalDisabled || energy < 0 || phase !== 'select';
   const isSelectable = !isDisabled;
 
   const borderColor = selected
     ? (cfg.isEnhanced ? '#ffd700' : cfg.borderColor)
     : cfg.isEnhanced
-    ? 'rgba(255,215,0,0.5)'
-    : 'rgba(255,255,255,0.1)';
+    ? 'oklch(78% 0.15 83 / 0.72)'
+    : 'oklch(72% 0.04 73 / 0.72)';
 
   const boxShadow = selected
-    ? `0 0 16px ${cfg.glowColor}, 0 0 32px ${cfg.glowColor}50`
+    ? `0 16px 28px ${cfg.glowColor}, 0 1px 0 oklch(100% 0 0 / 0.16) inset`
     : cfg.isEnhanced
-    ? '0 0 8px rgba(255,215,0,0.3)'
-    : 'none';
+    ? '0 12px 24px oklch(78% 0.15 83 / 0.24), 0 1px 0 oklch(100% 0 0 / 0.14) inset'
+    : '0 10px 20px oklch(3% 0.02 252 / 0.34), 0 1px 0 oklch(100% 0 0 / 0.12) inset';
 
   const background = selected
     ? `linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`
-    : `linear-gradient(135deg, ${cfg.gradientFrom}80, ${cfg.gradientTo}40)`;
+    : `linear-gradient(180deg, oklch(24% 0.045 252 / 0.82), oklch(13% 0.04 252 / 0.9)), linear-gradient(135deg, ${cfg.gradientFrom}, ${cfg.gradientTo})`;
 
   return (
     <motion.button
@@ -132,7 +132,7 @@ export function MoveCard({
       data-nav-disabled={isDisabled ? 'true' : undefined}
       className={`
         relative flex flex-col items-center justify-center
-        rounded-2xl border-2 p-2 gap-0.5
+        rounded-xl border-2 p-2 gap-0.5
         transition-colors duration-150
         ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
       `}
@@ -140,7 +140,7 @@ export function MoveCard({
         borderColor,
         background,
         boxShadow,
-        minHeight: '76px',
+        minHeight: '86px',
         filter: isDisabled ? 'grayscale(0.5)' : 'none',
       }}
       whileHover={isSelectable ? { scale: 1.04, y: -2 } : {}}
@@ -157,8 +157,8 @@ export function MoveCard({
         <div
           className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-xs px-2 py-0.5 rounded-full font-black"
           style={{
-            background: 'linear-gradient(90deg, #cc9900, #ffd700, #cc9900)',
-            color: '#000',
+            background: 'linear-gradient(90deg, oklch(55% 0.13 75), oklch(88% 0.12 87), oklch(55% 0.13 75))',
+            color: 'oklch(24% 0.035 70)',
             fontSize: '9px',
             letterSpacing: '0.05em',
           }}
@@ -171,7 +171,7 @@ export function MoveCard({
       {wouldOverclock && !isDisabled && (
         <div
           className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs"
-          style={{ background: '#ef4444', fontSize: '9px' }}
+        style={{ background: 'oklch(56% 0.19 31)', color: 'oklch(98% 0.008 248)', fontSize: '9px' }}
           title="May trigger overclock!"
         >
           !
@@ -186,7 +186,7 @@ export function MoveCard({
       {/* Name */}
       <span
         className="text-xs font-bold tracking-wider leading-none"
-        style={{ color: cfg.isEnhanced ? '#ffd700' : cfg.baseColor }}
+        style={{ color: selected ? 'oklch(98% 0.008 248)' : cfg.baseColor }}
       >
         {cfg.shortName}
       </span>
@@ -194,7 +194,7 @@ export function MoveCard({
       {/* Cost */}
       <span
         className="text-xs font-semibold leading-none"
-        style={{ color: canAfford ? 'rgba(255,255,255,0.6)' : '#ef4444' }}
+        style={{ color: canAfford ? (selected ? 'oklch(98% 0.008 248 / 0.82)' : 'oklch(76% 0.026 86)') : 'oklch(66% 0.17 33)' }}
       >
         <BoltIcon size={11} className="mr-0.5" />
         {cfg.cost}

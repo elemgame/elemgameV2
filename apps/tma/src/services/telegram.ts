@@ -28,6 +28,7 @@ export interface TelegramWebApp {
   };
   colorScheme: 'light' | 'dark';
   themeParams: Record<string, string>;
+  version?: string;
   isExpanded: boolean;
   isFullscreen?: boolean;
   safeAreaInset?: SafeAreaInset;
@@ -120,12 +121,30 @@ export function initTelegram(): void {
   try {
     twa.ready();
     twa.expand();
-    twa.setHeaderColor?.('#0a0a1a');
-    twa.setBackgroundColor?.('#0a0a1a');
-    twa.setBottomBarColor?.('#0a0a1a');
+    if (telegramVersionAtLeast(twa.version, '6.1')) {
+      twa.setHeaderColor?.('#111a2f');
+      twa.setBackgroundColor?.('#111a2f');
+    }
+    if (telegramVersionAtLeast(twa.version, '7.10')) {
+      twa.setBottomBarColor?.('#111a2f');
+    }
   } catch {
-    // swallow — not critical
+    // Ignore Telegram chrome failures. They are not critical.
   }
+}
+
+function telegramVersionAtLeast(version: string | undefined, minimum: string): boolean {
+  if (!version) return true;
+  const currentParts = version.split('.').map((part) => Number.parseInt(part, 10));
+  const minimumParts = minimum.split('.').map((part) => Number.parseInt(part, 10));
+  const length = Math.max(currentParts.length, minimumParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const current = Number.isFinite(currentParts[index]) ? currentParts[index] : 0;
+    const required = Number.isFinite(minimumParts[index]) ? minimumParts[index] : 0;
+    if (current > required) return true;
+    if (current < required) return false;
+  }
+  return true;
 }
 
 export function installTelegramViewportSync(): () => void {

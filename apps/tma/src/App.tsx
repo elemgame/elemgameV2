@@ -130,9 +130,10 @@ export default function App() {
       className="relative w-full overflow-hidden"
       style={{
         height: 'var(--elmental-app-height)',
-        background: '#0a0a1a',
+        background: 'oklch(14% 0.045 252)',
         maxWidth: '430px',
         margin: '0 auto',
+        boxShadow: '0 0 0 1px oklch(43% 0.055 252 / 0.5), 0 24px 70px oklch(3% 0.02 252 / 0.68)',
       }}
     >
       <div className="app-safe-shell absolute inset-0 overflow-hidden">
