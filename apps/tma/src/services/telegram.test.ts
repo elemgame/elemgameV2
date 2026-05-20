@@ -161,6 +161,26 @@ describe('web user profile helpers', () => {
     });
   });
 
+  it('reads Telegram users from Mini App query params when the Telegram SDK is unavailable', () => {
+    const initData = new URLSearchParams({
+      user: JSON.stringify({
+        id: 360321751,
+        first_name: 'QueryOnly',
+        username: 'query_only',
+      }),
+      auth_date: '1710000000',
+      hash: 'signed',
+    }).toString();
+    setMockWindow(`?v=selfhost-live&tgWebAppData=${encodeURIComponent(initData)}`);
+
+    expect(getTelegramInitData()).toBe(initData);
+    expect(getTelegramUser()).toMatchObject({
+      id: 360321751,
+      first_name: 'QueryOnly',
+      username: 'query_only',
+    });
+  });
+
   it('caches Telegram users for Mini App refresh recovery', () => {
     const { localStorage, sessionStorage } = setMockWindow('');
 

@@ -104,7 +104,7 @@ declare global {
 export function getTelegramWebApp(): TelegramWebApp | null {
   const app = getTelegramRuntime();
   if (!app) return null;
-  if (!app.initData && !app.initDataUnsafe?.user && !getTelegramInitDataFromHash()) return null;
+  if (!app.initData && !app.initDataUnsafe?.user && !getTelegramInitDataFromLocation()) return null;
   return app;
 }
 
@@ -191,7 +191,7 @@ function toInset(value: unknown): number {
  * Returns null when running outside Telegram.
  */
 export function getTelegramUser() {
-  const hashInitData = getTelegramInitDataFromHash();
+  const hashInitData = getTelegramInitDataFromLocation();
   const twa = getTelegramWebApp();
   if (!twa) return parseTelegramUserFromInitData(hashInitData);
   return twa.initDataUnsafe?.user ?? parseTelegramUserFromInitData(twa.initData || hashInitData);
@@ -201,7 +201,7 @@ export function getTelegramUser() {
  * Raw signed Telegram initData used by the backend auth endpoint.
  */
 export function getTelegramInitData(): string {
-  const hashInitData = getTelegramInitDataFromHash();
+  const hashInitData = getTelegramInitDataFromLocation();
   const twa = getTelegramWebApp();
   if (!twa) return hashInitData;
   return twa.initData || hashInitData;
@@ -225,12 +225,21 @@ export function getCachedTelegramUser(): WebUserProfile | null {
   }
 }
 
-function getTelegramInitDataFromHash(): string {
+function getTelegramInitDataFromLocation(): string {
   if (typeof window === 'undefined') return '';
-  const hash = window.location.hash?.replace(/^#/, '') ?? '';
-  if (!hash) return '';
-  const params = new URLSearchParams(hash);
-  return params.get('tgWebAppData') ?? '';
+  const candidates = [
+    window.location.hash?.replace(/^#/, '') ?? '',
+    window.location.search?.replace(/^\?/, '') ?? '',
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const params = new URLSearchParams(candidate);
+    const initData = params.get('tgWebAppData');
+    if (initData) return initData;
+  }
+
+  return '';
 }
 
 function parseTelegramUserFromInitData(initData: string): WebUserProfile | null {
