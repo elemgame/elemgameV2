@@ -55,7 +55,7 @@ export function createSqlPaymentRecorder(
         );
       } else {
         await sql(
-          `INSERT INTO account (id, name, rating, wins, losses, balance, balance_kind) VALUES (` +
+          `INSERT INTO account (id, name, rating, wins, losses, balance, balance_kind, season_points) VALUES (` +
             [
               sqlString(accountId),
               sqlString(accountId),
@@ -64,6 +64,7 @@ export function createSqlPaymentRecorder(
               '0',
               String(nextBalance),
               "'paid_elm'",
+              '0',
             ].join(', ') +
             ')',
         );
