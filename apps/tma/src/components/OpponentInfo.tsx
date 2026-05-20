@@ -19,8 +19,12 @@ export function OpponentInfo({
 }: OpponentInfoProps) {
   return (
     <motion.div
-      className={`flex items-center justify-between p-3 rounded-2xl ${className}`}
-      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+      className={`flex items-center justify-between rounded-lg p-3 ${className}`}
+      style={{
+        background: 'oklch(21% 0.045 252 / 0.86)',
+        border: '1px solid oklch(43% 0.055 252 / 0.68)',
+        boxShadow: '0 12px 24px oklch(3% 0.02 252 / 0.38), 0 1px 0 oklch(100% 0 0 / 0.1) inset',
+      }}
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
     >
@@ -29,8 +33,9 @@ export function OpponentInfo({
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-black"
           style={{
-            background: 'linear-gradient(135deg, #ef4444, #7c3aed)',
-            color: '#fff',
+            background: 'linear-gradient(135deg, oklch(66% 0.17 33), oklch(68% 0.135 238))',
+            color: 'oklch(98% 0.008 248)',
+            boxShadow: '0 8px 18px oklch(56% 0.19 31 / 0.22)',
           }}
         >
           {name.charAt(0).toUpperCase()}

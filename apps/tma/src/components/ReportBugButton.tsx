@@ -13,10 +13,9 @@ export function ReportBugButton() {
       style={{
         right: 'calc(var(--elmental-safe-right) + 12px)',
         bottom: 'calc(var(--elmental-safe-bottom) + 12px)',
-        background: 'rgba(10, 10, 26, 0.82)',
-        border: '1px solid rgba(255,255,255,0.16)',
-        boxShadow: '0 10px 24px rgba(0,0,0,0.35)',
-        backdropFilter: 'blur(14px)',
+        background: 'oklch(21% 0.045 252 / 0.9)',
+        border: '1px solid oklch(43% 0.055 252 / 0.72)',
+        boxShadow: '0 12px 26px oklch(3% 0.02 252 / 0.46)',
       }}
       whileTap={{ scale: 0.94 }}
       onClick={(event) => {

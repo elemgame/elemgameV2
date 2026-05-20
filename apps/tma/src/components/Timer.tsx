@@ -49,7 +49,7 @@ export function Timer({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.08)"
+          stroke="oklch(72% 0.04 73 / 0.46)"
           strokeWidth={strokeWidth}
         />
         {/* Progress arc */}

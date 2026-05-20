@@ -28,7 +28,7 @@ const GAME_MODES = [
     id: GameMode.Hardcore,
     label: 'Hardcore',
     renderIcon: (size: number) => <SkullIcon size={size} className="text-fire" />,
-    desc: 'No energy regen — manage wisely',
+    desc: 'No energy regen: manage wisely',
     color: '#ef4444',
   },
   {
@@ -50,7 +50,7 @@ interface ToggleRowProps {
 
 function ToggleRow({ icon, label, desc, value, onChange }: ToggleRowProps) {
   return (
-    <div className="flex items-center justify-between py-3">
+    <div className="arena-data-row flex items-center justify-between py-3">
       <div className="flex items-center gap-3">
         <span className="flex items-center justify-center" style={{ width: 20, height: 20 }}>
           {icon}
@@ -67,9 +67,9 @@ function ToggleRow({ icon, label, desc, value, onChange }: ToggleRowProps) {
           height: '28px',
           borderRadius: '14px',
           background: value
-            ? 'linear-gradient(90deg, #22c55e, #4ade80)'
-            : 'rgba(255,255,255,0.1)',
-          border: value ? '1px solid #22c55e' : '1px solid rgba(255,255,255,0.15)',
+            ? 'linear-gradient(90deg, oklch(57% 0.15 145), oklch(78% 0.12 145))'
+            : 'oklch(10% 0.035 252 / 0.7)',
+          border: value ? '1px solid oklch(57% 0.15 145)' : '1px solid oklch(43% 0.055 252 / 0.68)',
           position: 'relative',
           flexShrink: 0,
         }}
@@ -83,7 +83,7 @@ function ToggleRow({ icon, label, desc, value, onChange }: ToggleRowProps) {
         <motion.div
           className="absolute top-0.5 w-6 h-6 rounded-full"
           style={{
-            background: value ? '#000' : 'rgba(255,255,255,0.6)',
+            background: value ? 'oklch(14% 0.045 252)' : 'oklch(59% 0.035 86)',
           }}
           animate={{ x: value ? 24 : 2 }}
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
@@ -105,14 +105,14 @@ export function SettingsScreen() {
   } = useGameStore();
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto scrollbar-hide bg-game-bg">
+    <div className="game-home-stage flex flex-col h-full overflow-y-auto scrollbar-hide">
       <div className="flex flex-col gap-4 p-4">
         {/* Header */}
         <div className="flex items-center gap-3">
           <button
             data-nav
             className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+            style={{ background: 'oklch(21% 0.045 252 / 0.9)', border: '1px solid oklch(43% 0.055 252 / 0.72)', boxShadow: '0 8px 18px oklch(3% 0.02 252 / 0.42)' }}
             onClick={() => setScreen('home')}
           >
             <ArrowLeftIcon size={18} className="text-text-secondary" />
@@ -122,11 +122,11 @@ export function SettingsScreen() {
 
         {/* Game Mode */}
         <motion.div
-          className="glass-card p-4"
+          className="arena-page-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+          <div className="arena-section-label mb-3">
             Game Mode
           </div>
           <div className="flex flex-col gap-2">
@@ -138,9 +138,9 @@ export function SettingsScreen() {
                   data-nav
                   className="flex items-center gap-3 p-3 rounded-xl border-2 transition-colors text-left"
                   style={{
-                    borderColor: isSelected ? mode.color : 'rgba(255,255,255,0.06)',
-                    background: isSelected ? `${mode.color}12` : 'rgba(255,255,255,0.02)',
-                    boxShadow: isSelected ? `0 0 8px ${mode.color}30` : 'none',
+                    borderColor: isSelected ? mode.color : 'oklch(43% 0.055 252 / 0.58)',
+                    background: isSelected ? `${mode.color}20` : 'oklch(10% 0.035 252 / 0.46)',
+                    boxShadow: isSelected ? `0 12px 24px ${mode.color}30` : '0 5px 12px oklch(3% 0.02 252 / 0.28)',
                   }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
@@ -177,15 +177,15 @@ export function SettingsScreen() {
 
         {/* Gameplay toggles */}
         <motion.div
-          className="glass-card p-4"
+          className="arena-page-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-1">
+          <div className="arena-section-label mb-1">
             Gameplay
           </div>
-          <div className="divide-y divide-bg-border">
+          <div>
             <ToggleRow
               icon={<BoltIcon size={20} className="text-gold" />}
               label="Energy Boost"
@@ -205,12 +205,12 @@ export function SettingsScreen() {
 
         {/* About */}
         <motion.div
-          className="glass-card p-4"
+          className="arena-page-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+          <div className="arena-section-label mb-3">
             About
           </div>
           <div className="flex flex-col gap-2 text-sm text-text-secondary">
@@ -223,27 +223,27 @@ export function SettingsScreen() {
               <span className="text-text-primary font-medium">0.0.1</span>
             </div>
             <div className="flex justify-between">
-              <span>Network</span>
-              <span className="text-water font-medium">TON / Everscale</span>
+              <span>Server</span>
+              <span className="text-water font-medium">SpacetimeDB</span>
             </div>
           </div>
 
           <div
             className="mt-4 pt-4 border-t border-bg-border text-xs text-text-muted text-center"
           >
-            Strategic elemental battles on the blockchain.{'\n'}
+            Strategic elemental battles in realtime PvP.{'\n'}
             Rock-Paper-Scissors evolved.
           </div>
         </motion.div>
 
         {/* How to play */}
         <motion.div
-          className="glass-card p-4"
+          className="arena-page-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
         >
-          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+          <div className="arena-section-label mb-3">
             How to Play
           </div>
           <div className="flex flex-col gap-3 text-xs text-text-secondary">
@@ -252,7 +252,7 @@ export function SettingsScreen() {
               { icon: <FireIcon size={16} className="text-fire" />, title: 'Fire beats Earth & Water+', desc: 'Loses to Water & Fire+' },
               { icon: <WaterIcon size={16} className="text-water-light" />, title: 'Water beats Fire & Earth+', desc: 'Loses to Earth & Water+' },
               { icon: <BoltIcon size={16} className="text-gold" />, title: 'Energy Management', desc: 'Basic: 10 | Enhanced: 25' },
-              { icon: <FlameIcon size={16} className="text-fire" />, title: 'Enhanced Moves', desc: 'Stronger but more energy — use wisely' },
+              { icon: <FlameIcon size={16} className="text-fire" />, title: 'Enhanced Moves', desc: 'Stronger but more energy: use wisely' },
               { icon: <SkullIcon size={16} className="text-energy-low" />, title: 'Overclock', desc: '30% chance your move randomizes at low energy!' },
             ].map((item) => (
               <div key={item.title} className="flex items-start gap-2">

@@ -53,16 +53,16 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
       {visible && (
         <motion.div
           className="absolute inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          style={{ background: 'oklch(18% 0.04 252 / 0.58)', backdropFilter: 'blur(4px)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onDismiss}
         >
           <motion.div
-            className="mx-4 p-5 rounded-3xl flex flex-col items-center gap-4 w-full max-w-xs"
+            className="mx-4 p-5 rounded-xl flex flex-col items-center gap-4 w-full max-w-xs"
             style={{
-              background: resultConfig.bg,
+              background: 'linear-gradient(180deg, oklch(28% 0.05 252 / 0.96), oklch(14% 0.04 252 / 0.98))',
               border: `2px solid ${resultConfig.border}`,
               boxShadow: resultConfig.glow,
             }}
@@ -96,7 +96,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
               {/* My move */}
               <motion.div
                 className="flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                style={{ background: 'oklch(10% 0.035 252 / 0.5)', border: '1px solid oklch(43% 0.055 252 / 0.62)' }}
                 initial={{ x: -30, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.3, type: 'spring' }}
@@ -118,7 +118,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
               {/* Opponent move */}
               <motion.div
                 className="flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                style={{ background: 'oklch(10% 0.035 252 / 0.5)', border: '1px solid oklch(43% 0.055 252 / 0.62)' }}
                 initial={{ x: 30, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.3, type: 'spring' }}
@@ -138,7 +138,7 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.5 }}
               >
-                OVERCLOCK — move was randomized!
+                OVERCLOCK: move was randomized!
               </motion.div>
             )}
 
@@ -162,9 +162,9 @@ export function RoundResult({ result, visible, onDismiss }: RoundResultProps) {
               className="w-full mt-1 px-6 py-3 rounded-2xl font-black tracking-wider text-base flex items-center justify-center gap-2"
               style={{
                 background: `linear-gradient(135deg, ${resultConfig.color}, ${resultConfig.color}cc)`,
-                color: '#0a0a14',
+                color: 'oklch(20% 0.035 252)',
                 boxShadow: `0 8px 24px ${resultConfig.color}66, 0 0 0 1px ${resultConfig.color}`,
-                textShadow: '0 1px 0 rgba(255,255,255,0.2)',
+                textShadow: '0 1px 0 oklch(100% 0 0 / 0.18)',
               }}
               initial={{ opacity: 0, y: 10 }}
               animate={{

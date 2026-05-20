@@ -95,7 +95,7 @@ export function ResultScreen() {
         label: 'VICTORY!',
         icon: <TrophyIcon size={56} className="text-energy-high" />,
         color: '#22c55e',
-        bg: 'linear-gradient(180deg, rgba(34,197,94,0.15) 0%, #0a0a1a 60%)',
+        bg: 'linear-gradient(180deg, oklch(22% 0.06 145 / 0.72) 0%, oklch(9% 0.035 252 / 0.86) 62%)',
         subtext: 'Excellent battle!',
       }
     : isDraw
@@ -103,22 +103,22 @@ export function ResultScreen() {
         label: 'DRAW',
         icon: <HandshakeIcon size={56} className="text-energy-mid" />,
         color: '#eab308',
-        bg: 'linear-gradient(180deg, rgba(234,179,8,0.12) 0%, #0a0a1a 60%)',
+        bg: 'linear-gradient(180deg, oklch(22% 0.055 82 / 0.72) 0%, oklch(9% 0.035 252 / 0.86) 62%)',
         subtext: 'A balanced match',
       }
     : {
         label: 'DEFEAT',
         icon: <SkullIcon size={56} className="text-energy-low" />,
         color: '#ef4444',
-        bg: 'linear-gradient(180deg, rgba(239,68,68,0.12) 0%, #0a0a1a 60%)',
+        bg: 'linear-gradient(180deg, oklch(20% 0.06 31 / 0.72) 0%, oklch(9% 0.035 252 / 0.86) 62%)',
         subtext: 'Better luck next time',
       };
 
   return (
     <div
-      className="relative flex flex-col h-full overflow-y-auto scrollbar-hide"
-      style={{ background: resultConfig.bg }}
+      className="game-home-stage relative flex flex-col h-full overflow-y-auto scrollbar-hide"
     >
+      <div className="absolute inset-0 pointer-events-none" style={{ background: resultConfig.bg }} />
       {/* Confetti for wins */}
       {isWin && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -177,7 +177,7 @@ export function ResultScreen() {
 
         {/* Score summary */}
         <motion.div
-          className="glass-card p-4 w-full flex items-center justify-around"
+          className="arena-score-ribbon flex items-center justify-around"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -188,7 +188,7 @@ export function ResultScreen() {
           </div>
           <div
             className="text-3xl font-black text-text-muted"
-            style={{ textShadow: '0 0 10px rgba(255,255,255,0.1)' }}
+            style={{ textShadow: '0 2px 0 oklch(3% 0.02 252 / 0.56)' }}
           >
             vs
           </div>
@@ -200,7 +200,7 @@ export function ResultScreen() {
 
         {/* Economy + Rating changes */}
         <motion.div
-          className="glass-card p-4 w-full"
+          className="arena-page-section w-full"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -232,7 +232,7 @@ export function ResultScreen() {
           </div>
           <div
             className="my-2 h-px"
-            style={{ background: 'rgba(255,255,255,0.06)' }}
+            style={{ background: 'oklch(43% 0.055 252 / 0.42)' }}
           />
           <div className="flex items-center justify-between py-1.5">
             <div className="flex items-center gap-2">
@@ -253,13 +253,13 @@ export function ResultScreen() {
         {/* Economy Breakdown */}
         {'entryFee' in matchResult && (
           <motion.div
-            className="glass-card p-4 w-full"
+            className="arena-page-section w-full"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35 }}
           >
-            <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
-              Match Economy
+            <div className="arena-section-label mb-3">
+              Economy Breakdown
             </div>
             <div className="flex flex-col gap-1.5 text-sm">
               <div className="flex justify-between">
@@ -268,7 +268,7 @@ export function ResultScreen() {
               </div>
               {matchResult.boostCost > 0 && (
                 <>
-                  <div className="my-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                  <div className="my-1 h-px" style={{ background: 'oklch(43% 0.055 252 / 0.42)' }} />
                   <div className="flex justify-between">
                     <span className="text-text-secondary">Boost Cost</span>
                     <span className="text-text-primary">{formatCurrencyAmount(matchResult.boostCost, currency)}</span>
@@ -279,7 +279,7 @@ export function ResultScreen() {
                   </div>
                 </>
               )}
-              <div className="my-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              <div className="my-1 h-px" style={{ background: 'oklch(43% 0.055 252 / 0.42)' }} />
               <div className="flex justify-between text-base font-bold">
                 <span className="text-text-primary">Net ELM</span>
                 <span style={{ color: matchResult.elmDelta >= 0 ? '#22c55e' : '#ef4444' }}>
@@ -296,20 +296,19 @@ export function ResultScreen() {
         {/* Round history */}
         {roundHistory.length > 0 && (
           <motion.div
-            className="glass-card p-4 w-full"
+            className="arena-page-section w-full"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
-            <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+            <div className="arena-section-label mb-3">
               Round History
             </div>
             <div className="flex flex-col gap-1.5">
               {roundHistory.map((round) => (
                 <div
                   key={round.round}
-                  className="rounded-xl px-3 py-2 text-sm"
-                  style={{ background: 'rgba(255,255,255,0.03)' }}
+                  className="arena-soft-row rounded-xl px-3 py-2 text-sm"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-text-muted text-xs w-7 flex-shrink-0">R{round.round}</span>

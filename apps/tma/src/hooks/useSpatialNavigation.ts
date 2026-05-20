@@ -188,7 +188,7 @@ export function useSpatialNavigation() {
     };
   }, [focusElement]);
 
-  // Reset on screen change — observe DOM mutations
+  // Reset on screen change by observing DOM mutations.
   useEffect(() => {
     const observer = new MutationObserver(() => {
       if (activeRef.current && !document.contains(activeRef.current)) {

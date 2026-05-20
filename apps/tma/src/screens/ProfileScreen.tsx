@@ -120,14 +120,14 @@ export function ProfileScreen() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto scrollbar-hide bg-game-bg">
+    <div className="game-home-stage flex flex-col h-full overflow-y-auto scrollbar-hide">
       <div className="flex flex-col gap-4 p-4">
         {/* Header */}
         <div className="flex items-center gap-3">
           <button
             data-nav
             className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+            style={{ background: 'oklch(21% 0.045 252 / 0.9)', border: '1px solid oklch(43% 0.055 252 / 0.72)', boxShadow: '0 8px 18px oklch(3% 0.02 252 / 0.42)' }}
             onClick={() => setScreen('home')}
           >
             <ArrowLeftIcon size={18} className="text-text-secondary" />
@@ -135,9 +135,9 @@ export function ProfileScreen() {
           <h1 className="text-xl font-black text-text-primary">Profile</h1>
         </div>
 
-        {/* Player card */}
+        {/* Player */}
         <motion.div
-          className="glass-card p-5 flex flex-col items-center gap-4"
+          className="arena-profile-hero flex flex-col items-center gap-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -145,8 +145,9 @@ export function ProfileScreen() {
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black border-4 overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, #7c3aed, #3b82f6)',
-              borderColor: 'rgba(255,255,255,0.2)',
+              background: 'linear-gradient(135deg, oklch(88% 0.12 87), oklch(68% 0.135 238))',
+              borderColor: 'oklch(100% 0 0 / 0.2)',
+              boxShadow: '0 14px 28px oklch(3% 0.02 252 / 0.44)',
             }}
           >
             {telegramUser?.photo_url ? (
@@ -189,8 +190,8 @@ export function ProfileScreen() {
                   type="submit"
                   className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-40"
                   style={{
-                    background: canSaveWebName ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.06)',
-                    border: canSaveWebName ? '1px solid rgba(34,197,94,0.45)' : '1px solid rgba(255,255,255,0.1)',
+                    background: canSaveWebName ? 'oklch(22% 0.055 145 / 0.78)' : 'oklch(10% 0.035 252 / 0.48)',
+                    border: canSaveWebName ? '1px solid oklch(57% 0.15 145 / 0.45)' : '1px solid oklch(43% 0.055 252 / 0.58)',
                   }}
                   disabled={!canSaveWebName}
                   whileTap={canSaveWebName ? { scale: 0.95 } : {}}
@@ -230,24 +231,24 @@ export function ProfileScreen() {
 
         {/* Balance */}
         <motion.div
-          className="glass-card p-4 text-center"
+          className="arena-page-section text-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
         >
-          <div className="text-xs text-text-secondary uppercase tracking-widest mb-2">{currency} Balance</div>
+          <div className="arena-section-label mb-2">{currency} Balance</div>
           <div className="glow-text-gold text-4xl font-black">{elmBalance.toLocaleString()}</div>
           <div className="text-xs text-text-muted mt-1">tokens</div>
         </motion.div>
 
         {/* Stats grid */}
         <motion.div
-          className="glass-card p-4"
+          className="arena-page-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+          <div className="arena-section-label mb-3">
             Combat Stats
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -258,8 +259,7 @@ export function ProfileScreen() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="flex flex-col items-center gap-1 p-3 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.04)' }}
+                className="arena-soft-row flex flex-col items-center gap-1 rounded-xl p-3"
               >
                 {stat.icon}
                 <span
@@ -281,7 +281,7 @@ export function ProfileScreen() {
             </div>
             <div
               className="h-2 rounded-full w-full overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.06)' }}
+              style={{ background: 'oklch(10% 0.035 252 / 0.72)' }}
             >
               <motion.div
                 className="h-full rounded-full"
@@ -302,12 +302,12 @@ export function ProfileScreen() {
 
         {/* Rival stats */}
         <motion.div
-          className="glass-card p-4"
+          className="arena-page-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.13 }}
         >
-          <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-3">
+          <div className="arena-section-label mb-3">
             Rival Stats
           </div>
           {opponentStats.length === 0 ? (
@@ -323,14 +323,13 @@ export function ProfileScreen() {
               {opponentStats.slice(0, 8).map((rival) => (
                 <div
                   key={rival.opponentName}
-                  className="rounded-xl p-3"
-                  style={{ background: 'rgba(255,255,255,0.04)' }}
+                  className="arena-soft-row rounded-xl p-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm font-black text-text-primary truncate">{rival.opponentName}</div>
                       <div className="text-[11px] text-text-secondary">
-                        {rival.matches} games · {opponentWinRate(rival)}% win rate
+                        {rival.matches} games / {opponentWinRate(rival)}% win rate
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-right flex-shrink-0">
@@ -350,7 +349,7 @@ export function ProfileScreen() {
                   </div>
                   <div
                     className="mt-2 h-1.5 rounded-full overflow-hidden"
-                    style={{ background: 'rgba(255,255,255,0.06)' }}
+                    style={{ background: 'oklch(10% 0.035 252 / 0.72)' }}
                   >
                     <motion.div
                       className="h-full rounded-full bg-energy-high"
@@ -367,13 +366,13 @@ export function ProfileScreen() {
 
         {/* Wallet History */}
         <motion.div
-          className="glass-card p-4"
+          className="arena-page-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
         >
           <div className="flex items-center justify-between gap-3 mb-3">
-            <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase">
+            <div className="arena-section-label">
               Wallet History
             </div>
             {walletHistoryStatus === 'loading' ? (
@@ -397,8 +396,7 @@ export function ProfileScreen() {
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between gap-3 py-2.5 px-3 rounded-xl text-sm"
-                    style={{ background: 'rgba(255,255,255,0.03)' }}
+                    className="arena-soft-row flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm"
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="flex-shrink-0">{historyIcon(item)}</span>
@@ -425,7 +423,7 @@ export function ProfileScreen() {
 
         {totalGames === 0 && (
           <motion.div
-            className="glass-card p-4 text-center"
+            className="arena-page-section text-center"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -549,9 +547,9 @@ function historyStatusClass(status: WalletHistoryStatus): string {
 }
 
 function historyAmountLabel(item: HistoryDisplayItem, currency: EconomyCurrency): string {
-  if (item.kind === 'stars_purchase') return `${item.starsAmount ?? 0}★`;
-  if (item.kind === 'stars_refund') return `+${item.starsAmount ?? 0}★`;
-  if (item.elmAmount === 0) return '—';
+  if (item.kind === 'stars_purchase') return `${item.starsAmount ?? 0} Stars`;
+  if (item.kind === 'stars_refund') return `+${item.starsAmount ?? 0} Stars`;
+  if (item.elmAmount === 0) return 'n/a';
   return formatCurrencyAmount(item.elmAmount, currency, { signed: true });
 }
 
