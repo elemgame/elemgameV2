@@ -22,7 +22,9 @@ The manual gate mirrors `.github/workflows/ci.yml`:
 - matrix parity
 - TMA tests
 - payments tests and build
-- Playwright Chromium install
+- Playwright Chromium install. GitHub Actions installs system dependencies with
+  `--with-deps`; local gates install the browser binary only because `--with-deps`
+  requires interactive sudo on many developer machines.
 - local mock smoke
 - payments UI smoke
 - SpacetimeDB module build

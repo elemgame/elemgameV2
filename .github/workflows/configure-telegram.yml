@@ -11,6 +11,10 @@ on:
         description: Optional explicit Telegram webhook URL. Defaults to VITE_PAYMENTS_URL + /telegram/webhook.
         required: false
         type: string
+      menu_chat_ids:
+        description: Optional comma/space separated Telegram chat IDs whose menu buttons should be updated.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -35,5 +39,6 @@ jobs:
           TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME || 'elemgamebot' }}
           TELEGRAM_WEBAPP_URL: ${{ inputs.webapp_url || format('https://elemgame.github.io/elemgameV2/?v={0}', github.sha) }}
           TELEGRAM_WEBHOOK_URL: ${{ inputs.webhook_url || vars.TELEGRAM_WEBHOOK_URL }}
+          TELEGRAM_MENU_CHAT_IDS: ${{ inputs.menu_chat_ids || vars.TELEGRAM_MENU_CHAT_IDS }}
           VITE_PAYMENTS_URL: ${{ vars.VITE_PAYMENTS_URL }}
           PAYMENTS_WEBHOOK_SECRET: ${{ secrets.PAYMENTS_WEBHOOK_SECRET || vars.PAYMENTS_WEBHOOK_SECRET }}

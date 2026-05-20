@@ -5,9 +5,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { spawnCommandSync } from './process-helpers.mjs';
 
-const playwrightInstallArgs = process.platform === 'win32'
-  ? ['exec', 'playwright', 'install', 'chromium']
-  : ['exec', 'playwright', 'install', '--with-deps', 'chromium'];
+const playwrightInstallArgs = process.env.CI === 'true' && process.platform !== 'win32'
+  ? ['exec', 'playwright', 'install', '--with-deps', 'chromium']
+  : ['exec', 'playwright', 'install', 'chromium'];
 
 const CI_STEPS = [
   step('Install dependencies', 'pnpm', ['install', '--frozen-lockfile']),

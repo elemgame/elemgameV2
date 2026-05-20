@@ -5,6 +5,7 @@ const webhookUrl = normalizeWebhookUrl(
 );
 const webhookSecret = readEnv('PAYMENTS_WEBHOOK_SECRET') ?? readEnv('TELEGRAM_WEBHOOK_SECRET');
 const expectedBotUsername = (readEnv('TELEGRAM_BOT_USERNAME') ?? 'elemgamebot').replace(/^@/, '');
+const menuChatIds = parseChatIds(readEnv('TELEGRAM_MENU_CHAT_IDS'));
 
 if (!token || token === 'your_bot_token_here' || token === 'placeholder_bot_token') {
   fail('Set TELEGRAM_BOT_TOKEN before running telegram:configure.');
@@ -47,17 +48,32 @@ await callTelegram('setMyCommands', {
 });
 console.log(`[telegram] Commands configured: ${activeCommands.map((command) => `/${command.command}`).join(' ')}`);
 
+const menuButtonPayload = {
+  type: 'web_app',
+  text: 'Play Elmental',
+  web_app: { url: webappUrl },
+};
+
 await callTelegram('setChatMenuButton', {
-  menu_button: {
-    type: 'web_app',
-    text: 'Play Elmental',
-    web_app: { url: webappUrl },
-  },
+  menu_button: menuButtonPayload,
 });
-console.log(`[telegram] Menu button configured: ${webappUrl}`);
+console.log(`[telegram] Default menu button configured: ${webappUrl}`);
 
 const menuButton = await callTelegram('getChatMenuButton');
-console.log(`[telegram] Current menu button: ${JSON.stringify(menuButton)}`);
+console.log(`[telegram] Current default menu button: ${JSON.stringify(menuButton)}`);
+
+for (const chatId of menuChatIds) {
+  try {
+    await callTelegram('setChatMenuButton', {
+      chat_id: chatId,
+      menu_button: menuButtonPayload,
+    }, { fatal: false });
+    const chatMenuButton = await callTelegram('getChatMenuButton', { chat_id: chatId }, { fatal: false });
+    console.log(`[telegram] Chat ${chatId} menu button: ${JSON.stringify(chatMenuButton)}`);
+  } catch (error) {
+    console.warn(`[telegram] Could not configure menu button for chat ${chatId}: ${formatError(error)}`);
+  }
+}
 
 if (webhookUrl) {
   const webhookPayload = {
@@ -88,7 +104,16 @@ function normalizeWebhookUrl(value) {
   return `${url}/telegram/webhook`;
 }
 
-async function callTelegram(method, payload) {
+function parseChatIds(value) {
+  if (!value) return [];
+  return value
+    .split(/[,\s]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => (/^-?\d+$/.test(entry) ? Number(entry) : entry));
+}
+
+async function callTelegram(method, payload, options = {}) {
   const response = await fetch(`${apiBase}/${method}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -98,10 +123,18 @@ async function callTelegram(method, payload) {
 
   if (!response.ok || !body?.ok) {
     const description = body?.description ?? `${response.status} ${response.statusText}`;
-    fail(`Telegram ${method} failed: ${description}`);
+    const message = `Telegram ${method} failed: ${description}`;
+    if (options.fatal === false) {
+      throw new Error(message);
+    }
+    fail(message);
   }
 
   return body.result;
+}
+
+function formatError(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function fail(message) {
