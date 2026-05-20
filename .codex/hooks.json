@@ -20,8 +20,8 @@
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/pre_tool_use_git_sync.mjs\"",
-            "timeout": 60,
-            "statusMessage": "Checking repository freshness"
+            "timeout": 1800,
+            "statusMessage": "Checking repository freshness and CI gate"
           }
         ]
       }

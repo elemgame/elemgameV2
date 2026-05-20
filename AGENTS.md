@@ -20,15 +20,28 @@ When creating, triaging, or editing GitHub issues and pull requests, use the rep
 Codex project hooks are configured in `.codex/hooks.json`:
 
 - `SessionStart` runs `scripts/codex-agent-sync.sh` on startup, resume, and clear.
-- `PreToolUse` runs the same sync before Codex executes `git commit` or `git push`.
+- `PreToolUse` runs the same sync before Codex executes `git commit` or `git push`, then runs `scripts/codex-ci-gate.mjs` for non-markdown changes.
 
 Before manual `git commit` or `git push` outside Codex, run:
 
 ```bash
 bash scripts/codex-agent-sync.sh
+node scripts/codex-ci-gate.mjs
 ```
 
 The sync script fetches `origin/<current-branch>` and fast-forwards only when the worktree is clean. If it reports local changes while behind, or a diverged branch, stop and surface that state instead of rebasing, stashing, or overwriting user work.
+
+The CI gate mirrors the automatic `CI` workflow for manual verification, caches a passing result by git tree in `.git/codex-ci-gate.json`, and may skip markdown-only changes because GitHub workflows ignore `**/*.md`. The pre-commit and pre-push gates intentionally skip `pnpm test:stdb-local-scenarios` because it is a slow SpacetimeDB/Vite/browser integration scenario that waits on scheduler timeouts; keep it for manual verification and GitHub Actions. Do not bypass the gate unless the user explicitly approves an emergency bypass; if bypassed, set `CODEX_CI_GUARD_SKIP=1` and state the reason.
+
+## CI Guard Skill
+
+Use the project skill `.agents/skills/ci-guard` whenever:
+
+- inspecting or fixing a GitHub Actions run, job, check, or log URL;
+- preparing to `git commit` or `git push`;
+- verifying a pushed commit on GitHub Actions.
+
+After pushing to `main`, inspect the automatic GitHub Actions workflows for the pushed SHA. Required automatic workflows are `CI` and `Deploy TMA to GitHub Pages`. Manual public smoke workflows are required only when explicitly requested.
 
 ## Architecture
 

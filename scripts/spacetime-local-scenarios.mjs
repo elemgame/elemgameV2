@@ -1,9 +1,9 @@
-import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
+import { spawnCommand, stopProcessTree } from './process-helpers.mjs';
 
 const repoRoot = new URL('..', import.meta.url);
 const headless = process.env.SMOKE_HEADLESS !== 'false';
@@ -714,7 +714,7 @@ function assertSqlRow(output, values, label) {
 }
 
 function startProcess(command, args, options = {}) {
-  return spawn(command, args, {
+  return spawnCommand(command, args, {
     cwd: options.cwd,
     env: options.env ?? process.env,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -747,7 +747,7 @@ async function waitForHttp(url, child, label) {
 
 async function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const child = spawnCommand(command, args, {
       cwd: options.cwd,
       env: options.env ?? process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -773,26 +773,7 @@ async function runCommand(command, args, options = {}) {
 }
 
 async function stopChildProcess(child) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return;
-
-  const kill = (signal) => {
-    try {
-      if (child.pid && process.platform !== 'win32') {
-        process.kill(-child.pid, signal);
-      } else {
-        child.kill(signal);
-      }
-    } catch {
-      // The process may already be gone.
-    }
-  };
-
-  kill('SIGTERM');
-  const exited = await Promise.race([
-    new Promise((resolve) => child.once('exit', resolve)),
-    new Promise((resolve) => setTimeout(() => resolve('timeout'), 3000)),
-  ]);
-  if (exited === 'timeout') kill('SIGKILL');
+  await stopProcessTree(child, 3000);
 }
 
 async function getFreePort() {

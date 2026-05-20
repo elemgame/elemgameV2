@@ -1,7 +1,7 @@
-import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import net from 'node:net';
 import { chromium } from '@playwright/test';
+import { spawnCommand, stopProcessTree } from './process-helpers.mjs';
 
 const port = await getFreePort();
 const baseUrl = `http://127.0.0.1:${port}/`;
@@ -11,10 +11,7 @@ const headless = process.env.SMOKE_HEADLESS !== 'false';
 const errors = [];
 const events = [];
 const paymentCalls = [];
-const pnpmEntrypoint = process.env.npm_execpath;
-const pnpmCommand = pnpmEntrypoint ? process.execPath : 'pnpm';
 const pnpmArgs = [
-  ...(pnpmEntrypoint ? [pnpmEntrypoint] : []),
   '--filter',
   '@elmental/tma',
   'dev',
@@ -25,8 +22,8 @@ const pnpmArgs = [
   '--strictPort',
 ];
 
-const server = spawn(
-  pnpmCommand,
+const server = spawnCommand(
+  'pnpm',
   pnpmArgs,
   {
     cwd: new URL('..', import.meta.url),
@@ -394,35 +391,7 @@ async function waitForServer(process, url) {
 }
 
 async function stopChildProcess(child) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return;
-
-  if (process.platform === 'win32' && child.pid) {
-    await new Promise((resolve) => {
-      const killer = spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
-      killer.once('exit', resolve);
-      killer.once('error', resolve);
-    });
-    return;
-  }
-
-  const kill = (signal) => {
-    try {
-      if (child.pid) {
-        process.kill(-child.pid, signal);
-      } else {
-        child.kill(signal);
-      }
-    } catch {
-      // The process may already be gone.
-    }
-  };
-
-  kill('SIGTERM');
-  const exited = await Promise.race([
-    new Promise((resolve) => child.once('exit', resolve)),
-    new Promise((resolve) => setTimeout(() => resolve('timeout'), 2000)),
-  ]);
-  if (exited === 'timeout') kill('SIGKILL');
+  await stopProcessTree(child, 2000);
 }
 
 async function getFreePort() {

@@ -55,7 +55,33 @@ if (syncResult.stderr) {
 }
 
 if (syncResult.status === 0) {
-  process.exit(0);
+  const ciGateScript = resolve(root, "scripts/codex-ci-gate.mjs");
+  if (!existsSync(ciGateScript)) {
+    process.exit(0);
+  }
+
+  const ciGateResult = spawnSync(process.execPath, [ciGateScript, "--pretool"], {
+    cwd: root,
+    input: stdin,
+    encoding: "utf8",
+    env: process.env,
+  });
+
+  if (ciGateResult.stdout) {
+    process.stderr.write(ciGateResult.stdout);
+  }
+  if (ciGateResult.stderr) {
+    process.stderr.write(ciGateResult.stderr);
+  }
+
+  if (ciGateResult.status === 0) {
+    process.exit(0);
+  }
+
+  console.error(
+    `[ci-gate] Refusing to run '${firstCommandLine(command)}' until local CI gate passes.`
+  );
+  process.exit(2);
 }
 
 console.error(

@@ -1,0 +1,8 @@
+interface:
+  display_name: "CI Guard"
+  short_description: "Check CI before commits and pushes"
+  default_prompt: "Use $ci-guard to inspect failing GitHub Actions, run the local CI gate, and verify the pushed commit."
+
+policy:
+  allow_implicit_invocation: true
+
