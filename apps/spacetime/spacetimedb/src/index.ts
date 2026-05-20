@@ -1924,12 +1924,12 @@ function calculateEnergy(energy: number, move: number, result: string, mode: str
 
 function roundOutcome(p1Move: number, p2Move: number) {
   const matrix = [
-    ['draw', 'lose', 'win', 'lose', 'win', 'lose'],
-    ['win', 'draw', 'lose', 'lose', 'lose', 'win'],
-    ['lose', 'win', 'draw', 'win', 'lose', 'lose'],
-    ['win', 'win', 'lose', 'draw', 'lose', 'win'],
-    ['lose', 'win', 'win', 'win', 'draw', 'lose'],
-    ['win', 'lose', 'win', 'lose', 'win', 'draw'],
+    ['draw', 'lose', 'win', 'lose', 'lose', 'draw'],
+    ['win', 'draw', 'lose', 'draw', 'lose', 'lose'],
+    ['lose', 'win', 'draw', 'lose', 'draw', 'lose'],
+    ['win', 'draw', 'win', 'draw', 'lose', 'win'],
+    ['win', 'win', 'draw', 'win', 'draw', 'lose'],
+    ['draw', 'win', 'win', 'lose', 'win', 'draw'],
   ] as const;
   return matrix[p1Move]?.[p2Move] ?? 'draw';
 }

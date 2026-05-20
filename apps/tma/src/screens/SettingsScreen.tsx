@@ -248,9 +248,9 @@ export function SettingsScreen() {
           </div>
           <div className="flex flex-col gap-3 text-xs text-text-secondary">
             {[
-              { icon: <EarthIcon size={16} className="text-earth-light" />, title: 'Earth beats Water & Fire+', desc: 'Loses to Fire & Earth+' },
-              { icon: <FireIcon size={16} className="text-fire" />, title: 'Fire beats Earth & Water+', desc: 'Loses to Water & Fire+' },
-              { icon: <WaterIcon size={16} className="text-water-light" />, title: 'Water beats Fire & Earth+', desc: 'Loses to Earth & Water+' },
+              { icon: <EarthIcon size={16} className="text-earth-light" />, title: 'Earth beats Water; draws Water+', desc: 'Loses to Fire, Earth+ & Fire+' },
+              { icon: <FireIcon size={16} className="text-fire" />, title: 'Fire beats Earth; draws Earth+', desc: 'Loses to Water, Fire+ & Water+' },
+              { icon: <WaterIcon size={16} className="text-water-light" />, title: 'Water beats Fire; draws Fire+', desc: 'Loses to Earth, Earth+ & Water+' },
               { icon: <BoltIcon size={16} className="text-gold" />, title: 'Energy Management', desc: 'Basic: 10 | Enhanced: 25' },
               { icon: <FlameIcon size={16} className="text-fire" />, title: 'Enhanced Moves', desc: 'Stronger but more energy: use wisely' },
               { icon: <SkullIcon size={16} className="text-energy-low" />, title: 'Overclock', desc: '30% chance your move randomizes at low energy!' },

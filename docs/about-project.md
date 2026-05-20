@@ -180,12 +180,12 @@ Outcome matrix:
 
 ```text
          Earth   Fire   Water   Earth+  Fire+   Water+
-Earth     Draw   Lose   Win     Lose    Win     Lose
-Fire      Win    Draw   Lose    Lose    Lose    Win
-Water     Lose   Win    Draw    Win     Lose    Lose
-Earth+    Win    Win    Lose    Draw    Lose    Win
-Fire+     Lose   Win    Win     Win     Draw    Lose
-Water+    Win    Lose   Win     Lose    Win     Draw
+Earth     Draw   Lose   Win     Lose    Lose    Draw
+Fire      Win    Draw   Lose    Draw    Lose    Lose
+Water     Lose   Win    Draw    Lose    Draw    Lose
+Earth+    Win    Draw   Win     Draw    Lose    Win
+Fire+     Win    Win    Draw    Win     Draw    Lose
+Water+    Draw   Win    Win     Lose    Win     Draw
 ```
 
 ## Important Boundaries
