@@ -11,10 +11,23 @@ const headless = process.env.SMOKE_HEADLESS !== 'false';
 const errors = [];
 const events = [];
 const paymentCalls = [];
+const pnpmEntrypoint = process.env.npm_execpath;
+const pnpmCommand = pnpmEntrypoint ? process.execPath : 'pnpm';
+const pnpmArgs = [
+  ...(pnpmEntrypoint ? [pnpmEntrypoint] : []),
+  '--filter',
+  '@elmental/tma',
+  'dev',
+  '--host',
+  '127.0.0.1',
+  '--port',
+  String(port),
+  '--strictPort',
+];
 
 const server = spawn(
-  'pnpm',
-  ['--filter', '@elmental/tma', 'dev', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
+  pnpmCommand,
+  pnpmArgs,
   {
     cwd: new URL('..', import.meta.url),
     env: {
@@ -92,7 +105,7 @@ async function verifyTelegramPaymentControls(page) {
 
   await clickButton(page, /Refund unused ELM/i);
   await page.waitForFunction(() => /Next refundable lot: 1 Stars for 100 unused ELM\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
-  await clickButton(page, /1\s*\u2605\s*\/\s*100 ELM/i);
+  await clickButton(page, /1\s*(?:Stars|\u2605)\s*\/\s*100 ELM/i);
   await page.waitForFunction(() => /Refunded 1 Stars\. Balance updates from server\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
 
   await page.getByRole('button').first().click();
@@ -383,9 +396,18 @@ async function waitForServer(process, url) {
 async function stopChildProcess(child) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
 
+  if (process.platform === 'win32' && child.pid) {
+    await new Promise((resolve) => {
+      const killer = spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+      killer.once('exit', resolve);
+      killer.once('error', resolve);
+    });
+    return;
+  }
+
   const kill = (signal) => {
     try {
-      if (child.pid && process.platform !== 'win32') {
+      if (child.pid) {
         process.kill(-child.pid, signal);
       } else {
         child.kill(signal);
