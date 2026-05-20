@@ -1,6 +1,6 @@
 # Elmental V2: Project Overview
 
-Elmental V2 is a Telegram Mini App PvP game prototype. The current production-like test path is a real multiplayer mechanics instance backed by SpacetimeDB, without blockchain settlement.
+Elmental V2 is a PvP dApp game intended to work across a future multi-blockchain infrastructure. Telegram Mini App, web, Devvit by Reddit, and similar surfaces are entry points into the same game, not the product definition. The current production-like test path is a Telegram Mini App-based real multiplayer mechanics instance backed by SpacetimeDB, without blockchain settlement.
 
 The active flow is:
 

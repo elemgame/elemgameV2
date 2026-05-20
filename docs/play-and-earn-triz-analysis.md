@@ -260,7 +260,7 @@ TRIZ-принципы:
 - Season Points начисляются win/draw/loss детерминированно;
 - refund возвращает только unspent purchased ELM;
 - bonus/season rewards не refundable;
-- web tELM остается demo-only;
+- test/demo `tELM` остается demo-only независимо от entry point;
 - admin adjustment пишет audit row;
 - wallet history не смешивает paid balance и season progression.
 

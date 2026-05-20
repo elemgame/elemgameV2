@@ -35,7 +35,7 @@ production self-host cutover без закрытия операционных з
 - winner does not receive opponent paid ELM;
 - match settlement awards rating and Season Points;
 - refund is limited to unused eligible purchased ELM lots;
-- web users stay on demo `tELM`;
+- test/demo environments use demo `tELM` regardless of entry point;
 - blockchain settlement is deferred.
 
 ## Что было противоречивым
@@ -78,7 +78,7 @@ gambling-like модель под другим названием. В этой �
 - Season Points after win/loss/draw;
 - no paid ELM transfer from loser to winner;
 - refund quote/rejection for spent or non-refundable ELM;
-- web demo `tELM` flow without Stars controls;
+- test/demo `tELM` flow without Stars controls;
 - admin/support lookup and audited balance operations where available.
 
 Нельзя считать готовым:

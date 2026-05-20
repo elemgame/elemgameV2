@@ -75,13 +75,13 @@ References:
 - [ ] A `game_event` or equivalent audit row records successful paid balance credit.
 - [ ] Typecheck/build passes.
 
-### US-005: Separate Telegram ELM From Web tELM
-**Description:** As a web demo user, I want to play with test coins while understanding they are not paid ELM.
+### US-005: Separate Paid ELM From Test/Demo tELM
+**Description:** As a user in a test or demo environment, I want to play with test coins while understanding they are not paid ELM.
 
 **Acceptance Criteria:**
-- [ ] Web/browser fallback users see `tELM` labels instead of `ELM` for balances, match costs, and economy history.
-- [ ] Web users do not see Stars top-up or reverse conversion buttons.
-- [ ] Telegram users see paid `ELM` labels and Stars payment controls.
+- [ ] Test/demo users, including current web/browser fallback users, see `tELM` labels instead of `ELM` for balances, match costs, and economy history.
+- [ ] Users in test/demo environments do not see Stars top-up or reverse conversion buttons.
+- [ ] Production Telegram users see paid `ELM` labels and Stars payment controls.
 - [ ] Public bug reports include whether the session uses `ELM` or `tELM`.
 - [ ] Typecheck/build passes.
 - [ ] Verify in browser using dev-browser skill.
@@ -92,7 +92,7 @@ References:
 **Acceptance Criteria:**
 - [ ] Telegram accounts pay entry fees from server-authoritative paid `ELM`.
 - [ ] Existing match creation, entry-fee debit, cancellation/timeout refund eligibility, and boost-cost logic use the correct paid balance.
-- [ ] Web users continue spending demo `tELM` in the demo economy.
+- [ ] Users in test/demo environments continue spending demo `tELM` in the demo economy.
 - [ ] Paid and demo balances cannot be matched or transferred into each other accidentally.
 - [ ] Typecheck/build passes.
 
@@ -171,8 +171,8 @@ References:
 ## Design Considerations
 
 - Add a compact wallet/top-up surface rather than a marketing-style page.
-- Telegram mode should label the balance as `ELM`.
-- Web mode should label the balance as `tELM` everywhere a user sees balance, match cost, or history.
+- The current paid Telegram entry point should label the balance as `ELM`.
+- Test/demo mode should label the balance as `tELM` everywhere a user sees balance, match cost, or history, regardless of entry point.
 - Top-up controls should be package cards or segmented options with the Star amount and resulting ELM amount.
 - Reverse conversion must use careful copy:
   - Example: `Convert refundable ELM back to Stars`
@@ -190,9 +190,9 @@ References:
 - Store payment lots so reverse conversion can map ELM back to the original Stars charge IDs.
 - SpacetimeDB should remain authoritative for gameplay balances, but payment crediting needs a trusted server-to-SpacetimeDB path.
 - Consider adding a payment reducer such as `credit_paid_elm` callable only by a trusted payment service identity, or a server-side admin process that writes payment-derived balance changes.
-- Public test deployment must avoid breaking web demo users who have no Telegram Stars context.
+- Public test deployment must avoid breaking users in test/demo environments who have no Telegram Stars context.
 - Existing smoke tests should be extended for:
-  - web mode uses `tELM`
+  - test/demo mode uses `tELM`
   - Telegram mock mode shows payment controls
   - successful payment webhook credits exactly once
   - reverse conversion cannot exceed refundable lots
@@ -202,7 +202,7 @@ References:
 - At least 95% of successful Telegram Stars payments credit ELM within 5 seconds of Telegram successful payment update.
 - Zero duplicate credits from replayed payment updates in automated tests.
 - Zero client-side balance credits outside explicit mock/demo transport.
-- Web users see no paid ELM or Stars controls in smoke tests.
+- Users in test/demo environments see no paid ELM or Stars controls in smoke tests.
 - Support/debug logs can identify a payment by Telegram charge ID in under one minute.
 - Public smoke tests pass after enabling payment UI in Telegram and preserving web demo flow.
 

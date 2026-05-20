@@ -14,7 +14,7 @@ The new model keeps the skill-based PvP game intact, but changes economic settle
 - Paid `ELM` is spent as a match entry fee, not wagered into a player-funded prize pool.
 - Winners earn rating, Season Points, and status progression, not the opponent's paid `ELM`.
 - Refunds apply only to unused purchased `ELM` lots that can be mapped back to original Telegram Stars payments.
-- Web users continue to play with demo-only `tELM`.
+- Test and demo environments continue to use demo-only `tELM` regardless of entry point.
 
 This PRD is based on `docs/play-and-earn-triz-analysis.md`.
 
@@ -47,7 +47,7 @@ This PRD is based on `docs/play-and-earn-triz-analysis.md`.
 **Acceptance Criteria:**
 - [ ] Add server-authoritative `season_points` to durable account/player state, or add an equivalent season progression table keyed by account ID.
 - [ ] Existing accounts default to `0` Season Points.
-- [ ] Telegram `paid_elm` users and web `demo_teml` users can both earn Season Points.
+- [ ] Telegram `paid_elm` users and users in `demo_teml` test/demo environments can both earn Season Points.
 - [ ] Frontend receives Season Points from subscribed/server data, not from local-only calculation.
 - [ ] Generated SpacetimeDB bindings are regenerated if schema changes.
 - [ ] Typecheck/build passes.
@@ -132,7 +132,7 @@ This PRD is based on `docs/play-and-earn-triz-analysis.md`.
 - [ ] Home screen uses `Entry Fee` or `Match Cost`, not `Stake`, for production paid matches.
 - [ ] Balance card distinguishes paid `ELM`, demo `tELM`, and Season Points.
 - [ ] Telegram users still see Stars top-up packages at `1 XTR = 100 ELM`.
-- [ ] Web users continue to see demo `tELM` and no Stars controls.
+- [ ] Users in test/demo environments continue to see demo `tELM` and no Stars controls.
 - [ ] Energy Boost copy no longer says `+10% stake`; it says `extra match cost` or is disabled for paid production if deferred.
 - [ ] Insufficient balance copy uses entry fee terminology.
 - [ ] Verify in browser using dev-browser skill.
@@ -207,7 +207,7 @@ This PRD is based on `docs/play-and-earn-triz-analysis.md`.
 - FR-12: First-win-of-day bonus is optional for phase 1 and must be implemented only if daily tracking exists.
 - FR-13: Telegram Stars purchases must keep the stable package rate `1 XTR = 100 ELM`.
 - FR-14: Paid `ELM` and demo `tELM` must remain separate accounting domains.
-- FR-15: Web users must stay on demo `tELM` and must not see Stars payment or refund controls.
+- FR-15: Users in test/demo environments must stay on demo `tELM` and must not see Stars payment or refund controls.
 - FR-16: Refunds must apply only to eligible unused purchased paid `ELM` lots.
 - FR-17: Spent entry fees must reduce refundable paid ELM availability.
 - FR-18: Bonus/promotional credits, if added, must be non-refundable.

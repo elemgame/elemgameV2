@@ -2,7 +2,9 @@
 
 ## Project
 
-Elmental V2 is a Telegram Mini App PvP game prototype. The current priority is a public mechanics-testing instance with real users, real matchmaking, and no blockchain settlement. Blockchain code and legacy Node server code can stay in the repo, but gameplay fixes should target the SpacetimeDB path first.
+Elmental V2 is a PvP dApp game intended to work across a future multi-blockchain infrastructure. Telegram Mini App, web, Devvit by Reddit, and similar surfaces are entry points into the same game, not the product definition. The current priority is a Telegram Mini App-based public mechanics-testing instance with real users, real matchmaking, and no blockchain settlement. Blockchain code and legacy Node server code can stay in the repo, but gameplay fixes should target the SpacetimeDB path first.
+
+Before planning or changing product behavior, economy, architecture, issues, PRs, or research, read `docs/project-north-star.md`. It is the canonical alignment brief for current goals, future P2E direction, non-goals, and deviation checks.
 
 Public test instance:
 
