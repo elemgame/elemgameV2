@@ -617,7 +617,7 @@ async function waitBalance(page, expectedBalance, timeout = 30_000) {
   await page.waitForFunction(
     ({ expectedBalance }) => {
       const text = document.body.innerText.replace(/\s+/g, ' ');
-      return text.toLowerCase().includes('elm balance') && text.includes(expectedBalance);
+      return /(?:ELM|tELM) (?:Balance|Match Credits)|Demo tELM Credits/i.test(text) && text.includes(expectedBalance);
     },
     { expectedBalance },
     { timeout },
@@ -637,14 +637,15 @@ async function waitSeasonPoints(page, expectedSeasonPoints, timeout = 30_000) {
 
 async function readElmBalance(page, timeout = 30_000) {
   await page.waitForFunction(
-    () => /ELM Balance/i.test(document.body.innerText),
+    () => /(?:ELM|tELM) (?:Balance|Match Credits)|Demo tELM Credits/i.test(document.body.innerText),
     undefined,
     { timeout },
   );
   const text = (await page.locator('body').innerText({ timeout })).replace(/\s+/g, ' ');
-  const match = text.match(/ELM Balance\s*([\d,]+)/i);
+  const match = text.match(/(?:ELM|tELM) (?:Balance|Match Credits)\s*([\d,\s\u00a0]+)/i)
+    ?? text.match(/Demo tELM Credits\s*([\d,\s\u00a0]+)/i);
   if (!match) throw new Error(`Could not read ELM balance from page:\n${text.slice(0, 500)}`);
-  return match[1];
+  return match[1].replace(/\s|\u00a0/g, '');
 }
 
 async function expectLegacySubmitRejected(page, move, expectedMessage) {

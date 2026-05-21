@@ -14,7 +14,8 @@ import { haptic } from '../services/telegram';
 import { refreshTelegramBalance, startMatchmaking } from '../services/gameService';
 import { playerDisplayName } from '../services/playerProfile';
 import {
-  ELM_STARS_PACKAGES,
+  isPaymentsServiceConfigured,
+  isTelegramStarsInvoiceAvailable,
   openTelegramStarsInvoice,
   requestStarsRefund,
   requestStarsRefundQuote,
@@ -30,10 +31,18 @@ import { TrophyIcon } from '../components/icons/TrophyIcon';
 import { VortexIcon } from '../components/icons/VortexIcon';
 import { UserIcon } from '../components/icons/UserIcon';
 import { GearIcon } from '../components/icons/GearIcon';
-import { TelegramStarsIcon } from '../components/icons/TelegramStarsIcon';
 import { BoltIcon } from '../components/icons/BoltIcon';
 import { EarthIcon } from '../components/icons/EarthIcon';
 import { WaterIcon } from '../components/icons/WaterIcon';
+import { TopUpWidget } from '../components/topUp/TopUpWidget';
+import {
+  findTopUpPackage,
+  nextDemoBalance,
+  topUpPackagesForCurrency,
+  topUpStateForInvoiceStatus,
+  type TopUpMode,
+  type TopUpState,
+} from '../services/topUp';
 
 const GAME_MODES = [
   {
@@ -58,14 +67,6 @@ const GAME_MODES = [
     color: '#a855f7',
   },
 ] as const;
-
-type TopUpStatus = 'idle' | 'loading' | TelegramInvoiceStatus;
-
-interface TopUpState {
-  status: TopUpStatus;
-  packageId?: ElmStarsPackageId;
-  message?: string;
-}
 
 interface RefundState {
   status: 'idle' | 'loading' | 'ready' | 'refunded' | 'failed';
@@ -100,8 +101,13 @@ export function HomeScreen() {
   const matchCost = MATCH_ENTRY_FEE + boostStake;
   const canAffordMatch = elmBalance >= matchCost;
   const currency = currencyForUser(telegramUser);
-  const showStarsTopUp = telegramUser?.source === 'telegram' && Boolean(telegramUser.initData);
-  const pendingPackageId = topUpState.status === 'loading' ? topUpState.packageId : undefined;
+  const topUpMode: TopUpMode = telegramUser?.source === 'telegram' ? 'telegram' : 'demo';
+  const topUpPackages = topUpPackagesForCurrency(currency);
+  const topUpUnavailableMessage = topUpUnavailableReason(topUpMode, telegramUser);
+  const effectiveTopUpState: TopUpState = topUpUnavailableMessage
+    ? { status: 'unavailable', message: topUpUnavailableMessage }
+    : topUpState;
+  const showRefundControls = topUpMode === 'telegram' && Boolean(telegramUser?.initData);
   const rewardPreview = [
     { label: 'Clean Win', value: SEASON_POINTS_CLEAN_WIN },
     { label: 'Win', value: SEASON_POINTS_WIN },
@@ -119,15 +125,26 @@ export function HomeScreen() {
   };
 
   const handleTopUp = async (packageId: ElmStarsPackageId) => {
+    if (topUpUnavailableMessage) {
+      haptic.error();
+      setTopUpState({ status: 'unavailable', message: topUpUnavailableMessage });
+      return;
+    }
+
+    if (topUpMode === 'demo') {
+      handleDemoTopUp(packageId);
+      return;
+    }
+
     const initData = telegramUser?.initData ?? '';
     if (!initData) {
       haptic.error();
-      setTopUpState({ status: 'failed', message: 'Telegram session unavailable.' });
+      setTopUpState({ status: 'unavailable', message: 'Payment unavailable in this session.' });
       return;
     }
 
     haptic.selection();
-    setTopUpState({ status: 'loading', packageId, message: 'Opening invoice...' });
+    setTopUpState({ status: 'loading_invoice', packageId, message: 'Opening Stars invoice...' });
 
     try {
       const invoice = await requestStarsInvoice({ initData, packageId });
@@ -135,12 +152,37 @@ export function HomeScreen() {
       setTopUpState(topUpStateForInvoiceStatus(invoiceStatus));
       notifyInvoiceStatus(invoiceStatus);
       if (invoiceStatus === 'paid' && telegramUser) {
-        schedulePaidBalanceSync(telegramUser, elmBalance + invoice.package.elmAmount);
+        schedulePaidBalanceSync(telegramUser, elmBalance + invoice.package.elmAmount, () => {
+          setTopUpState({ status: 'success', packageId, message: 'Balance updated.' });
+        });
       }
     } catch {
       haptic.error();
       setTopUpState({ status: 'failed', message: 'Payment failed.' });
     }
+  };
+
+  const handleDemoTopUp = (packageId: ElmStarsPackageId) => {
+    const pkg = findTopUpPackage(packageId);
+    haptic.selection();
+    setTopUpState({ status: 'loading_invoice', packageId, message: 'Adding demo tELM...' });
+
+    window.setTimeout(() => {
+      const state = useGameStore.getState();
+      state.setPlayerStats({
+        elmBalance: nextDemoBalance(state.elmBalance, packageId),
+        rating: state.rating,
+        wins: state.stats.wins,
+        losses: state.stats.losses,
+        seasonPoints: state.seasonPoints,
+      });
+      haptic.success();
+      setTopUpState({
+        status: 'success',
+        packageId,
+        message: `Added ${pkg.elmAmount.toLocaleString()} demo tELM.`,
+      });
+    }, 160);
   };
 
   const handleRefundQuote = async () => {
@@ -253,7 +295,7 @@ export function HomeScreen() {
           transition={{ delay: 0.1 }}
         >
           <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-1">
-            {currency} Balance
+            {topUpMode === 'telegram' ? 'ELM Match Credits' : 'Demo tELM Credits'}
           </div>
           <motion.div
             className="glow-text-gold text-5xl font-black tabular-nums"
@@ -262,7 +304,7 @@ export function HomeScreen() {
           >
             {elmBalance.toLocaleString()}
           </motion.div>
-          <div className="text-xs font-semibold text-text-secondary mt-1">tokens</div>
+          <div className="text-xs font-semibold text-text-secondary mt-1">match credits</div>
 
           {/* Win/Loss stats */}
           <div className="flex items-center justify-center gap-2 mt-5">
@@ -314,87 +356,45 @@ export function HomeScreen() {
             </div>
           </div>
 
-          {showStarsTopUp ? (
-            <div className="mt-4 pt-4 border-t border-bg-border text-left">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase">
-                  Top up
-                </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-gold">
-                  <TelegramStarsIcon size={12} />
-                  Stars
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {ELM_STARS_PACKAGES.map((pkg) => {
-                  const isPending = pendingPackageId === pkg.id;
-                  const disabled = topUpState.status === 'loading';
-                  return (
-                    <motion.button
-                      key={pkg.id}
-                      data-nav
-                      className="min-h-[58px] rounded-xl border px-2 py-2 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-60 disabled:cursor-wait"
-                      style={{
-                        borderColor: isPending ? 'oklch(78% 0.15 83)' : 'oklch(72% 0.04 73 / 0.5)',
-                        background: isPending ? 'oklch(32% 0.09 83 / 0.58)' : 'oklch(10% 0.035 252 / 0.48)',
-                        boxShadow: isPending ? '0 10px 20px oklch(78% 0.15 83 / 0.22)' : '0 5px 12px oklch(3% 0.02 252 / 0.26)',
-                      }}
-                      disabled={disabled}
-                      whileTap={!disabled ? { scale: 0.96 } : undefined}
-                      onClick={() => void handleTopUp(pkg.id)}
-                    >
-                      <span className="flex items-center justify-center gap-1 text-sm font-black text-gold leading-none">
-                        <TelegramStarsIcon size={13} />
-                        {pkg.starsAmount}
-                      </span>
-                      <span className="text-[11px] font-bold text-text-primary leading-tight">
-                        {pkg.elmAmount.toLocaleString()} ELM
-                      </span>
-                    </motion.button>
-                  );
-                })}
-              </div>
-              {topUpState.message ? (
-                <div
-                  role="status"
-                  className={`mt-3 text-xs font-semibold leading-tight ${topUpStatusClass(topUpState.status)}`}
-                >
-                  {topUpState.message}
-                </div>
-              ) : null}
+          <TopUpWidget
+            mode={topUpMode}
+            packages={topUpPackages}
+            state={effectiveTopUpState}
+            onSelectPackage={(packageId) => void handleTopUp(packageId)}
+          />
 
-              <div className="mt-4 pt-4 border-t border-bg-border">
-                <div className="flex items-center justify-between gap-2">
+          {showRefundControls ? (
+            <div className="mt-4 pt-4 border-t border-bg-border text-left">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  data-nav
+                  className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-bold text-text-primary disabled:opacity-60"
+                  style={{ background: 'oklch(10% 0.035 252 / 0.48)', borderColor: 'oklch(43% 0.055 252 / 0.58)' }}
+                  disabled={refundState.status === 'loading'}
+                  onClick={() => void handleRefundQuote()}
+                >
+                  Refund unused ELM
+                </button>
+                {refundState.quote?.nextLot ? (
                   <button
                     data-nav
-                    className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-bold text-text-primary disabled:opacity-60"
-                    style={{ background: 'oklch(10% 0.035 252 / 0.48)', borderColor: 'oklch(43% 0.055 252 / 0.58)' }}
+                    className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-black text-gold disabled:opacity-60"
+                    style={{ background: 'oklch(32% 0.09 83 / 0.42)', borderColor: 'oklch(78% 0.15 83 / 0.55)' }}
                     disabled={refundState.status === 'loading'}
-                    onClick={() => void handleRefundQuote()}
+                    onClick={() => void handleRefundNextLot()}
                   >
-                    Refund unused ELM
+                    {refundState.quote.nextLot.starsAmount} Stars / {refundState.quote.nextLot.elmAmount} ELM
                   </button>
-                  {refundState.quote?.nextLot ? (
-                    <button
-                      data-nav
-                      className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-black text-gold disabled:opacity-60"
-                      style={{ background: 'oklch(32% 0.09 83 / 0.42)', borderColor: 'oklch(78% 0.15 83 / 0.55)' }}
-                      disabled={refundState.status === 'loading'}
-                      onClick={() => void handleRefundNextLot()}
-                    >
-                      {refundState.quote.nextLot.starsAmount} Stars / {refundState.quote.nextLot.elmAmount} ELM
-                    </button>
-                  ) : null}
-                </div>
-                {refundState.message ? (
-                  <div
-                    role="status"
-                    className={`mt-3 text-xs font-semibold leading-tight ${refundStatusClass(refundState.status)}`}
-                  >
-                    {refundState.message}
-                  </div>
                 ) : null}
               </div>
+              {refundState.message ? (
+                <div
+                  role="status"
+                  className={`mt-3 text-xs font-semibold leading-tight ${refundStatusClass(refundState.status)}`}
+                >
+                  {refundState.message}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </motion.div>
@@ -535,19 +535,12 @@ export function HomeScreen() {
   );
 }
 
-function topUpStateForInvoiceStatus(status: TelegramInvoiceStatus): TopUpState {
-  switch (status) {
-    case 'paid':
-      return { status, message: 'Paid. Waiting for server balance.' };
-    case 'cancelled':
-      return { status, message: 'Payment canceled.' };
-    case 'pending':
-      return { status, message: 'Payment pending.' };
-    case 'failed':
-      return { status, message: 'Payment failed.' };
-    case 'unknown':
-      return { status, message: 'Payment status unknown.' };
-  }
+function topUpUnavailableReason(mode: TopUpMode, user: TelegramUser | null): string | null {
+  if (mode === 'demo') return null;
+  if (!user?.initData) return 'Payment unavailable in this session.';
+  if (!isPaymentsServiceConfigured()) return 'Payment unavailable in this session.';
+  if (!isTelegramStarsInvoiceAvailable()) return 'Payment unavailable in this session.';
+  return null;
 }
 
 function notifyInvoiceStatus(status: TelegramInvoiceStatus): void {
@@ -560,31 +553,28 @@ function notifyInvoiceStatus(status: TelegramInvoiceStatus): void {
   }
 }
 
-function schedulePaidBalanceSync(user: TelegramUser, expectedBalance: number): void {
+function schedulePaidBalanceSync(user: TelegramUser, expectedBalance: number, onConfirmed?: () => void): void {
+  let confirmed = false;
+  const confirmOnce = () => {
+    if (confirmed) return;
+    confirmed = true;
+    onConfirmed?.();
+  };
+
   for (const delayMs of [0, 1_000, 2_500, 5_000, 9_000, 14_000]) {
     window.setTimeout(() => {
       const state = useGameStore.getState();
       if (state.telegramUser?.source !== 'telegram' || state.telegramUser.id !== user.id) return;
-      if (state.elmBalance >= expectedBalance) return;
-      void refreshTelegramBalance(state.telegramUser).catch(() => {});
+      if (state.elmBalance >= expectedBalance) {
+        confirmOnce();
+        return;
+      }
+      void refreshTelegramBalance(state.telegramUser).then(() => {
+        const latest = useGameStore.getState();
+        if (latest.telegramUser?.source !== 'telegram' || latest.telegramUser.id !== user.id) return;
+        if (latest.elmBalance >= expectedBalance) confirmOnce();
+      }).catch(() => {});
     }, delayMs);
-  }
-}
-
-function topUpStatusClass(status: TopUpStatus): string {
-  switch (status) {
-    case 'paid':
-      return 'text-energy-high';
-    case 'failed':
-    case 'unknown':
-      return 'text-energy-low';
-    case 'pending':
-      return 'text-water-light';
-    case 'cancelled':
-      return 'text-text-muted';
-    case 'loading':
-    case 'idle':
-      return 'text-text-secondary';
   }
 }
 

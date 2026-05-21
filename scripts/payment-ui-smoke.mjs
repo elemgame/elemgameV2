@@ -48,6 +48,7 @@ try {
   browser = await chromium.launch({ headless });
 
   const webPage = await browser.newPage();
+  await webPage.setViewportSize({ width: 390, height: 844 });
   wirePage(webPage);
   await blockTelegramScript(webPage);
   await webPage.goto(`${baseUrl}?player=WebSmoke`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -55,6 +56,7 @@ try {
   await webPage.close();
 
   const telegramPage = await browser.newPage();
+  await telegramPage.setViewportSize({ width: 390, height: 844 });
   wirePage(telegramPage);
   await blockTelegramScript(telegramPage);
   await installTelegramRuntime(telegramPage);
@@ -82,23 +84,37 @@ try {
 }
 
 async function verifyWebDemoControls(page) {
-  await page.waitForFunction(() => /tELM Balance/i.test(document.body.innerText), undefined, { timeout: 10_000 });
+  await page.waitForFunction(() => /Demo tELM Credits/i.test(document.body.innerText), undefined, { timeout: 10_000 });
   const text = await compactBody(page, 1200);
   const expectedEntryFeeText = `Entry fee: ${matchStake} tELM`;
   if (!text.includes(expectedEntryFeeText)) throw new Error(`Web demo entry fee is not labelled tELM: expected "${expectedEntryFeeText}"`);
-  if (/Top up/i.test(text)) throw new Error('Web demo rendered Stars top-up controls');
+  if (!/Top up/i.test(text) || !/Demo tELM credits/i.test(text)) throw new Error('Web demo did not render demo top-up controls');
+  if (/Stars/i.test(text)) throw new Error('Web demo rendered Stars purchase controls');
   if (/Refund unused ELM/i.test(text)) throw new Error('Web demo rendered Stars refund controls');
+  const callsBefore = paymentCalls.length;
+  await clickButton(page, /Add 100 demo tELM/i);
+  await page.waitForFunction(
+    () => {
+      const text = document.body.innerText;
+      return /Added 100 demo tELM\./i.test(text) && /1(?:,|\s|\u00a0)?100/.test(text);
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+  if (paymentCalls.length !== callsBefore) throw new Error('Web demo top-up called the payments service');
+  await assertNoHorizontalOverflow(page);
 }
 
 async function verifyTelegramPaymentControls(page) {
-  await page.waitForFunction(() => /ELM Balance/i.test(document.body.innerText), undefined, { timeout: 10_000 });
+  await page.waitForFunction(() => /ELM Match Credits/i.test(document.body.innerText), undefined, { timeout: 10_000 });
   let text = await compactBody(page, 1600);
-  if (/tELM Balance/i.test(text)) throw new Error('Telegram runtime rendered demo tELM balance');
+  if (/Demo tELM/i.test(text)) throw new Error('Telegram runtime rendered demo tELM controls');
   if (!/Top up/i.test(text) || !/Stars/i.test(text)) throw new Error('Telegram runtime did not render Stars controls');
   if (!/Refund unused ELM/i.test(text)) throw new Error('Telegram runtime did not render Stars refund controls');
 
-  await clickButton(page, /1\s*100 ELM/i);
-  await page.waitForFunction(() => /Paid\. Waiting for server balance\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
+  await clickButton(page, /Add 100 ELM for 1 Star/i);
+  await page.waitForFunction(() => /Waiting for balance update\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
+  await assertNoHorizontalOverflow(page);
 
   await clickButton(page, /Refund unused ELM/i);
   await page.waitForFunction(() => /Next refundable lot: 1 Stars for 100 unused ELM\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
@@ -363,6 +379,18 @@ async function clickButton(page, name, timeout = 15_000) {
 async function compactBody(page, maxLength) {
   const text = await page.locator('body').innerText({ timeout: 10_000 });
   return text.replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+async function assertNoHorizontalOverflow(page) {
+  const metrics = await page.evaluate(() => ({
+    bodyScrollWidth: document.body.scrollWidth,
+    bodyClientWidth: document.body.clientWidth,
+    rootScrollWidth: document.documentElement.scrollWidth,
+    rootClientWidth: document.documentElement.clientWidth,
+  }));
+  if (metrics.bodyScrollWidth > metrics.bodyClientWidth + 1 || metrics.rootScrollWidth > metrics.rootClientWidth + 1) {
+    throw new Error(`Horizontal overflow detected: ${JSON.stringify(metrics)}`);
+  }
 }
 
 async function waitForServer(process, url) {

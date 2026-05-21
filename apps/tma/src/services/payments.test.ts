@@ -80,6 +80,39 @@ describe('TMA Stars payments', () => {
     expect(openInvoice).toHaveBeenCalledWith('https://t.me/$invoice/test', expect.any(Function));
   });
 
+  it('normalizes Telegram invoice statuses and rejects missing invoice support', async () => {
+    const openInvoice = vi.fn((_url: string, cb?: (status: string) => void) => {
+      cb?.('cancelled');
+    });
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        Telegram: {
+          WebApp: {
+            initData: 'signed-init-data',
+            initDataUnsafe: {},
+            openInvoice,
+          },
+        },
+      },
+      configurable: true,
+      writable: true,
+    });
+
+    await expect(openTelegramStarsInvoice('https://t.me/$invoice/test')).resolves.toBe('cancelled');
+
+    openInvoice.mockImplementationOnce((_url: string, cb?: (status: string) => void) => {
+      cb?.('unexpected');
+    });
+    await expect(openTelegramStarsInvoice('https://t.me/$invoice/test')).resolves.toBe('unknown');
+
+    Object.defineProperty(globalThis, 'window', {
+      value: { Telegram: { WebApp: { initData: 'signed-init-data', initDataUnsafe: {} } } },
+      configurable: true,
+      writable: true,
+    });
+    expect(() => openTelegramStarsInvoice('https://t.me/$invoice/test')).toThrow('Telegram invoices are unavailable');
+  });
+
   it('requests a Stars refund quote from the payment service', async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
       accountId: 'telegram:123',

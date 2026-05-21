@@ -160,6 +160,14 @@ export function openTelegramStarsInvoice(invoiceLink: string): Promise<TelegramI
   });
 }
 
+export function isTelegramStarsInvoiceAvailable(): boolean {
+  return Boolean(getTelegramWebApp()?.openInvoice);
+}
+
+export function isPaymentsServiceConfigured(): boolean {
+  return Boolean(normalizePaymentsUrl(configuredPaymentsUrl()));
+}
+
 export async function requestStarsRefundQuote(input: Omit<RequestStarsRefundInput, 'starsAmount'>): Promise<StarsRefundQuote> {
   return requestPaymentsJson<StarsRefundQuote>({
     path: '/payments/stars/refund/quote',
