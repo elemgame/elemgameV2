@@ -22,6 +22,7 @@ import { ControllerIcon } from '../components/icons/ControllerIcon';
 import { CoinsIcon } from '../components/icons/CoinsIcon';
 import { FlameIcon } from '../components/icons/FlameIcon';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
+import { TopUpOverlay } from '../components/topUp/TopUpOverlay';
 
 export function ProfileScreen() {
   const {
@@ -127,6 +128,7 @@ export function ProfileScreen() {
           <button
             data-nav
             className="w-9 h-9 rounded-xl flex items-center justify-center"
+            aria-label="Back to home"
             style={{ background: 'oklch(21% 0.045 252 / 0.9)', border: '1px solid oklch(43% 0.055 252 / 0.72)', boxShadow: '0 8px 18px oklch(3% 0.02 252 / 0.42)' }}
             onClick={() => setScreen('home')}
           >
@@ -237,7 +239,12 @@ export function ProfileScreen() {
           transition={{ delay: 0.05 }}
         >
           <div className="arena-section-label mb-2">{currency} Balance</div>
-          <div className="glow-text-gold text-4xl font-black">{elmBalance.toLocaleString()}</div>
+          <div className="flex items-center justify-center gap-2">
+            <div className="balance-number-inline glow-text-gold text-4xl font-black tabular-nums">
+              {elmBalance.toLocaleString()}
+            </div>
+            <TopUpOverlay />
+          </div>
           <div className="text-xs text-text-muted mt-1">tokens</div>
         </motion.div>
 

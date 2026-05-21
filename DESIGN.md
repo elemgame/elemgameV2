@@ -34,6 +34,7 @@ Use Inter/system sans for the product UI. Keep labels compact, use tabular numbe
 - Segmented controls show selected state with border, background tint, and icon color.
 - Match cards use real raster move art, stable dimensions, and visible cost labels.
 - Loading and matchmaking use ambient arena motion, not abstract spinners.
+- Balance actions are mobile-first and number-adjacent: top-up opens from a compact icon+label chip placed beside the balance digits, never as a detached bottom floating button.
 
 ## Layout
 

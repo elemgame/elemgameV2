@@ -73,13 +73,13 @@ try {
 }
 
 async function openProfileAndEditName(page) {
-  await page.getByRole('button').first().click();
+  await clickButton(page, /Open profile/i);
   const input = page.getByRole('textbox', { name: 'Web username' });
   await input.waitFor({ state: 'visible', timeout: 10_000 });
   await input.fill('Local Smoke');
   await page.locator('form').getByRole('button').click();
   await page.waitForFunction(() => /Local Smoke/.test(document.body.innerText) && /@local_smoke/.test(document.body.innerText), undefined, { timeout: 10_000 });
-  await page.getByRole('button').first().click();
+  await clickButton(page, /Back to home/i);
 }
 
 async function verifyTelegramProfileIsReadOnly(browser) {
@@ -146,7 +146,7 @@ async function verifyTelegramProfileIsReadOnly(browser) {
     };
   });
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  await page.getByRole('button').first().click();
+  await clickButton(page, /Open profile/i);
   await page.waitForFunction(
     () => /tg_tester/.test(document.body.innerText) && /Telegram Tester/.test(document.body.innerText),
     undefined,
@@ -170,9 +170,9 @@ async function blockTelegramScript(page) {
 }
 
 async function openSettings(page) {
-  await page.getByRole('button').nth(1).click();
+  await clickButton(page, /Open settings/i);
   await page.waitForFunction(() => /Settings/i.test(document.body.innerText), undefined, { timeout: 10_000 });
-  await page.getByRole('button').first().click();
+  await clickButton(page, /Back to home/i);
 }
 
 async function playMockMatch(page) {

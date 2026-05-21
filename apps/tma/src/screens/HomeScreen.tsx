@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { useGameStore, type TelegramUser } from '../stores/gameStore';
+import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useGameStore } from '../stores/gameStore';
 import {
   BOOST_PERCENT,
   GameMode,
@@ -11,38 +11,20 @@ import {
   SEASON_POINTS_WIN,
 } from '@elmental/shared';
 import { haptic } from '../services/telegram';
-import { refreshTelegramBalance, startMatchmaking } from '../services/gameService';
+import { startMatchmaking } from '../services/gameService';
 import { playerDisplayName } from '../services/playerProfile';
-import {
-  isPaymentsServiceConfigured,
-  isTelegramStarsInvoiceAvailable,
-  openTelegramStarsInvoice,
-  requestStarsRefund,
-  requestStarsRefundQuote,
-  requestStarsInvoice,
-  type ElmStarsPackageId,
-  type StarsRefundQuote,
-  type TelegramInvoiceStatus,
-} from '../services/payments';
 import { currencyForUser, formatCurrencyAmount } from '../services/economy';
 import { SwordsIcon } from '../components/icons/SwordsIcon';
 import { SkullIcon } from '../components/icons/SkullIcon';
 import { TrophyIcon } from '../components/icons/TrophyIcon';
 import { VortexIcon } from '../components/icons/VortexIcon';
-import { UserIcon } from '../components/icons/UserIcon';
+import { InfoIcon } from '../components/icons/InfoIcon';
 import { GearIcon } from '../components/icons/GearIcon';
 import { BoltIcon } from '../components/icons/BoltIcon';
 import { EarthIcon } from '../components/icons/EarthIcon';
 import { WaterIcon } from '../components/icons/WaterIcon';
-import { TopUpWidget } from '../components/topUp/TopUpWidget';
-import {
-  findTopUpPackage,
-  nextDemoBalance,
-  topUpPackagesForCurrency,
-  topUpStateForInvoiceStatus,
-  type TopUpMode,
-  type TopUpState,
-} from '../services/topUp';
+import { CrossIcon } from '../components/icons/CrossIcon';
+import { TopUpOverlay } from '../components/topUp/TopUpOverlay';
 
 const GAME_MODES = [
   {
@@ -68,12 +50,6 @@ const GAME_MODES = [
   },
 ] as const;
 
-interface RefundState {
-  status: 'idle' | 'loading' | 'ready' | 'refunded' | 'failed';
-  quote?: StarsRefundQuote;
-  message?: string;
-}
-
 export function HomeScreen() {
   const {
     telegramUser,
@@ -87,9 +63,7 @@ export function HomeScreen() {
     setBoostEnabled,
     setScreen,
   } = useGameStore();
-  const [topUpState, setTopUpState] = React.useState<TopUpState>({ status: 'idle' });
-  const [refundState, setRefundState] = React.useState<RefundState>({ status: 'idle' });
-
+  const [isSeasonInfoOpen, setIsSeasonInfoOpen] = useState(false);
   const displayName = playerDisplayName(telegramUser);
 
   const winRate =
@@ -101,13 +75,7 @@ export function HomeScreen() {
   const matchCost = MATCH_ENTRY_FEE + boostStake;
   const canAffordMatch = elmBalance >= matchCost;
   const currency = currencyForUser(telegramUser);
-  const topUpMode: TopUpMode = telegramUser?.source === 'telegram' ? 'telegram' : 'demo';
-  const topUpPackages = topUpPackagesForCurrency(currency);
-  const topUpUnavailableMessage = topUpUnavailableReason(topUpMode, telegramUser);
-  const effectiveTopUpState: TopUpState = topUpUnavailableMessage
-    ? { status: 'unavailable', message: topUpUnavailableMessage }
-    : topUpState;
-  const showRefundControls = topUpMode === 'telegram' && Boolean(telegramUser?.initData);
+  const isTelegramBalance = telegramUser?.source === 'telegram';
   const rewardPreview = [
     { label: 'Clean Win', value: SEASON_POINTS_CLEAN_WIN },
     { label: 'Win', value: SEASON_POINTS_WIN },
@@ -124,108 +92,13 @@ export function HomeScreen() {
     void startMatchmaking();
   };
 
-  const handleTopUp = async (packageId: ElmStarsPackageId) => {
-    if (topUpUnavailableMessage) {
-      haptic.error();
-      setTopUpState({ status: 'unavailable', message: topUpUnavailableMessage });
-      return;
-    }
-
-    if (topUpMode === 'demo') {
-      handleDemoTopUp(packageId);
-      return;
-    }
-
-    const initData = telegramUser?.initData ?? '';
-    if (!initData) {
-      haptic.error();
-      setTopUpState({ status: 'unavailable', message: 'Payment unavailable in this session.' });
-      return;
-    }
-
-    haptic.selection();
-    setTopUpState({ status: 'loading_invoice', packageId, message: 'Opening Stars invoice...' });
-
-    try {
-      const invoice = await requestStarsInvoice({ initData, packageId });
-      const invoiceStatus = await openTelegramStarsInvoice(invoice.invoiceLink);
-      setTopUpState(topUpStateForInvoiceStatus(invoiceStatus));
-      notifyInvoiceStatus(invoiceStatus);
-      if (invoiceStatus === 'paid' && telegramUser) {
-        schedulePaidBalanceSync(telegramUser, elmBalance + invoice.package.elmAmount, () => {
-          setTopUpState({ status: 'success', packageId, message: 'Balance updated.' });
-        });
-      }
-    } catch {
-      haptic.error();
-      setTopUpState({ status: 'failed', message: 'Payment failed.' });
-    }
+  const openSeasonInfo = () => {
+    haptic.light();
+    setIsSeasonInfoOpen(true);
   };
 
-  const handleDemoTopUp = (packageId: ElmStarsPackageId) => {
-    const pkg = findTopUpPackage(packageId);
-    haptic.selection();
-    setTopUpState({ status: 'loading_invoice', packageId, message: 'Adding demo tELM...' });
-
-    window.setTimeout(() => {
-      const state = useGameStore.getState();
-      state.setPlayerStats({
-        elmBalance: nextDemoBalance(state.elmBalance, packageId),
-        rating: state.rating,
-        wins: state.stats.wins,
-        losses: state.stats.losses,
-        seasonPoints: state.seasonPoints,
-      });
-      haptic.success();
-      setTopUpState({
-        status: 'success',
-        packageId,
-        message: `Added ${pkg.elmAmount.toLocaleString()} demo tELM.`,
-      });
-    }, 160);
-  };
-
-  const handleRefundQuote = async () => {
-    const initData = telegramUser?.initData ?? '';
-    if (!initData) {
-      haptic.error();
-      setRefundState({ status: 'failed', message: 'Telegram session unavailable.' });
-      return;
-    }
-
-    haptic.selection();
-    setRefundState({ status: 'loading', message: 'Checking refundable lots...' });
-    try {
-      const quote = await requestStarsRefundQuote({ initData });
-      setRefundState({
-        status: 'ready',
-        quote,
-        message: refundQuoteMessage(quote),
-      });
-    } catch {
-      haptic.error();
-      setRefundState({ status: 'failed', message: 'Refund check failed.' });
-    }
-  };
-
-  const handleRefundNextLot = async () => {
-    const initData = telegramUser?.initData ?? '';
-    const lot = refundState.quote?.nextLot;
-    if (!initData || !lot) return;
-
-    haptic.warning();
-    setRefundState({ ...refundState, status: 'loading', message: 'Refunding Stars...' });
-    try {
-      const result = await requestStarsRefund({ initData, starsAmount: lot.starsAmount });
-      haptic.success();
-      setRefundState({
-        status: 'refunded',
-        message: `Refunded ${result.refundedStarsAmount} Stars. Balance updates from server.`,
-      });
-    } catch {
-      haptic.error();
-      setRefundState({ status: 'failed', message: 'Refund failed. Contact support if Stars were already refunded.' });
-    }
+  const closeSeasonInfo = () => {
+    setIsSeasonInfoOpen(false);
   };
 
   return (
@@ -238,7 +111,13 @@ export function HomeScreen() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-nav
+            className="arena-player-chip flex items-center gap-2"
+            aria-label="Open profile"
+            onClick={() => setScreen('profile')}
+          >
             {/* Avatar */}
             <div
               className="w-11 h-11 rounded-full flex items-center justify-center text-xl font-black overflow-hidden border-2"
@@ -262,24 +141,26 @@ export function HomeScreen() {
               <div className="font-bold text-sm text-text-primary leading-tight">
                 {displayName}
               </div>
-              <div className="text-xs text-text-secondary flex items-center gap-0.5">
-                <TrophyIcon size={12} className="text-gold" /> {rating} Rating
+              <div className="text-[14px] text-text-secondary flex items-center gap-1">
+                <TrophyIcon size={14} className="text-gold" /> {rating} Rating
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Top right actions */}
           <div className="flex gap-2">
             <button
               data-nav
               className="hud-icon-button flex items-center justify-center"
-              onClick={() => setScreen('profile')}
+              aria-label="Open season info"
+              onClick={openSeasonInfo}
             >
-              <UserIcon size={18} className="text-text-secondary" />
+              <InfoIcon size={18} className="text-text-secondary" />
             </button>
             <button
               data-nav
               className="hud-icon-button flex items-center justify-center"
+              aria-label="Open settings"
               onClick={() => setScreen('settings')}
             >
               <GearIcon size={18} className="text-text-secondary" />
@@ -295,15 +176,18 @@ export function HomeScreen() {
           transition={{ delay: 0.1 }}
         >
           <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase mb-1">
-            {topUpMode === 'telegram' ? 'ELM Match Credits' : 'Demo tELM Credits'}
+            {isTelegramBalance ? 'ELM Match Credits' : 'Demo tELM Credits'}
           </div>
-          <motion.div
-            className="glow-text-gold text-5xl font-black tabular-nums"
-            animate={{ textShadow: ['0 0 18px oklch(78% 0.15 83 / 0.3)', '0 0 28px oklch(78% 0.15 83 / 0.46)', '0 0 18px oklch(78% 0.15 83 / 0.3)'] }}
-            transition={{ duration: 2.5, repeat: Infinity }}
-          >
-            {elmBalance.toLocaleString()}
-          </motion.div>
+          <div className="flex items-center justify-center gap-2">
+            <motion.div
+              className="balance-number-inline glow-text-gold text-5xl font-black tabular-nums"
+              animate={{ textShadow: ['0 0 18px oklch(78% 0.15 83 / 0.3)', '0 0 28px oklch(78% 0.15 83 / 0.46)', '0 0 18px oklch(78% 0.15 83 / 0.3)'] }}
+              transition={{ duration: 2.5, repeat: Infinity }}
+            >
+              {elmBalance.toLocaleString()}
+            </motion.div>
+            <TopUpOverlay />
+          </div>
           <div className="text-xs font-semibold text-text-secondary mt-1">match credits</div>
 
           {/* Win/Loss stats */}
@@ -320,83 +204,12 @@ export function HomeScreen() {
               <div className="text-lg font-black text-water-light">{winRate}%</div>
               <div className="text-xs text-text-secondary">Win Rate</div>
             </div>
-            <div
-              className="w-px h-8"
-              style={{ background: 'rgba(255,255,255,0.12)' }}
-            />
-            <div className="text-center">
+            <div className="arena-stat-chip text-center">
               <div className="text-lg font-black text-gold">{seasonPoints.toLocaleString()}</div>
               <div className="text-xs text-text-secondary">SP Earned</div>
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-bg-border text-left">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="text-xs text-text-secondary font-semibold tracking-widest uppercase">
-                Earn Season Points
-              </div>
-              <div className="text-xs font-bold text-text-secondary">
-                Entry {formatCurrencyAmount(MATCH_ENTRY_FEE, currency)}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {rewardPreview.map((reward) => (
-                <div
-                  key={reward.label}
-                  className="rounded-lg border px-3 py-2"
-                  style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.035)' }}
-                >
-                  <div className="text-base font-black text-energy-high">+{reward.value}</div>
-                  <div className="text-[11px] font-semibold text-text-secondary">{reward.label}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 text-xs leading-snug text-text-secondary">
-              {currency} opens matches. Season Points are earned from play and do not come from the opponent balance.
-            </div>
-          </div>
-
-          <TopUpWidget
-            mode={topUpMode}
-            packages={topUpPackages}
-            state={effectiveTopUpState}
-            onSelectPackage={(packageId) => void handleTopUp(packageId)}
-          />
-
-          {showRefundControls ? (
-            <div className="mt-4 pt-4 border-t border-bg-border text-left">
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  data-nav
-                  className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-bold text-text-primary disabled:opacity-60"
-                  style={{ background: 'oklch(10% 0.035 252 / 0.48)', borderColor: 'oklch(43% 0.055 252 / 0.58)' }}
-                  disabled={refundState.status === 'loading'}
-                  onClick={() => void handleRefundQuote()}
-                >
-                  Refund unused ELM
-                </button>
-                {refundState.quote?.nextLot ? (
-                  <button
-                    data-nav
-                    className="min-h-[38px] rounded-xl border px-3 py-2 text-xs font-black text-gold disabled:opacity-60"
-                    style={{ background: 'oklch(32% 0.09 83 / 0.42)', borderColor: 'oklch(78% 0.15 83 / 0.55)' }}
-                    disabled={refundState.status === 'loading'}
-                    onClick={() => void handleRefundNextLot()}
-                  >
-                    {refundState.quote.nextLot.starsAmount} Stars / {refundState.quote.nextLot.elmAmount} ELM
-                  </button>
-                ) : null}
-              </div>
-              {refundState.message ? (
-                <div
-                  role="status"
-                  className={`mt-3 text-xs font-semibold leading-tight ${refundStatusClass(refundState.status)}`}
-                >
-                  {refundState.message}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </motion.div>
 
         {/* Game Mode selector */}
@@ -416,13 +229,13 @@ export function HomeScreen() {
                 <motion.button
                   key={mode.id}
                   data-nav
-                  className="arena-mode-option flex flex-col items-center justify-center gap-1.5 py-3 px-2 border-2 transition-colors"
+                  className="arena-mode-option flex flex-col items-center justify-center gap-1.5 py-3 px-2 border transition-colors"
                   style={{
-                    borderColor: isSelected ? mode.color : 'oklch(76% 0.026 86 / 0.2)',
-                    background: isSelected
-                      ? `${mode.color}16`
-                      : 'transparent',
-                    boxShadow: isSelected ? `0 0 24px ${mode.color}26, inset 0 0 18px ${mode.color}10` : 'none',
+                    borderColor: isSelected ? 'oklch(78% 0.15 83 / 0.62)' : 'oklch(78% 0.15 83 / 0.18)',
+                    background: isSelected ? 'oklch(24% 0.052 74 / 0.5)' : undefined,
+                    boxShadow: isSelected
+                      ? '0 0 22px oklch(78% 0.15 83 / 0.2), inset 0 0 16px oklch(78% 0.15 83 / 0.08)'
+                      : undefined,
                   }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
@@ -516,7 +329,7 @@ export function HomeScreen() {
               `NOT ENOUGH ${currency}`
             )}
           </motion.button>
-          <div className="text-xs font-semibold text-text-secondary">
+          <div className="arena-footnote-pill text-xs font-semibold text-text-secondary text-center">
             {canAffordMatch
               ? `Entry fee: ${formatCurrencyAmount(matchCost, currency)} | ${gameMode} mode`
               : `Need ${formatCurrencyAmount(matchCost, currency)} (have ${formatCurrencyAmount(elmBalance, currency)})`}
@@ -531,69 +344,82 @@ export function HomeScreen() {
           <WaterIcon size={28} className="text-water-light" />
         </div>
       </div>
+
+      <AnimatePresence>
+        {isSeasonInfoOpen ? (
+          <motion.div
+            className="top-up-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={closeSeasonInfo}
+          >
+            <motion.section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="season-info-title"
+              className="top-up-sheet season-info-sheet"
+              initial={{ opacity: 0, y: 28, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.98 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="top-up-sheet-grip" />
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-[11px] font-black tracking-widest uppercase text-gold">
+                    <TrophyIcon size={14} />
+                    Match rewards
+                  </div>
+                  <h2 id="season-info-title" className="mt-1 text-2xl font-black leading-none text-text-primary">
+                    Season Points
+                  </h2>
+                </div>
+                <button
+                  data-nav
+                  type="button"
+                  className="hud-icon-button flex shrink-0 items-center justify-center"
+                  aria-label="Close season info"
+                  onClick={closeSeasonInfo}
+                >
+                  <CrossIcon size={16} className="text-text-secondary" />
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border px-3 py-3"
+                style={{ borderColor: 'oklch(78% 0.15 83 / 0.2)', background: 'oklch(8% 0.03 252 / 0.58)' }}
+              >
+                <div className="text-xs font-semibold tracking-widest uppercase text-text-secondary">
+                  Match entry
+                </div>
+                <div className="text-sm font-black text-gold">
+                  {formatCurrencyAmount(MATCH_ENTRY_FEE, currency)}
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {rewardPreview.map((reward) => (
+                  <div
+                    key={reward.label}
+                    className="arena-reward-chip px-3 py-2"
+                  >
+                    <div className="text-base font-black text-energy-high">+{reward.value}</div>
+                    <div className="text-[11px] font-semibold text-text-secondary">{reward.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 rounded-xl border px-3 py-3 text-xs font-semibold leading-snug text-text-secondary"
+                style={{ borderColor: 'oklch(78% 0.15 83 / 0.18)', background: 'oklch(18% 0.044 72 / 0.42)' }}
+              >
+                {currency} opens matches. Season Points are earned from play and do not come from the opponent balance.
+              </div>
+            </motion.section>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
-}
-
-function topUpUnavailableReason(mode: TopUpMode, user: TelegramUser | null): string | null {
-  if (mode === 'demo') return null;
-  if (!user?.initData) return 'Payment unavailable in this session.';
-  if (!isPaymentsServiceConfigured()) return 'Payment unavailable in this session.';
-  if (!isTelegramStarsInvoiceAvailable()) return 'Payment unavailable in this session.';
-  return null;
-}
-
-function notifyInvoiceStatus(status: TelegramInvoiceStatus): void {
-  if (status === 'paid') {
-    haptic.success();
-  } else if (status === 'failed' || status === 'unknown') {
-    haptic.error();
-  } else {
-    haptic.selection();
-  }
-}
-
-function schedulePaidBalanceSync(user: TelegramUser, expectedBalance: number, onConfirmed?: () => void): void {
-  let confirmed = false;
-  const confirmOnce = () => {
-    if (confirmed) return;
-    confirmed = true;
-    onConfirmed?.();
-  };
-
-  for (const delayMs of [0, 1_000, 2_500, 5_000, 9_000, 14_000]) {
-    window.setTimeout(() => {
-      const state = useGameStore.getState();
-      if (state.telegramUser?.source !== 'telegram' || state.telegramUser.id !== user.id) return;
-      if (state.elmBalance >= expectedBalance) {
-        confirmOnce();
-        return;
-      }
-      void refreshTelegramBalance(state.telegramUser).then(() => {
-        const latest = useGameStore.getState();
-        if (latest.telegramUser?.source !== 'telegram' || latest.telegramUser.id !== user.id) return;
-        if (latest.elmBalance >= expectedBalance) confirmOnce();
-      }).catch(() => {});
-    }, delayMs);
-  }
-}
-
-function refundQuoteMessage(quote: StarsRefundQuote): string {
-  if (quote.nextLot) {
-    return `Next refundable lot: ${quote.nextLot.starsAmount} Stars for ${quote.nextLot.elmAmount} unused ELM.`;
-  }
-  return quote.note ?? 'No refundable unused purchase lots.';
-}
-
-function refundStatusClass(status: RefundState['status']): string {
-  switch (status) {
-    case 'ready':
-    case 'refunded':
-      return 'text-energy-high';
-    case 'failed':
-      return 'text-energy-low';
-    case 'loading':
-    case 'idle':
-      return 'text-text-secondary';
-  }
 }

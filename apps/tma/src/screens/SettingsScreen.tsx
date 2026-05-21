@@ -112,6 +112,7 @@ export function SettingsScreen() {
           <button
             data-nav
             className="w-9 h-9 rounded-xl flex items-center justify-center"
+            aria-label="Back to home"
             style={{ background: 'oklch(21% 0.045 252 / 0.9)', border: '1px solid oklch(43% 0.055 252 / 0.72)', boxShadow: '0 8px 18px oklch(3% 0.02 252 / 0.42)' }}
             onClick={() => setScreen('home')}
           >
@@ -138,9 +139,11 @@ export function SettingsScreen() {
                   data-nav
                   className="flex items-center gap-3 p-3 rounded-xl border-2 transition-colors text-left"
                   style={{
-                    borderColor: isSelected ? mode.color : 'oklch(43% 0.055 252 / 0.58)',
-                    background: isSelected ? `${mode.color}20` : 'oklch(10% 0.035 252 / 0.46)',
-                    boxShadow: isSelected ? `0 12px 24px ${mode.color}30` : '0 5px 12px oklch(3% 0.02 252 / 0.28)',
+                    borderColor: isSelected ? 'oklch(78% 0.15 83 / 0.62)' : 'oklch(43% 0.055 252 / 0.58)',
+                    background: isSelected ? 'oklch(24% 0.052 74 / 0.5)' : 'oklch(10% 0.035 252 / 0.46)',
+                    boxShadow: isSelected
+                      ? '0 0 22px oklch(78% 0.15 83 / 0.2), inset 0 0 16px oklch(78% 0.15 83 / 0.08)'
+                      : '0 5px 12px oklch(3% 0.02 252 / 0.28)',
                   }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {

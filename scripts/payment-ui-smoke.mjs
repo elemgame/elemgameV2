@@ -88,10 +88,12 @@ async function verifyWebDemoControls(page) {
   const text = await compactBody(page, 1200);
   const expectedEntryFeeText = `Entry fee: ${matchStake} tELM`;
   if (!text.includes(expectedEntryFeeText)) throw new Error(`Web demo entry fee is not labelled tELM: expected "${expectedEntryFeeText}"`);
-  if (!/Top up/i.test(text) || !/Demo tELM credits/i.test(text)) throw new Error('Web demo did not render demo top-up controls');
+  if (!/Top up/i.test(text) || !/Demo tELM credits/i.test(text)) throw new Error('Web demo did not render demo top-up entry point');
   if (/Stars/i.test(text)) throw new Error('Web demo rendered Stars purchase controls');
   if (/Refund unused ELM/i.test(text)) throw new Error('Web demo rendered Stars refund controls');
   const callsBefore = paymentCalls.length;
+  await clickButton(page, /Top up/i);
+  await page.waitForFunction(() => /Packages/i.test(document.body.innerText) && /Demo tELM credits/i.test(document.body.innerText), undefined, { timeout: 10_000 });
   await clickButton(page, /Add 100 demo tELM/i);
   await page.waitForFunction(
     () => {
@@ -109,7 +111,11 @@ async function verifyTelegramPaymentControls(page) {
   await page.waitForFunction(() => /ELM Match Credits/i.test(document.body.innerText), undefined, { timeout: 10_000 });
   let text = await compactBody(page, 1600);
   if (/Demo tELM/i.test(text)) throw new Error('Telegram runtime rendered demo tELM controls');
-  if (!/Top up/i.test(text) || !/Stars/i.test(text)) throw new Error('Telegram runtime did not render Stars controls');
+  if (!/Top up/i.test(text)) throw new Error('Telegram runtime did not render top-up entry point');
+
+  await clickButton(page, /Top up/i);
+  text = await compactBody(page, 1600);
+  if (!/Telegram Stars/i.test(text) || !/Stars/i.test(text)) throw new Error('Telegram runtime did not render Stars controls');
   if (!/Refund unused ELM/i.test(text)) throw new Error('Telegram runtime did not render Stars refund controls');
 
   await clickButton(page, /Add 100 ELM for 1 Star/i);
@@ -121,7 +127,9 @@ async function verifyTelegramPaymentControls(page) {
   await clickButton(page, /1\s*(?:Stars|\u2605)\s*\/\s*100 ELM/i);
   await page.waitForFunction(() => /Refunded 1 Stars\. Balance updates from server\./i.test(document.body.innerText), undefined, { timeout: 10_000 });
 
-  await page.getByRole('button').first().click();
+  await clickButton(page, /Close top up/i);
+  await page.getByRole('button', { name: /Close top up/i }).waitFor({ state: 'hidden', timeout: 10_000 });
+  await clickButton(page, /Open profile/i);
   await page.waitForFunction(
     () => /Wallet History/i.test(document.body.innerText) &&
       /Stars purchase/i.test(document.body.innerText) &&
